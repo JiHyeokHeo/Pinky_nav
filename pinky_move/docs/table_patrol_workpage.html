@@ -1,0 +1,1295 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pinky Pro 책상 왕복 주행 워크페이지</title>
+  <style>
+    :root {
+      --ink: #17202a;
+      --muted: #637083;
+      --paper: #fbfaf7;
+      --panel: #ffffff;
+      --line: #dfe4e8;
+      --navy: #17324d;
+      --blue: #2f6fed;
+      --blue-soft: #eaf1ff;
+      --green: #18794e;
+      --green-soft: #eaf7f0;
+      --amber: #9a5b00;
+      --amber-soft: #fff4dc;
+      --red: #b42318;
+      --red-soft: #fff0ee;
+      --shadow: 0 16px 45px rgba(28, 39, 49, 0.08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 2%, #e7efff 0, transparent 26rem),
+        radial-gradient(circle at 96% 18%, #f5ead8 0, transparent 24rem),
+        var(--paper);
+      font-family: Pretendard, "Noto Sans KR", "Apple SD Gothic Neo",
+        system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+    }
+
+    a { color: inherit; }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      max-width: 1440px;
+      margin: 0 auto;
+      min-height: 100vh;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 32px 24px;
+      border-right: 1px solid rgba(23, 50, 77, 0.12);
+      background: rgba(251, 250, 247, 0.84);
+      backdrop-filter: blur(12px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 34px;
+      color: var(--navy);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .robot-mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 13px;
+      color: white;
+      background: var(--navy);
+      box-shadow: 0 8px 20px rgba(23, 50, 77, 0.22);
+    }
+
+    nav a {
+      display: block;
+      margin: 4px 0;
+      padding: 9px 12px;
+      border-radius: 10px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    nav a:hover,
+    nav a:focus {
+      color: var(--blue);
+      background: var(--blue-soft);
+      outline: none;
+    }
+
+    .aside-note {
+      position: absolute;
+      right: 24px;
+      bottom: 28px;
+      left: 24px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    main {
+      min-width: 0;
+      padding: 58px clamp(26px, 5vw, 76px) 90px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(28px, 5vw, 58px);
+      border: 1px solid rgba(23, 50, 77, 0.1);
+      border-radius: 28px;
+      background: linear-gradient(135deg, #fff 0%, #f5f8ff 62%, #edf3ff 100%);
+      box-shadow: var(--shadow);
+    }
+
+    .hero::after {
+      position: absolute;
+      right: -40px;
+      bottom: -72px;
+      width: 260px;
+      height: 260px;
+      border: 42px solid rgba(47, 111, 237, 0.08);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 850;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3 {
+      color: var(--navy);
+      line-height: 1.25;
+      letter-spacing: -0.035em;
+    }
+
+    h1 {
+      max-width: 780px;
+      margin: 0;
+      font-size: clamp(34px, 5vw, 62px);
+    }
+
+    .hero p {
+      max-width: 760px;
+      margin: 22px 0 0;
+      color: var(--muted);
+      font-size: clamp(16px, 2vw, 19px);
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 26px;
+    }
+
+    .tag {
+      padding: 7px 11px;
+      border: 1px solid #d6e0f3;
+      border-radius: 999px;
+      color: var(--navy);
+      background: rgba(255, 255, 255, 0.8);
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    section {
+      padding-top: 64px;
+      scroll-margin-top: 24px;
+    }
+
+    section > h2 {
+      margin: 0 0 20px;
+      font-size: clamp(25px, 3vw, 36px);
+    }
+
+    .lead {
+      max-width: 820px;
+      margin-top: -8px;
+      color: var(--muted);
+    }
+
+    .alert {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 14px;
+      margin-top: 26px;
+      padding: 18px 20px;
+      border: 1px solid #f2b8b2;
+      border-radius: 14px;
+      color: #7a271a;
+      background: var(--red-soft);
+    }
+
+    .alert strong { display: block; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .card {
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: 0 9px 26px rgba(28, 39, 49, 0.045);
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 19px;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .metric {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--blue);
+      font-size: 27px;
+      font-weight: 850;
+      letter-spacing: -0.04em;
+    }
+
+    .architecture {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) 48px minmax(220px, 1.2fr)
+        48px minmax(170px, 0.9fr);
+      align-items: center;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    .architecture .box {
+      padding: 22px 16px;
+      border: 1px solid #d7e1eb;
+      border-radius: 16px;
+      text-align: center;
+      background: white;
+    }
+
+    .architecture .core {
+      border-color: #9ebbf7;
+      background: var(--blue-soft);
+    }
+
+    .arrow {
+      color: var(--blue);
+      text-align: center;
+      font-size: 26px;
+      font-weight: 900;
+    }
+
+    .sensor-list {
+      margin: 10px 0 0;
+      padding: 0;
+      color: var(--muted);
+      list-style: none;
+      font-size: 13px;
+    }
+
+    .state-flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    .state {
+      padding: 10px 13px;
+      border-radius: 11px;
+      color: var(--navy);
+      background: #eef2f5;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .state.active { color: #174ea6; background: var(--blue-soft); }
+    .state.stop { color: var(--red); background: var(--red-soft); }
+
+    .ir-layout {
+      display: grid;
+      place-items: center;
+      min-height: 330px;
+      margin-top: 22px;
+      padding: 26px;
+      border: 1px dashed #9ebbf7;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #f8fbff, #eef4ff);
+    }
+
+    .robot-top {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: min(360px, 88%);
+      height: 210px;
+      border: 3px solid var(--navy);
+      border-radius: 64px 64px 38px 38px;
+      color: var(--navy);
+      background: white;
+      box-shadow: 0 12px 30px rgba(23, 50, 77, 0.12);
+      font-weight: 850;
+    }
+
+    .front-arrow {
+      position: absolute;
+      top: -64px;
+      color: var(--blue);
+      font-size: 14px;
+      font-weight: 850;
+      text-align: center;
+    }
+
+    .ir-dots {
+      position: absolute;
+      top: 24px;
+      right: 18%;
+      left: 18%;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .ir-dot {
+      display: grid;
+      place-items: center;
+      width: 54px;
+      height: 54px;
+      border: 7px solid #ffe3a8;
+      border-radius: 50%;
+      color: white;
+      background: var(--amber);
+      box-shadow: 0 0 0 5px rgba(154, 91, 0, 0.09);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .axis-note {
+      position: absolute;
+      right: 18px;
+      bottom: 15px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .command {
+      position: relative;
+      overflow: hidden;
+      margin: 14px 0;
+      border: 1px solid #26394d;
+      border-radius: 14px;
+      background: #132435;
+    }
+
+    .command pre {
+      overflow-x: auto;
+      margin: 0;
+      padding: 20px 64px 20px 20px;
+      color: #e8f0f7;
+      font: 13px/1.7 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .copy {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 7px 10px;
+      border: 1px solid #52677b;
+      border-radius: 8px;
+      color: #dfeaf3;
+      background: #20364a;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .copy:hover { background: #2b4760; }
+
+    .steps {
+      margin: 18px 0 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: steps;
+    }
+
+    .steps li {
+      position: relative;
+      min-height: 54px;
+      margin: 0 0 14px;
+      padding: 4px 0 14px 58px;
+      border-bottom: 1px solid var(--line);
+      counter-increment: steps;
+    }
+
+    .steps li::before {
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      color: white;
+      background: var(--navy);
+      content: counter(steps);
+      font-weight: 850;
+    }
+
+    .checklist {
+      display: grid;
+      gap: 10px;
+      margin: 20px 0 0;
+    }
+
+    .check {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: white;
+    }
+
+    .check input {
+      width: 18px;
+      height: 18px;
+      margin-top: 3px;
+      accent-color: var(--green);
+    }
+
+    .check label { cursor: pointer; }
+
+    table {
+      width: 100%;
+      margin-top: 22px;
+      border-spacing: 0;
+      border-collapse: separate;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: white;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th {
+      color: var(--navy);
+      background: #f4f7fa;
+      font-size: 13px;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    code {
+      padding: 2px 6px;
+      border-radius: 6px;
+      color: #174ea6;
+      background: var(--blue-soft);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.9em;
+    }
+
+    .good {
+      border-color: #b8dfca;
+      background: var(--green-soft);
+    }
+
+    .warn {
+      border-color: #f0d19d;
+      background: var(--amber-soft);
+    }
+
+    details {
+      margin: 10px 0;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: white;
+    }
+
+    summary {
+      padding: 15px 18px;
+      color: var(--navy);
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    details > div {
+      padding: 0 18px 17px;
+      color: var(--muted);
+    }
+
+    footer {
+      margin-top: 72px;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      aside {
+        position: relative;
+        z-index: 2;
+        height: auto;
+        padding: 18px 22px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .brand { margin: 0; }
+      nav, .aside-note { display: none; }
+      main { padding-top: 28px; }
+      .architecture { grid-template-columns: 1fr; }
+      .architecture .arrow { transform: rotate(90deg); }
+      .grid.three { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 680px) {
+      .grid { grid-template-columns: 1fr; }
+      .hero { border-radius: 20px; }
+      th:nth-child(3), td:nth-child(3) { display: none; }
+    }
+
+    @media print {
+      body { background: white; }
+      .shell { display: block; }
+      aside, .copy { display: none; }
+      main { padding: 0; }
+      .hero, .card { box-shadow: none; }
+      section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <div class="brand">
+        <span class="robot-mark">P</span>
+        <span>Pinky Pro<br>Table Patrol</span>
+      </div>
+      <nav aria-label="페이지 목차">
+        <a href="#overview">구현 개요</a>
+        <a href="#architecture">ROS 2 구조</a>
+        <a href="#ir-sensors">URDF와 IR 센서</a>
+        <a href="#simulation">Gazebo 실행</a>
+        <a href="#robot">실제 로봇 실행</a>
+        <a href="#settings">설정값</a>
+        <a href="#safety">안전 체크리스트</a>
+        <a href="#troubleshooting">문제 해결</a>
+      </nav>
+      <p class="aside-note">ROS 2 Jazzy · Gazebo Harmonic<br>Workspace: ~/ws/pinky_pro</p>
+    </aside>
+
+    <main>
+      <header class="hero">
+        <p class="eyebrow">ROS 2 WORKPAGE</p>
+        <h1>Pinky Pro<br>책상 위 왕복 주행</h1>
+        <p>
+          Pinky Pro에 원래 정의된 바닥 IR 센서 3개로 책상 끝을 확인하고,
+          라이다로 장애물을 감지하며, 오도메트리로 거리를 제한하는
+          안전 중심의 직선 왕복 주행 환경입니다.
+        </p>
+        <div class="tags">
+          <span class="tag">기본 비활성</span>
+          <span class="tag">좌·중앙·우 IR 끝 감지</span>
+          <span class="tag">카메라 선택 보조</span>
+          <span class="tag">라이다 장애물 감지</span>
+          <span class="tag">0.5초 모터 Watchdog</span>
+        </div>
+      </header>
+
+      <section id="overview">
+        <h2>구현 개요</h2>
+        <p class="lead">
+          Pinky Pro는 옆으로 미끄러지는 바퀴가 아니므로, 몸체 기준의 진짜
+          좌우 이동은 할 수 없습니다. 대신 직선으로 이동한 뒤 제자리에서
+          180도 회전하여 반대 방향으로 돌아오는 방식으로 왕복합니다.
+        </p>
+
+        <div class="alert">
+          <span aria-hidden="true">⚠</span>
+          <div>
+            <strong>실제 책상에서 바로 시험하지 마세요.</strong>
+            첫 시험은 바닥에서 진행하고, 책상에서는 사람이 로봇을 잡을 준비를
+            한 상태에서 최저 속도로 시험해야 합니다.
+          </div>
+        </div>
+
+        <div class="grid three" style="margin-top: 22px">
+          <article class="card">
+            <span class="metric">2.80 m</span>
+            <h3>Gazebo 상판 길이</h3>
+            <p>0.70 × 0.60m 테이블 네 개를 X축으로 일렬 연결했습니다.</p>
+          </article>
+          <article class="card">
+            <span class="metric">2.00 m</span>
+            <h3>시뮬레이션 왕복 구간</h3>
+            <p>전체 상판 양 끝에 각각 약 0.40m의 여유를 남깁니다.</p>
+          </article>
+          <article class="card">
+            <span class="metric">0.30 m</span>
+            <h3>실물 첫 시험 구간</h3>
+            <p>실제 설정은 바닥 저속 시험을 위한 짧은 거리로 분리했습니다.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="architecture">
+        <h2>ROS 2 구조</h2>
+        <p class="lead">
+          하드웨어 드라이버는 바퀴를 움직이고, <code>pinky_move</code>는
+          움직여도 되는지를 판단합니다. 역할을 분리했기 때문에 같은 제어 노드를
+          실제 로봇과 Gazebo에서 함께 사용할 수 있습니다.
+        </p>
+
+        <div class="architecture" role="img"
+          aria-label="카메라 라이다 오도메트리에서 pinky_move를 거쳐 cmd_vel과 모터로 연결되는 구조">
+          <div class="box">
+            <strong>센서 입력</strong>
+            <ul class="sensor-list">
+              <li>실물: /ir_sensor/range</li>
+              <li>Gazebo: Range 3개 → ir_adc_sim → /ir_sensor/range</li>
+              <li>/camera/image_raw · /scan · /odom</li>
+            </ul>
+          </div>
+          <div class="arrow">→</div>
+          <div class="box core">
+            <strong>pinky_move</strong>
+            <ul class="sensor-list">
+              <li>IR 책상면 · 장애물 · 거리 판단</li>
+              <li>/pinky_move/ir_safe · status</li>
+              <li>/pinky_move/enable</li>
+            </ul>
+          </div>
+          <div class="arrow">→</div>
+          <div class="box">
+            <strong>/cmd_vel</strong>
+            <ul class="sensor-list">
+              <li>Gazebo DiffDrive</li>
+              <li>실제 Dynamixel 모터</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="state-flow" aria-label="제어 상태 흐름">
+          <span class="state">DISABLED</span><span>→</span>
+          <span class="state">WAITING</span><span>→</span>
+          <span class="state active">DRIVING</span><span>→</span>
+          <span class="state">PAUSING</span><span>→</span>
+          <span class="state active">TURNING</span><span>↻</span>
+          <span class="state stop">위험 시 STOPPED</span>
+        </div>
+      </section>
+
+      <section id="ir-sensors">
+        <h2>URDF에서 찾은 IR 센서</h2>
+        <p class="lead">
+          결론부터 말하면 Pinky Pro URDF에는 IR 센서 위치가 이미 세 군데
+          정의되어 있습니다. 새 위치를 임의로 만든 것이 아니라 기존
+          <code>ir_l_link</code>, <code>ir_mid_link</code>,
+          <code>ir_r_link</code>를 그대로 사용했습니다.
+        </p>
+
+        <div class="card good">
+          <h3>가장 중요한 구분: 위치와 센서 기능은 다릅니다</h3>
+          <p>
+            URDF의 빈 <code>link</code>는 “센서가 어디에 붙어 있는가”만
+            알려주는 좌표표입니다. 기존 URDF에는 세 좌표가 있었지만 Gazebo에서
+            값을 만드는 센서 기능은 없었습니다. 이번 구현에서 그 좌표에
+            아래보기 거리 센서를 연결했습니다.
+          </p>
+        </div>
+
+        <div class="ir-layout" role="img"
+          aria-label="Pinky Pro를 위에서 봤을 때 앞쪽에 왼쪽 중앙 오른쪽 IR 센서가 배치된 모습">
+          <div class="robot-top">
+            <div class="front-arrow">진행 방향 +X<br>↑</div>
+            <div class="ir-dots">
+              <span class="ir-dot">L</span>
+              <span class="ir-dot">MID</span>
+              <span class="ir-dot">R</span>
+            </div>
+            Pinky Pro 위에서 보기
+            <span class="axis-note">왼쪽 +Y · 오른쪽 −Y</span>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr><th>URDF 이름</th><th>base_link 기준 위치</th><th>뜻</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>ir_l_link</code></td>
+              <td>x=+0.0295, y=+0.020, z=−0.015m</td>
+              <td>앞쪽 왼편 책상면 확인</td>
+            </tr>
+            <tr>
+              <td><code>ir_mid_link</code></td>
+              <td>x=+0.0295, y=0, z=−0.015m</td>
+              <td>앞쪽 중앙 책상면 확인</td>
+            </tr>
+            <tr>
+              <td><code>ir_r_link</code></td>
+              <td>x=+0.0295, y=−0.020, z=−0.015m</td>
+              <td>앞쪽 오른편 책상면 확인</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="lead">
+          <code>base_link</code>는 바닥 기준 약 2.8cm 위이고 IR은 그보다
+          1.5cm 아래에 있으므로, 센서 프레임은 정상 책상면에서 약 1.3cm
+          높이입니다. x의 양수는 로봇 앞, y의 양수는 왼쪽입니다.
+        </p>
+
+        <div class="grid" style="margin-top: 22px">
+          <article class="card">
+            <h3>실물 데이터 경로</h3>
+            <p>
+              <code>pinky_sensor_adc</code>가 I2C 장치
+              <code>/dev/i2c-1</code>에서 세 반사 센서의 12비트 ADC 값을
+              읽고, <code>/ir_sensor/range</code>에
+              <code>UInt16MultiArray</code>로 발행합니다.
+            </p>
+            <div class="state-flow">
+              <span class="state">IR 반사광</span><span>→</span>
+              <span class="state">ADC 0~4095</span><span>→</span>
+              <span class="state active">pinky_move</span>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Gazebo 데이터 경로</h3>
+            <p>
+              같은 세 URDF 프레임에서 수직 아래로 한 줄의 광선을 쏩니다.
+              브리지가 각각을 <code>sensor_msgs/Range</code>로 바꾼 뒤
+              <code>ir_adc_sim</code>이 실물과 같은
+              <code>/ir_sensor/range</code> ADC 배열로 변환합니다.
+              따라서 <code>pinky_move</code>는 실물과 Gazebo를 구분하지 않습니다.
+            </p>
+            <div class="state-flow">
+              <span class="state">아래보기 광선</span><span>→</span>
+              <span class="state">Range(m)</span><span>→</span>
+              <span class="state">ADC 0~4095</span><span>→</span>
+              <span class="state active">pinky_move</span>
+            </div>
+          </article>
+        </div>
+
+        <h3 style="margin-top: 30px">제어기가 판단하는 순서</h3>
+        <ol class="steps">
+          <li>
+            <strong>세 입력이 모두 최신인지 확인</strong><br>
+            0.3초 이상 새 IR 데이터가 없으면 센서 고장이나 통신 단절로 보고
+            주행을 막습니다.
+          </li>
+          <li>
+            <strong>세 곳 모두 책상 범위인지 확인</strong><br>
+            왼쪽·중앙·오른쪽 중 하나라도 보정 범위를 벗어나면
+            <code>/pinky_move/ir_safe</code>가 <code>false</code>가 됩니다.
+          </li>
+          <li>
+            <strong>속도 명령을 0으로 변경</strong><br>
+            활성 상태여도 <code>STOPPED: one or more IR sensors do not see
+            tabletop</code> 상태를 발행하고 즉시 정지 명령을 보냅니다.
+          </li>
+        </ol>
+
+        <div class="alert">
+          <span aria-hidden="true">!</span>
+          <div>
+            <strong>실물 ADC 값은 거리(m)가 아닙니다.</strong>
+            드라이버는 배열을 <code>[adc[2], adc[1], adc[0]]</code> 순서로
+            발행하지만 배선상의 좌·중앙·우 이름은 코드에 기록되어 있지 않습니다.
+            세 채널을 모두 요구하므로 안전 판단에는 순서가 영향을 주지 않지만,
+            채널별 보정 범위는 실제 센서를 손으로 가려가며 확인해야 합니다.
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px">
+          <h3>어느 파일에 구현되어 있나?</h3>
+          <p>
+            위치: <code>pinky_description/urdf/pinky.urdf.xacro</code><br>
+            Gazebo 센서: <code>pinky_description/urdf/pinky_gz.urdf.xacro</code><br>
+            브리지: <code>pinky_gz_sim/params/pinky_bridge.yaml</code><br>
+            Gazebo ADC 모사: <code>pinky_move/pinky_move/ir_adc_sim_node.py</code><br>
+            안전 판단: <code>pinky_move/pinky_move/move_node.py</code><br>
+            실물 ADC 원본: <code>pinky_sensor_adc/src/main_node.cpp</code>
+          </p>
+        </div>
+      </section>
+
+      <section id="simulation">
+        <h2>Gazebo에서 실행</h2>
+        <p class="lead">
+          네 개의 책상을 길게 연결한 월드 파일은
+          <code>pinky_gz_sim/worlds/four_tables.world</code>입니다.
+          월드, 로봇 스폰, 센서 브리지, 제어 노드가 한 명령으로 실행됩니다.
+          실행 직후에는 비활성 상태라 움직이지 않습니다.
+        </p>
+
+        <ol class="steps">
+          <li>
+            <strong>처음 한 번 또는 코드 변경 후 빌드</strong>
+            <div class="command">
+              <button class="copy" type="button">복사</button>
+              <pre>cd ~/ws/pinky_pro
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install --packages-up-to pinky_move
+source install/setup.bash</pre>
+            </div>
+          </li>
+          <li>
+            <strong>통합 시뮬레이션 실행</strong>
+            <div class="command">
+              <button class="copy" type="button">복사</button>
+              <pre>source /opt/ros/jazzy/setup.bash
+source ~/ws/pinky_pro/install/setup.bash
+ros2 launch pinky_move table_patrol_sim.launch.py</pre>
+            </div>
+          </li>
+          <li>
+            <strong>새 터미널에서 실물과 같은 IR ADC 배열과 결합 결과 확인</strong>
+            <div class="command">
+              <button class="copy" type="button">복사</button>
+              <pre>source /opt/ros/jazzy/setup.bash
+source ~/ws/pinky_pro/install/setup.bash
+ros2 topic echo /ir_sensor/range --once
+ros2 topic echo /pinky_move/ir_safe --once
+ros2 topic echo /pinky_move/status</pre>
+            </div>
+            정상 책상 중앙에서는 세 ADC 값이 약 3200이고
+            <code>ir_safe.data</code>가 <code>true</code>여야 합니다.
+          </li>
+          <li>
+            <strong>세 IR이 모두 안전한 것을 확인한 뒤 이동 허용</strong>
+            <div class="command">
+              <button class="copy" type="button">복사</button>
+              <pre>ros2 service call /pinky_move/enable std_srvs/srv/SetBool "{data: true}"</pre>
+            </div>
+          </li>
+          <li>
+            <strong>정지</strong>
+            <div class="command">
+              <button class="copy" type="button">복사</button>
+              <pre>ros2 service call /pinky_move/enable std_srvs/srv/SetBool "{data: false}"</pre>
+            </div>
+          </li>
+        </ol>
+
+        <div class="card good">
+          <h3>2026-09-01 실제 검증 결과</h3>
+          <p>
+            책상 중앙에서 ADC 배열 <code>[3204, 3190, 3200]</code>과
+            <code>ir_safe=true</code>를 확인했습니다. 진단용 0.20m/s로 75초간
+            180도 회전 4회를 계측한 결과 회전 명령의 부호 반전은 0회,
+            최대 Y 이탈은 약 1.5mm, IR false와 안전정지는 0회였습니다.
+            책상 끝으로 강제 이동하자 ADC가 <code>[100, 116, 90]</code>으로
+            내려가고 즉시 <code>ir_safe=false</code>,
+            <code>STOPPED: one or more IR sensors do not see tabletop</code>으로
+            주행을 거부했습니다.
+          </p>
+        </div>
+      </section>
+
+      <section id="robot">
+        <h2>실제 로봇에서 실행</h2>
+        <p class="lead">
+          통합 launch는 모터·라이다·기존 <code>pinky_sensor_adc</code>·USB
+          카메라·안전 제어기를 함께 시작합니다. IR은
+          <code>/dev/i2c-1</code>, 카메라는 기본 <code>/dev/video0</code>을
+          사용합니다. 실제 IR 값은 로봇마다 달라서 최초 한 번 보정해야 합니다.
+        </p>
+
+        <div class="alert">
+          <span aria-hidden="true">⚠</span>
+          <div>
+            <strong>기본 설정은 IR 미보정 상태라 일부러 움직이지 않습니다.</strong>
+            <code>ir_adc_calibrated: false</code>인 동안 enable 서비스를 호출해도
+            <code>STOPPED: IR ADC thresholds are not calibrated</code>가 정상입니다.
+          </div>
+        </div>
+
+        <div class="grid">
+          <article class="card">
+            <h3>/dev/video0 사용</h3>
+            <div class="command">
+              <button class="copy" type="button">복사</button>
+              <pre>ros2 launch pinky_move table_patrol_robot.launch.py</pre>
+            </div>
+          </article>
+          <article class="card">
+            <h3>/dev/video1 사용</h3>
+            <div class="command">
+              <button class="copy" type="button">복사</button>
+              <pre>ros2 launch pinky_move table_patrol_robot.launch.py camera_device:=/dev/video1</pre>
+            </div>
+          </article>
+        </div>
+
+        <h3 style="margin-top: 28px">센서 연결 확인</h3>
+        <div class="command">
+          <button class="copy" type="button">복사</button>
+          <pre>ros2 topic hz /ir_sensor/range
+ros2 topic echo /ir_sensor/range
+ros2 topic hz /camera/image_raw
+ros2 topic hz /scan
+ros2 topic hz /odom</pre>
+        </div>
+        <p class="lead">
+          각 명령은 메시지가 계속 들어오는지 확인한 뒤 <code>Ctrl+C</code>로
+          빠져나옵니다. IR 배열에는 숫자가 정확히 세 개 있어야 하며, 필요한
+          토픽 중 하나라도 없으면 활성화하지 마십시오.
+        </p>
+
+        <div class="card" style="margin-top: 20px">
+          <h3>실물 IR ADC 보정 — 반드시 바닥에서 진행</h3>
+          <ol class="steps">
+            <li>
+              <strong>로봇을 책상과 같은 재질의 넓은 판 중앙에 놓습니다.</strong><br>
+              모터는 비활성 상태로 두고 <code>ros2 topic echo
+              /ir_sensor/range</code>를 약 20초 관찰해 채널 0·1·2의 정상 범위를
+              적습니다.
+            </li>
+            <li>
+              <strong>사람이 로봇을 든 상태에서 센서를 한 곳씩 가립니다.</strong><br>
+              어느 배열 번호가 반응하는지 확인하고, 책상 위 값과 책상 밖 값이
+              확실히 분리되는지 검사합니다. 두 범위가 겹치면 그 표면에서는 IR을
+              단독 안전장치로 사용하면 안 됩니다.
+            </li>
+            <li>
+              <strong>책상 위에서 나온 각 채널 범위를 YAML에 입력합니다.</strong><br>
+              <code>ir_adc_min_values</code>와 <code>ir_adc_max_values</code>의
+              0·1·2번째 숫자는 메시지 배열의 0·1·2번째 값과 같은 순서입니다.
+            </li>
+            <li>
+              <strong>바닥 저속 시험을 마친 뒤 보정 완료를 켭니다.</strong><br>
+              <code>ir_adc_calibrated: true</code>로 바꾸고, 센서 하나를 가리거나
+              판 밖으로 내밀 때 <code>/pinky_move/ir_safe=false</code>와
+              <code>STOPPED</code>가 되는지 먼저 확인합니다.
+            </li>
+          </ol>
+          <p>
+            수정 파일: <code>pinky_move/config/table_patrol.yaml</code><br>
+            예를 들어 채널별 “책상 위 최소·최대 실측값”을 각각 배열에 넣습니다.
+            다른 로봇의 숫자를 복사하지 마세요.
+          </p>
+        </div>
+
+        <div class="card warn" style="margin-top: 18px">
+          <h3>카메라가 이미 실행 중이라면</h3>
+          <p>USB 카메라를 중복 실행하지 말고 하드웨어와 제어기만 따로 실행합니다.</p>
+          <div class="command">
+            <button class="copy" type="button">복사</button>
+            <pre>ros2 launch pinky_bringup bringup_robot.launch.xml
+ros2 run pinky_sensor_adc main_node
+ros2 launch pinky_move table_patrol.launch.py</pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="settings">
+        <h2>주요 설정값</h2>
+        <p class="lead">
+          실제 로봇은 <code>config/table_patrol.yaml</code>, Gazebo는
+          <code>config/table_patrol_sim.yaml</code>을 사용합니다.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>설정</th>
+              <th>의미</th>
+              <th>기본값</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>patrol_length</code></td>
+              <td>양 끝점 사이의 전체 왕복 거리</td>
+              <td>실물 0.30m / Gazebo 2.00m</td>
+            </tr>
+            <tr>
+              <td><code>linear_speed</code></td>
+              <td>직선 속도</td>
+              <td>0.04m/s</td>
+            </tr>
+            <tr>
+              <td><code>angular_speed</code></td>
+              <td>제자리 회전 최고 속도</td>
+              <td>실물 0.5rad/s / Gazebo 0.40rad/s</td>
+            </tr>
+            <tr>
+              <td><code>use_ir_guard</code></td>
+              <td>IR 세 채널을 필수 안전 조건으로 사용할지 여부</td>
+              <td>true</td>
+            </tr>
+            <tr>
+              <td><code>minimum_turn_speed</code></td>
+              <td>목표각 근처의 최소 회전속도. 너무 크면 지터 가능</td>
+              <td>실물 0.15 / Gazebo 0.08rad/s</td>
+            </tr>
+            <tr>
+              <td><code>drive_heading_kp</code></td>
+              <td>직진 중 방향 오차를 고치는 세기</td>
+              <td>2.0</td>
+            </tr>
+            <tr>
+              <td><code>cross_track_kp</code></td>
+              <td>최초 중앙선으로 돌아오는 세기</td>
+              <td>2.0</td>
+            </tr>
+            <tr>
+              <td><code>ir_adc_calibrated</code></td>
+              <td>실물 채널별 보정 완료 확인 스위치</td>
+              <td>false — 보정 전 주행 금지</td>
+            </tr>
+            <tr>
+              <td><code>ir_adc_min/max_values</code></td>
+              <td>세 실물 채널이 책상 위라고 인정할 ADC 범위</td>
+              <td>반드시 로봇별 실측</td>
+            </tr>
+            <tr>
+              <td><code>tabletop_max_distance</code> (ir_adc_sim)</td>
+              <td>Gazebo 내부 Range를 책상 ADC로 바꾸는 최대 거리</td>
+              <td>0.05m</td>
+            </tr>
+            <tr>
+              <td><code>ir_timeout</code></td>
+              <td>IR 메시지 단절 허용 시간</td>
+              <td>0.3초</td>
+            </tr>
+            <tr>
+              <td><code>surface_ratio_threshold</code></td>
+              <td>카메라 보조 사용 시 책상색이어야 하는 최소 비율</td>
+              <td>0.20</td>
+            </tr>
+            <tr>
+              <td><code>front_stop_distance</code></td>
+              <td>전방 장애물 정지 거리</td>
+              <td>0.20m</td>
+            </tr>
+            <tr>
+              <td><code>sensor_timeout</code></td>
+              <td>센서 메시지 단절 허용 시간</td>
+              <td>0.7초</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="grid" style="margin-top: 20px">
+          <article class="card good">
+            <h3>실행 중 속도 바꾸기 — Dynamic Parameters</h3>
+            <p>
+              <code>pinky_move</code>는 매 제어 주기마다 아래 값을 다시 읽으므로
+              노드를 끄지 않고도 바뀝니다. 다만 안전을 위해 먼저
+              <code>/pinky_move/enable</code>을 false로 만든 뒤 조정하세요.
+            </p>
+            <div class="command">
+              <button class="copy" type="button">복사</button>
+              <pre>ros2 service call /pinky_move/enable std_srvs/srv/SetBool "{data: false}"
+ros2 param set /pinky_move linear_speed 0.03
+ros2 param set /pinky_move linear_acceleration 0.03
+ros2 param set /pinky_move angular_speed 0.30
+ros2 param get /pinky_move linear_speed</pre>
+            </div>
+            <p>
+              RQt에서는 <strong>Plugins → Configuration → Dynamic Reconfigure</strong>에서
+              <code>/pinky_move</code>를 선택합니다. 실행 중 변경은 재시작하면
+              YAML 값으로 돌아가므로 영구 적용은 config YAML을 수정하세요.
+            </p>
+          </article>
+
+          <article class="card warn">
+            <h3>왜 여러 번 왕복하면 옆으로 빠졌나?</h3>
+            <p>
+              이전에는 매번 <code>현재 yaw + 180°</code>를 목표로 만들었습니다.
+              회전을 4° 일찍 끝내면 그 오차가 다음 직선에도 남고, 2m를 4° 기울어
+              이동할 때 약 14cm의 옆방향 오차가 생길 수 있습니다. 이것이 반복되면
+              폭 0.60m 상판의 옆 가장자리에 가까워집니다.
+            </p>
+            <ul class="sensor-list">
+              <li>최초 yaw와 최초 yaw+180° 두 절대 방향만 사용</li>
+              <li>직진 중 heading과 cross-track 오차를 계속 보정</li>
+              <li>옆 미끄러짐을 전진 완료 거리에서 제외</li>
+              <li>Gazebo 양 끝 여백을 0.40m로 확대</li>
+            </ul>
+            <p>
+              0.20m/s 진단에서 회전 4회 동안 각속도 부호 반전은 0회,
+              최대 Y 이탈은 약 1.5mm였습니다. 따라서 관찰된 주원인은 회전 지터
+              자체보다 기존의 방향 오차 누적 구조였습니다.
+            </p>
+          </article>
+        </div>
+
+        <div class="card" style="margin-top: 20px">
+          <h3>실제 왕복 거리 계산</h3>
+          <p>
+            <strong>왕복 거리 = 책상 길이 − 왼쪽 안전 여백 − 오른쪽 안전 여백</strong><br>
+            예: 책상 1.20m, 양쪽 0.25m 여백이면 1.20 − 0.25 − 0.25 = 0.70m입니다.
+          </p>
+        </div>
+      </section>
+
+      <section id="safety">
+        <h2>실물 시험 전 체크리스트</h2>
+        <p class="lead">모든 항목을 직접 확인한 뒤에만 이동을 허용하세요.</p>
+
+        <div class="checklist">
+          <div class="check">
+            <input id="c1" type="checkbox"><label for="c1">먼저 바닥에서 0.30m 왕복 시험을 완료했다.</label>
+          </div>
+          <div class="check">
+            <input id="c2" type="checkbox"><label for="c2">/ir_sensor/range에 숫자가 정확히 세 개씩 계속 들어온다.</label>
+          </div>
+          <div class="check">
+            <input id="c3" type="checkbox"><label for="c3">세 IR 채널의 책상 위 범위를 직접 측정해 YAML에 입력했다.</label>
+          </div>
+          <div class="check">
+            <input id="c4" type="checkbox"><label for="c4">센서 하나를 판 밖으로 내밀면 ir_safe가 false가 되고 STOPPED가 된다.</label>
+          </div>
+          <div class="check">
+            <input id="c5" type="checkbox"><label for="c5">카메라, 라이다, 오도메트리 토픽도 계속 들어온다.</label>
+          </div>
+          <div class="check">
+            <input id="c6" type="checkbox"><label for="c6">카메라 보호를 쓴다면 중앙과 가장자리에서 surface_ratio 변화도 확인했다.</label>
+          </div>
+          <div class="check">
+            <input id="c7" type="checkbox"><label for="c7">patrol_length에 양쪽 안전 여백을 반영했다.</label>
+          </div>
+          <div class="check">
+            <input id="c8" type="checkbox"><label for="c8">Nav2와 teleop 등 다른 /cmd_vel 발행자를 모두 종료했다.</label>
+          </div>
+          <div class="check">
+            <input id="c9" type="checkbox"><label for="c9">사람이 로봇 바로 옆에서 잡을 준비를 하고 있다.</label>
+          </div>
+        </div>
+      </section>
+
+      <section id="troubleshooting">
+        <h2>문제 해결</h2>
+
+        <details>
+          <summary>STOPPED: configured tabletop colour is not visible</summary>
+          <div>
+            기본 HSV 범위는 갈색용입니다. 실제 책상이 흰색·검정색이면
+            <code>surface_h_min/max</code>, <code>surface_s_min</code>,
+            <code>surface_v_min/max</code>를 실제 영상에 맞게 보정해야 합니다.
+            보호 기능을 끄는 대신 색 범위를 먼저 조정하세요.
+          </div>
+        </details>
+
+        <details>
+          <summary>STOPPED: IR ADC thresholds are not calibrated</summary>
+          <div>
+            오류가 아니라 안전 잠금입니다. 먼저 <code>/ir_sensor/range</code>의
+            세 채널을 책상 위와 밖에서 측정하고 YAML의
+            <code>ir_adc_min_values</code>, <code>ir_adc_max_values</code>를
+            입력한 뒤 <code>ir_adc_calibrated: true</code>로 변경합니다.
+          </div>
+        </details>
+
+        <details>
+          <summary>STOPPED: IR ADC data missing or stale</summary>
+          <div>
+            <code>ros2 topic hz /ir_sensor/range</code>를 확인합니다. 토픽이
+            없으면 <code>pinky_sensor_adc</code>가 실행 중인지,
+            <code>/dev/i2c-1</code>이 존재하는지 확인하세요. 이 드라이버는 실제
+            Pinky Pro의 ARM64 환경에서 하드웨어 I2C를 읽습니다.
+          </div>
+        </details>
+
+        <details>
+          <summary>STOPPED: one or more IR sensors do not see tabletop</summary>
+          <div>
+            실제 로봇에서는 채널 하나가 보정 범위를 벗어난 상태입니다. 센서
+            오염·유광/검은 표면·잘못된 보정·실제 책상 끝을 확인하세요.
+            Gazebo에서 끝 밖의 약 1.30m 값은 바닥까지의 거리이며 정상적인
+            위험 감지입니다.
+          </div>
+        </details>
+
+        <details>
+          <summary>카메라 토픽이 나오지 않음</summary>
+          <div>
+            <code>/dev/video0</code> 대신 <code>/dev/video1</code>을 지정해 보세요.
+            MJPEG를 지원하지 않는 카메라는 launch 뒤에
+            <code>pixel_format:=yuyv2rgb</code>를 추가할 수 있습니다.
+          </div>
+        </details>
+
+        <details>
+          <summary>STOPPED: front path is blocked</summary>
+          <div>
+            전방 30도 범위 안에 0.20m보다 가까운 물체가 있는지 확인하세요.
+            라이다 렌즈와 로봇 주변 물체도 함께 확인합니다.
+          </div>
+        </details>
+
+        <details>
+          <summary>로봇이 예상과 다르게 움직임</summary>
+          <div>
+            <code>ros2 topic info /cmd_vel -v</code>로 발행자를 확인합니다.
+            pinky_move 외에 teleop, Nav2 등이 발행 중이면 모두 종료하세요.
+          </div>
+        </details>
+
+        <details>
+          <summary>즉시 정지하는 가장 빠른 방법</summary>
+          <div class="command">
+            <button class="copy" type="button">복사</button>
+            <pre>ros2 service call /pinky_move/enable std_srvs/srv/SetBool "{data: false}"</pre>
+          </div>
+        </details>
+      </section>
+
+      <footer>
+        <strong>Pinky Pro Table Patrol</strong><br>
+        구현 위치: ~/ws/pinky_pro/pinky_move · 기본 정책: IR 미보정 또는 센서 이상 시 이동 금지
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+
+      const helper = document.createElement('textarea');
+      helper.value = text;
+      helper.setAttribute('readonly', '');
+      helper.style.position = 'fixed';
+      helper.style.opacity = '0';
+      document.body.appendChild(helper);
+      helper.select();
+      const copied = document.execCommand('copy');
+      helper.remove();
+      if (!copied) {
+        throw new Error('copy command was rejected');
+      }
+    }
+
+    document.querySelectorAll('.copy').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const text = button.nextElementSibling.innerText;
+        try {
+          await copyText(text);
+          const original = button.textContent;
+          button.textContent = '복사됨';
+          setTimeout(() => { button.textContent = original; }, 1200);
+        } catch (error) {
+          button.textContent = '선택 후 복사';
+        }
+      });
+    });
+  </script>
+</body>
+</html>

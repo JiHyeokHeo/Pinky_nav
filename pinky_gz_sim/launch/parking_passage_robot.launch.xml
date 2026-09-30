@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!--
+  Connect one Pinky to an already-running parking_passage Gazebo world.
+  Run this launch once per ROS Domain.  The namespace distinguishes Gazebo
+  model topics; ROS_DOMAIN_ID distinguishes the two robot ROS graphs.
+-->
+<launch>
+  <arg name="namespace"/>
+  <arg name="robot_name" default="$(var namespace)"/>
+  <arg name="spawn_x" default="0.0"/>
+  <arg name="spawn_y" default="0.0"/>
+  <arg name="spawn_yaw" default="0.0"/>
+  <arg name="bridge_params"/>
+
+  <set_env name="GZ_SIM_RESOURCE_PATH" value="$(find-pkg-share pinky_description)/../:/$(find-pkg-share pinky_gz_sim)/models:/$(env HOME)/.gazebo/models"/>
+
+  <include file="$(find-pkg-share pinky_description)/launch/upload_robot.launch.py">
+    <arg name="namespace" value="$(var namespace)"/>
+    <arg name="use_sim_time" value="True"/>
+    <arg name="is_sim" value="True"/>
+  </include>
+
+  <node pkg="ros_gz_sim" exec="create" name="create_robot" output="screen"
+        args="-name $(var robot_name) -topic /$(var namespace)/robot_description -x $(var spawn_x) -y $(var spawn_y) -z 0.10 -Y $(var spawn_yaw)">
+    <param name="use_sim_time" value="True"/>
+  </node>
+
+  <node pkg="ros_gz_bridge" exec="parameter_bridge" name="robot_bridge" output="screen"
+        args="--ros-args -p config_file:=$(var bridge_params)"/>
+</launch>

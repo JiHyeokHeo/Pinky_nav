@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+"""Publish Raspberry Pi CSI frames from rpicam-vid as ROS images."""
+
+import os
+import select
+import subprocess
+
+import cv2
+import numpy as np
+import rclpy
+from cv_bridge import CvBridge
+from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
+from sensor_msgs.msg import Image
+
+
+class CsiCameraPublisher(Node):
+    """Read rpicam-vid MJPEG output and publish sensor_msgs/Image."""
+
+    def __init__(self):
+        super().__init__('pinky_csi_camera')
+        self.declare_parameter('camera', 0)
+        self.declare_parameter('width', 640)
+        self.declare_parameter('height', 480)
+        self.declare_parameter('framerate', 30)
+        self.declare_parameter('frame_id', 'front_camera_link')
+        self.declare_parameter('image_topic', '/camera/image_raw')
+
+        self.bridge = CvBridge()
+        self.publisher = self.create_publisher(
+            Image, str(self.get_parameter('image_topic').value),
+            qos_profile_sensor_data)
+        command = [
+            'rpicam-vid', '--nopreview', '--timeout', '0',
+            '--codec', 'mjpeg',
+            '--camera', str(self.get_parameter('camera').value),
+            '--width', str(self.get_parameter('width').value),
+            '--height', str(self.get_parameter('height').value),
+            '--framerate', str(self.get_parameter('framerate').value),
+            '--output', '-',
+        ]
+        self.process = subprocess.Popen(
+            command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            bufsize=0)
+        self.buffer = bytearray()
+        self.timer = self.create_timer(0.002, self._read_frame)
+        self.get_logger().info(
+            f'Publishing CSI camera frames to '
+            f'{self.get_parameter("image_topic").value}')
+
+    def _read_frame(self):
+        """Drain ready bytes and publish complete JPEG frames."""
+        if self.process.poll() is not None:
+            self.get_logger().error('rpicam-vid exited; camera stream stopped')
+            self.timer.cancel()
+            return
+        readable, _, _ = select.select([self.process.stdout], [], [], 0)
+        if readable:
+            self.buffer.extend(os.read(self.process.stdout.fileno(), 65536))
+        start = self.buffer.find(b'\xff\xd8')
+        end = self.buffer.find(b'\xff\xd9', start + 2)
+        if start < 0 or end < 0:
+            if len(self.buffer) > 4_000_000:
+                self.buffer.clear()
+            return
+        jpeg = bytes(self.buffer[start:end + 2])
+        del self.buffer[:end + 2]
+        image = cv2.imdecode(
+            np.frombuffer(jpeg, dtype=np.uint8), cv2.IMREAD_COLOR)
+        if image is None:
+            return
+        message = self.bridge.cv2_to_imgmsg(image, encoding='bgr8')
+        message.header.stamp = self.get_clock().now().to_msg()
+        message.header.frame_id = str(self.get_parameter('frame_id').value)
+        self.publisher.publish(message)
+
+    def destroy_node(self):
+        if hasattr(self, 'process') and self.process.poll() is None:
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+        super().destroy_node()
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = CsiCameraPublisher()
+    try:
+        rclpy.spin(node)
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+

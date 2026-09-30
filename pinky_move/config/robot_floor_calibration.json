@@ -1,0 +1,100 @@
+{
+  "method": "intrinsics_urdf_floor",
+  "frame_id": "base_link",
+  "ground_plane_z_m": -0.028,
+  "status": "mount_axes_require_validation",
+  "image_size": [
+    640,
+    480
+  ],
+  "rotation_degrees": 180,
+  "camera_matrix": [
+    [
+      566.6275452465236,
+      0.0,
+      320.67535901307593
+    ],
+    [
+      0.0,
+      563.6349387993807,
+      236.44831999790412
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "distortion_coefficients": [
+    0.10713214188298803,
+    -0.5159407271303649,
+    -0.0037569083588996077,
+    -0.0017748445374847807,
+    0.6100075207001168
+  ],
+  "base_from_upright_optical": [
+    [
+      0.0,
+      -0.13917310096006544,
+      0.9902680687415704,
+      0.03317002650950676
+    ],
+    [
+      -1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      -0.9902680687415704,
+      -0.13917310096006544,
+      0.03543015985382602
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "base_from_camera_link": [
+    [
+      0.9902680687415704,
+      0.0,
+      0.13917310096006544,
+      0.03317002650950676
+    ],
+    [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+    ],
+    [
+      -0.13917310096006544,
+      0.0,
+      0.9902680687415704,
+      0.03543015985382602
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "intrinsics_source": "/home/tory/Downloads/cam/intrinsics_svq8jc/intrinsics_candidate.json",
+  "expanded_urdf_source": "/home/tory/Downloads/cam/intrinsics_svq8jc/robot_expanded.urdf",
+  "measured_lens_height_cm": 6.0,
+  "robot_frame_validated": false,
+  "steering_supported": false,
+  "assumptions": [
+    "camera link origin represents optical centre",
+    "upright optical z follows mechanical x",
+    "upright optical x follows mechanical -y",
+    "upright optical y follows mechanical -z",
+    "flat floor at base_link z=-0.028m (URDF base_footprint to base_link)",
+    "no second 180-degree rotation after stream intrinsics"
+  ]
+}

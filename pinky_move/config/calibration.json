@@ -1,0 +1,331 @@
+{
+  "version": 2,
+  "status": "approximate_requires_physical_validation",
+  "method": "two_photo_checker_ground_homography",
+  "image_size": [
+    640,
+    480
+  ],
+  "square_size_cm": 3.5,
+  "image_to_ground_homography": [
+    [
+      -0.02770443708321039,
+      0.004174455649173688,
+      8.075748380372628
+    ],
+    [
+      -0.005566468409610497,
+      -0.013929926183496855,
+      -10.435052308622199
+    ],
+    [
+      -0.00016870812994075165,
+      -0.00540062307484967,
+      1.0
+    ]
+  ],
+  "coordinates": {
+    "x": "board-relative lateral right; NOT robot lateral",
+    "y": "forward floor distance from camera ground projection, cm"
+  },
+  "reference_frames": [
+    {
+      "image": "cam_20260919_151012.jpg",
+      "camera_to_black_grid_front_cm": 26.0,
+      "pixel_points": [
+        [
+          293.0,
+          276.0
+        ],
+        [
+          359.0,
+          277.0
+        ],
+        [
+          357.0,
+          266.0
+        ],
+        [
+          298.0,
+          266.0
+        ],
+        [
+          238.0,
+          264.0
+        ],
+        [
+          295.0,
+          264.0
+        ],
+        [
+          298.0,
+          255.0
+        ],
+        [
+          245.0,
+          255.0
+        ],
+        [
+          361.0,
+          264.0
+        ],
+        [
+          418.0,
+          263.0
+        ],
+        [
+          412.0,
+          255.0
+        ],
+        [
+          358.0,
+          256.0
+        ]
+      ],
+      "ground_points_cm": [
+        [
+          -1.75,
+          29.5
+        ],
+        [
+          1.75,
+          29.5
+        ],
+        [
+          1.75,
+          33.0
+        ],
+        [
+          -1.75,
+          33.0
+        ],
+        [
+          -5.25,
+          33.0
+        ],
+        [
+          -1.75,
+          33.0
+        ],
+        [
+          -1.75,
+          36.5
+        ],
+        [
+          -5.25,
+          36.5
+        ],
+        [
+          1.75,
+          33.0
+        ],
+        [
+          5.25,
+          33.0
+        ],
+        [
+          5.25,
+          36.5
+        ],
+        [
+          1.75,
+          36.5
+        ]
+      ],
+      "homography": [
+        [
+          -0.034580600910045875,
+          -0.002757735060106732,
+          12.051736397027804
+        ],
+        [
+          -0.001059368536617081,
+          0.0016151251156550485,
+          -20.103064771380193
+        ],
+        [
+          -3.4958527701627675e-05,
+          -0.006028082669020869,
+          1.0
+        ]
+      ],
+      "fit_rmse_cm": 0.30639139341818195
+    },
+    {
+      "image": "cam_20260919_151047.jpg",
+      "camera_to_black_grid_front_cm": 14.8,
+      "pixel_points": [
+        [
+          281.0,
+          346.0
+        ],
+        [
+          389.0,
+          349.0
+        ],
+        [
+          383.0,
+          320.0
+        ],
+        [
+          292.0,
+          319.0
+        ],
+        [
+          302.0,
+          290.0
+        ],
+        [
+          377.0,
+          295.0
+        ],
+        [
+          374.0,
+          280.0
+        ],
+        [
+          307.0,
+          280.0
+        ],
+        [
+          377.0,
+          278.0
+        ],
+        [
+          443.0,
+          278.0
+        ],
+        [
+          435.0,
+          266.0
+        ],
+        [
+          375.0,
+          267.0
+        ],
+        [
+          240.0,
+          277.0
+        ],
+        [
+          305.0,
+          277.0
+        ],
+        [
+          308.0,
+          267.0
+        ],
+        [
+          249.0,
+          267.0
+        ]
+      ],
+      "ground_points_cm": [
+        [
+          -1.75,
+          18.3
+        ],
+        [
+          1.75,
+          18.3
+        ],
+        [
+          1.75,
+          21.8
+        ],
+        [
+          -1.75,
+          21.8
+        ],
+        [
+          -1.75,
+          25.3
+        ],
+        [
+          1.75,
+          25.3
+        ],
+        [
+          1.75,
+          28.8
+        ],
+        [
+          -1.75,
+          28.8
+        ],
+        [
+          1.75,
+          28.8
+        ],
+        [
+          5.25,
+          28.8
+        ],
+        [
+          5.25,
+          32.3
+        ],
+        [
+          1.75,
+          32.3
+        ],
+        [
+          -5.25,
+          28.8
+        ],
+        [
+          -1.75,
+          28.8
+        ],
+        [
+          -1.75,
+          32.3
+        ],
+        [
+          -5.25,
+          32.3
+        ]
+      ],
+      "homography": [
+        [
+          -0.026231441184332974,
+          -0.0018759193756087528,
+          9.422580783692776
+        ],
+        [
+          -0.005681172628133402,
+          -0.018841882327178455,
+          -7.757763435855413
+        ],
+        [
+          -0.00017697758880583312,
+          -0.005237458207778308,
+          1.0
+        ]
+      ],
+      "fit_rmse_cm": 0.3467072024811936
+    }
+  ],
+  "validation": {
+    "fit_forward_rmse_cm": 0.3231041239341356,
+    "cross_photo_forward_rmse_cm": [
+      0.41646592620824685,
+      0.32224200910609724
+    ],
+    "independent_distance_validation": false
+  },
+  "recommended_forward_range_cm": [
+    18.3,
+    36.5
+  ],
+  "robot_wheel_offset_cm": null,
+  "assumptions": [
+    "26.0 and 14.8 cm measured horizontally to front black grid edge",
+    "Solid checker cells are 3.5 cm with no gap between adjacent grid cells",
+    "Camera mounting, focus, image rotation and resolution remain unchanged",
+    "Board front edge approximately perpendicular to driving direction",
+    "Lens distortion is not calibrated; fit error is not physical accuracy"
+  ],
+  "urdf_reference": "/home/tory/ws/pinky_pro/pinky_description/urdf/pinky.urdf.xacro",
+  "urdf_note": "Nominal camera offset not applied: actual mount and distance origin unverified"
+}

@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<sdf version="1.8">
+  <model name="table">
+    <static>true</static>
+    <link name="table_link">
+      <visual name="tabletop_visual">
+        <pose>0 0 0.77 0 0 0</pose>
+        <geometry><box><size>0.70 0.60 0.06</size></box></geometry>
+        <material>
+          <ambient>0.42 0.22 0.09 1</ambient>
+          <diffuse>0.62 0.34 0.14 1</diffuse>
+          <specular>0.18 0.18 0.18 1</specular>
+        </material>
+      </visual>
+      <collision name="tabletop_collision">
+        <pose>0 0 0.77 0 0 0</pose>
+        <geometry><box><size>0.70 0.60 0.06</size></box></geometry>
+      </collision>
+
+      <visual name="leg_front_left_visual">
+        <pose>0.30 0.25 0.37 0 0 0</pose>
+        <geometry><box><size>0.06 0.06 0.74</size></box></geometry>
+        <material><diffuse>0.16 0.17 0.19 1</diffuse></material>
+      </visual>
+      <collision name="leg_front_left_collision">
+        <pose>0.30 0.25 0.37 0 0 0</pose>
+        <geometry><box><size>0.06 0.06 0.74</size></box></geometry>
+      </collision>
+
+      <visual name="leg_front_right_visual">
+        <pose>0.30 -0.25 0.37 0 0 0</pose>
+        <geometry><box><size>0.06 0.06 0.74</size></box></geometry>
+        <material><diffuse>0.16 0.17 0.19 1</diffuse></material>
+      </visual>
+      <collision name="leg_front_right_collision">
+        <pose>0.30 -0.25 0.37 0 0 0</pose>
+        <geometry><box><size>0.06 0.06 0.74</size></box></geometry>
+      </collision>
+
+      <visual name="leg_back_left_visual">
+        <pose>-0.30 0.25 0.37 0 0 0</pose>
+        <geometry><box><size>0.06 0.06 0.74</size></box></geometry>
+        <material><diffuse>0.16 0.17 0.19 1</diffuse></material>
+      </visual>
+      <collision name="leg_back_left_collision">
+        <pose>-0.30 0.25 0.37 0 0 0</pose>
+        <geometry><box><size>0.06 0.06 0.74</size></box></geometry>
+      </collision>
+
+      <visual name="leg_back_right_visual">
+        <pose>-0.30 -0.25 0.37 0 0 0</pose>
+        <geometry><box><size>0.06 0.06 0.74</size></box></geometry>
+        <material><diffuse>0.16 0.17 0.19 1</diffuse></material>
+      </visual>
+      <collision name="leg_back_right_collision">
+        <pose>-0.30 -0.25 0.37 0 0 0</pose>
+        <geometry><box><size>0.06 0.06 0.74</size></box></geometry>
+      </collision>
+    </link>
+  </model>
+</sdf>

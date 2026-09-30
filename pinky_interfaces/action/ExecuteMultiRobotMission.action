@@ -1,0 +1,11 @@
+# Goal: every listed task is started concurrently by the Domain 50 controller.
+RobotTask[] tasks
+---
+bool success
+string message
+---
+string robot_id
+uint8 task_type
+string state
+uint32 completed_waypoints
+uint32 total_waypoints

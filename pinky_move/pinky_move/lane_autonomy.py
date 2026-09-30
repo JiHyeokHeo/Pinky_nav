@@ -1,0 +1,1511 @@
+#!/usr/bin/env python3
+"""YOLO segmentation lane follower for Pinky Pro."""
+
+from concurrent.futures import Future
+from enum import Enum
+import os
+import json
+import hashlib
+import uuid
+import time
+from threading import Thread
+
+import cv2
+from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry
+import numpy as np
+import rclpy
+from rclpy.clock import Clock, ClockType
+from rclpy.duration import Duration
+from rclpy.executors import ExternalShutdownException
+from rclpy.node import Node
+from rclpy.parameter import Parameter
+from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy
+from sensor_msgs.msg import CompressedImage, Image, LaserScan
+from std_msgs.msg import String
+from std_srvs.srv import SetBool
+
+from .lane_logic import (
+    crossline_is_close,
+    estimate_lane_center,
+    lane_candidates_at,
+    select_near_lane,
+    steering_command,
+    consistent_single_far_center,
+    near_priority_command,
+)
+from .floor_projection import forward_cm
+from .robot_projection import robot_floor_point, draw_metric_target, validate_calibration
+from .metric_lane import (MetricLaneTracker, LaneImageIdentity, pursuit, near_pixel_side,
+                          loss_speed_scale, floor_curves, curve_match_error,
+                          supported_chain, arc_stations)
+from . import lane_wire
+from .lane_corner import CornerConfig, CornerPolicy, wrap, staged_command
+
+
+class DriveState(Enum):
+    """Externally visible controller states."""
+
+    DISABLED = 'DISABLED'
+    WAITING_FOR_LANE = 'WAITING_FOR_LANE'
+    FOLLOWING = 'FOLLOWING'
+    REACQUIRING_LANE = 'REACQUIRING_LANE'
+    CROSSLINE_STOP = 'CROSSLINE_STOP'
+    SAFETY_STOP = 'SAFETY_STOP'
+
+
+class LaneAutonomy(Node):
+    """Follow segmentation masks and stop once for each crossline."""
+
+    def __init__(self):
+        super().__init__('lane_autonomy')
+        self._declare_parameters()
+        self.floor_calibration = None
+        self.robot_calibration = None
+        self.calibration_block_reason = None
+        calibration_path = self._string_parameter('calibration_path')
+        if calibration_path:
+            with open(calibration_path, encoding='utf-8') as stream:
+                self.floor_calibration = json.load(stream)
+            if self.floor_calibration.get('method') == 'intrinsics_urdf_floor':
+                self.robot_calibration = self.floor_calibration
+                validate_calibration(self.robot_calibration)
+                if self.robot_calibration.get('frame_id') != 'base_link':
+                    raise ValueError('Metric controller requires an explicit base_link calibration')
+                self.floor_calibration = None
+                self.get_logger().warn('URDF projection uses nominal mounting; physical accuracy remains unverified.')
+            if self.floor_calibration and self.floor_calibration.get('method') == 'two_apriltag_cubes':
+                self.calibration_block_reason = (
+                    'Cube calibration not ready for steering: '
+                    + self.floor_calibration.get('status', 'invalid'))
+                self.floor_calibration = None
+                self.get_logger().error(self.calibration_block_reason)
+            if self.floor_calibration:
+                self.get_logger().warn(
+                    'Floor calibration is approximate: diagnostic camera-forward distance only; '
+                    'mount/orientation must match calibration. Not used for steering or stopping.')
+
+        model_path = self._string_parameter('model_path')
+        self.remote_inference = self._bool_parameter('remote_inference')
+        self.remote_session = uuid.uuid4().hex
+        self.remote_sequence = 0
+        self.remote_pending = None
+        self.remote_mailbox = None
+        self.remote_server = None
+        if self.remote_inference:
+            # Compare model identity without importing ultralytics/torch on robot.
+            with open(model_path, 'rb') as stream:
+                self.remote_model_sha256 = hashlib.file_digest(stream, 'sha256').hexdigest()
+            self.model = None
+            self.lane_class_id, self.crossline_class_id = 1, 0
+            self.remote_mailbox = lane_wire.PerceptionMailbox()
+        else:
+            self._load_model(model_path)
+        self._initialize_control(model_path)
+
+    def _load_model(self, model_path):
+        if not os.path.isfile(model_path):
+            raise FileNotFoundError(f'YOLO model not found: {model_path}')
+        try:
+            from ultralytics import YOLO
+        except ImportError as exc:
+            raise RuntimeError(
+                'Ultralytics is not installed. Run: pip3 install ultralytics'
+            ) from exc
+
+        self.model = YOLO(model_path)
+        if getattr(self.model, 'task', None) != 'segment':
+            raise RuntimeError(
+                f'{model_path} is task={self.model.task!r}; '
+                'a segmentation model is required')
+        self.lane_class_id = self._class_id('lane')
+        self.crossline_class_id = self._class_id('crossline')
+
+    def _initialize_control(self, model_path):
+        self.enabled = bool(self.get_parameter('enabled').value)
+        self.state = DriveState.DISABLED
+        self.latest_linear = 0.0
+        self.latest_angular = 0.0
+        self.filtered_angular = 0.0
+        self.last_image_time = None
+        self.last_inference_time = None
+        self.last_lane_time = None
+        self.last_scan_time = None
+        self.front_clear = not self._bool_parameter('use_lidar_guard')
+        self.near_center = None
+        self.active_near_y_ratio = self._float_parameter('near_y_ratio')
+        self.far_center = None
+        self.near_lane_width = None
+        self.metric_target = None
+        self.metric_missing_since = None
+        self.metric_last_good_target = None
+        self.crossline_streak = 0
+        self.crossline_latched = False
+        self.crossline_clear_since = None
+        self.crossline_stop_until = None
+        self.last_status_text = None
+        self.last_status_time = None
+        self.safety_clock = Clock(clock_type=ClockType.STEADY_TIME)
+        self.latest_image = None
+        self.inference_future = None
+        self.inference_generation = 0
+        self.last_result_input_time = None
+        self.inference_error = None
+        self.inference_seconds = 0.0
+        self.lane_instances = 0
+        self.crossline_instances = 0
+        self.boundary_count = 0
+        self.near_candidate_count = 0
+
+        # Initialize identity/recovery state even while disabled, so the preview
+        # can safely consume external segmentation before the operator enables.
+        self._reset_transient_state()
+
+        image_topic = self._string_parameter('image_topic')
+        scan_topic = self._string_parameter('scan_topic')
+        cmd_vel_topic = self._string_parameter('cmd_vel_topic')
+        self.cmd_publisher = self.create_publisher(Twist, cmd_vel_topic, 10)
+        self.status_publisher = self.create_publisher(String, '~/status', 10)
+        self.debug_publisher = self.create_publisher(
+            Image, self._string_parameter('debug_image_topic'),
+            QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT))
+        self.enable_service = self.create_service(
+            SetBool, '~/enable', self._enable_callback)
+        if self.remote_inference:
+            self.remote_server = lane_wire.LoopbackPerceptionServer(
+                self.remote_mailbox, self._int_parameter('remote_port'))
+            self.get_logger().info('Remote segmentation mode: loopback-only SSH transport; no local YOLO.')
+        # The robot's established cam_stream.py publishes JPEG, while other
+        # launches/simulations still provide raw Image. Select at launch time.
+        image_type = (CompressedImage if self._bool_parameter('image_compressed')
+                      else Image)
+        self.create_subscription(
+            image_type, image_topic, self._image_callback,
+            qos_profile_sensor_data)
+        self.create_subscription(
+            LaserScan, scan_topic, self._scan_callback,
+            qos_profile_sensor_data)
+        self.create_subscription(Odometry, self._string_parameter('corner_odom_topic'),
+                                 self._corner_odom_callback, qos_profile_sensor_data)
+
+        frequency = max(1.0, self._float_parameter('control_frequency'))
+        self.timer = self.create_timer(
+            1.0 / frequency, self._control_loop, clock=self.safety_clock)
+        self.get_logger().info(
+            f'Lane autonomy ready and {"enabled" if self.enabled else "disabled"}. '
+            f'model={model_path}, image={image_topic}, output={cmd_vel_topic}')
+        if not self.enabled:
+            self.get_logger().info(
+                'Enable after placing the robot safely: '
+                'ros2 service call /lane_autonomy/enable '
+                'std_srvs/srv/SetBool "{data: true}"')
+
+    def _declare_parameters(self):
+        default_model = (
+            '/home/tory/Downloads/yolo_runs/segment/train/weights/best.pt')
+        parameters = (
+            ('enabled', False),
+            ('remote_inference', False),
+            ('remote_port', 18765),
+            ('max_enabled_seconds', 0.0),
+            ('model_path', default_model),
+            ('calibration_path', ''),
+            ('metric_trial_enabled', False),  # Deprecated compatibility parameter; no enable gate.
+            ('metric_lookahead_m', .22),
+            ('metric_single_line_timeout', 0.0),
+            ('lane_width', .154),  # metres; estimate from this course, replace with measurement
+            ('path_polynomial_degree', 3),
+            ('projection_max_forward_m', 2.0),
+            ('metric_path_min_m', .14),
+            ('metric_path_max_m', .48),
+            ('near_pair_max_m', .28),
+            ('corner_enabled', True),
+            ('corner_staged_turn', True),
+            ('corner_entry_speed_mps', .03),
+            ('corner_pivot_tolerance_m', .025),
+            ('corner_brake_seconds', .3),
+            ('corner_spin_timeout_s', 20.),
+            ('corner_odom_topic', '/odom'),
+            ('corner_odom_timeout', .3),
+            ('corner_angle_deg', 50.),
+            ('corner_window_m', .12),
+            ('corner_segment_m', .05),
+            ('corner_confirm_frames', 3),
+            ('corner_exit_frames', 3),
+            ('corner_max_gap_s', .6),
+            ('corner_approach_m', .30),
+            ('corner_speed_mps', .05),
+            ('corner_max_angular_speed', .25),
+            ('corner_min_speed_mps', .003),
+            ('corner_clearance_m', .005),
+            ('corner_robot_front_m', .060),
+            ('corner_robot_rear_m', .090),
+            ('corner_robot_half_width_m', .075),
+            ('single_line_turn_speed', .08),
+            ('single_line_turn_delay_seconds', 3.0),
+            ('single_line_turn_requires_path_loss', True),
+            ('single_line_turn_seconds', 20.0),
+            ('single_line_visibility_timeout', .6),
+            ('linear_velocity', -1.0),  # -1 keeps legacy linear_speed parameter
+            ('lookahead_distance', -1.0),  # -1 keeps metric_lookahead_m
+            ('maximum_linear_speed', .2),
+            ('single_line_max_speed', .03),
+            ('lane_loss_hold_seconds', .3),
+            ('lane_loss_stop_seconds', .8),
+            ('lane_loss_max_speed', .01),
+            ('image_topic', '/camera/image_raw'),
+            ('image_compressed', False),
+            ('scan_topic', '/scan'),
+            ('cmd_vel_topic', '/cmd_vel'),
+            ('debug_image_topic', '/lane_autonomy/debug_image'),
+            ('control_frequency', 20.0),
+            ('inference_frequency', 10.0),
+            ('imgsz', 640),
+            ('confidence', 0.55),
+            ('iou', 0.70),
+            ('device', ''),
+            ('near_y_ratio', 0.78),
+            ('adaptive_near_min_y_ratio', 0.66),
+            ('adaptive_near_step', 0.04),
+            ('far_y_ratio', 0.58),
+            ('sample_band_ratio', 0.04),
+            ('initial_lane_width_ratio', 0.55),
+            ('far_lane_width_scale', 0.55),
+            ('lane_width_alpha', 0.15),
+            ('minimum_lane_width_ratio', 0.18),
+            ('maximum_lane_width_ratio', 0.95),
+            ('lateral_gain', 0.85),
+            ('heading_gain', 1.15),
+            ('near_priority_steering', True),
+            ('near_center_deadband', 0.04),
+            ('curve_slowdown_gain', 0.75),
+            ('steering_alpha', 0.35),
+            ('linear_speed', 0.1),
+            ('minimum_linear_speed', 0.01),
+            ('single_line_speed_scale', 0.70),
+            ('maximum_angular_speed', 0.15),
+            ('image_timeout', 1.50),
+            ('lane_lost_timeout', 1.50),
+            ('result_timeout', 2.0),
+            ('crossline_stop_seconds', 3.0),
+            ('crossline_trigger_y_ratio', 0.68),
+            ('crossline_minimum_area_ratio', 0.002),
+            ('crossline_confirm_frames', 2),
+            ('crossline_release_seconds', 0.8),
+            ('use_lidar_guard', False),
+            ('lidar_timeout', 0.7),
+            ('front_stop_distance', 0.25),
+            ('front_sector_degrees', 25.0),
+            ('publish_debug_image', True),
+        )
+        for name, value in parameters:
+            self.declare_parameter(name, value)
+
+    def _class_id(self, requested_name):
+        names = self.model.names
+        items = names.items() if isinstance(names, dict) else enumerate(names)
+        for class_id, name in items:
+            if str(name).casefold() == requested_name.casefold():
+                return int(class_id)
+        raise RuntimeError(
+            f'Model class {requested_name!r} not found in {names!r}')
+
+    def _string_parameter(self, name):
+        return str(self.get_parameter(name).value)
+
+    def _float_parameter(self, name):
+        return float(self.get_parameter(name).value)
+
+    def _int_parameter(self, name):
+        return int(self.get_parameter(name).value)
+
+    def _bool_parameter(self, name):
+        return bool(self.get_parameter(name).value)
+
+    def _metric_speed(self):
+        value = self._float_parameter('linear_velocity')
+        return value if value >= 0 else self._float_parameter('linear_speed')
+
+    def _metric_lookahead(self):
+        value = self._float_parameter('lookahead_distance')
+        return value if value >= 0 else self._float_parameter('metric_lookahead_m')
+
+    def _enable_callback(self, request, response):
+        reason = self._calibration_stop_reason()
+        if request.data and reason:
+            self.enabled = False
+            self._publish_zero()
+            response.success = False
+            response.message = reason
+            return response
+        self.enabled = bool(request.data)
+        if (self.enabled and getattr(self, 'robot_calibration', None)
+                and not self._bool_parameter('use_lidar_guard')):
+            self.get_logger().warn('Lidar obstacle stopping DISABLED; camera/line loss and command watchdog remain active.')
+        limit = self._float_parameter('max_enabled_seconds')
+        self.enable_deadline_ns = (
+            self.safety_clock.now().nanoseconds + int(limit * 1e9)
+            if self.enabled and limit > 0 else None)
+        self.set_parameters([
+            Parameter('enabled', Parameter.Type.BOOL, self.enabled),
+        ])
+        self._reset_transient_state()
+        response.success = True
+        response.message = (
+            'lane autonomy enabled' if self.enabled
+            else 'lane autonomy disabled; zero velocity published')
+        self._publish_zero()
+        return response
+
+    def _reset_transient_state(self):
+        # An in-flight result from before enable/disable cannot resume motion.
+        self.inference_generation += 1
+        self.remote_pending = None
+        if getattr(self, 'remote_mailbox', None) is not None:
+            self.remote_mailbox.clear()
+        self.latest_image = None
+        self.last_result_input_time = None
+        self.inference_error = None
+        self.boundary_count = 0
+        self.state = (
+            DriveState.WAITING_FOR_LANE if self.enabled
+            else DriveState.DISABLED)
+        self.latest_linear = 0.0
+        self.latest_angular = 0.0
+        self.filtered_angular = 0.0
+        self.last_lane_time = None
+        self.near_center = None
+        self.active_near_y_ratio = self._float_parameter('near_y_ratio')
+        self.far_center = None
+        self.near_lane_width = None
+        self.crossline_streak = 0
+        self.metric_target = None
+        self.metric_tracker = MetricLaneTracker(
+            minimum_lane_width_m=2*(self._float_parameter('corner_robot_half_width_m')+
+                                    self._float_parameter('corner_clearance_m')))
+        self.corner_policy = CornerPolicy(CornerConfig(
+            staged_turn=self._bool_parameter('corner_staged_turn'),
+            entry_speed_mps=self._float_parameter('corner_entry_speed_mps'),
+            pivot_tolerance_m=self._float_parameter('corner_pivot_tolerance_m'),
+            brake_seconds=self._float_parameter('corner_brake_seconds'),
+            spin_timeout_s=self._float_parameter('corner_spin_timeout_s'),
+            angle_deg=self._float_parameter('corner_angle_deg'),
+            window_m=self._float_parameter('corner_window_m'),
+            segment_m=self._float_parameter('corner_segment_m'),
+            confirm_frames=self._int_parameter('corner_confirm_frames'),
+            exit_frames=self._int_parameter('corner_exit_frames'),
+            max_gap_s=self._float_parameter('corner_max_gap_s'),
+            approach_m=self._float_parameter('corner_approach_m'),
+            speed_mps=self._float_parameter('corner_speed_mps'),
+            min_speed_mps=self._float_parameter('corner_min_speed_mps'),
+            clearance_m=self._float_parameter('corner_clearance_m'),
+            front_m=self._float_parameter('corner_robot_front_m'),
+            rear_m=self._float_parameter('corner_robot_rear_m'),
+            half_width_m=self._float_parameter('corner_robot_half_width_m')))
+        self.corner_odom = None
+        self.corner_odom_stamp = None
+        self.corner_odom_frame = None
+        self.corner_odom_history = []
+        self.corner_capture_stamp = None
+        self.image_identity = LaneImageIdentity()
+        self.image_side_hint = None
+        self.image_match = None
+        self.metric_missing_since = None
+        self.metric_last_good_target = None
+        self.turn_started_at = None
+        self.turn_side = None
+        self.turn_seen_at = None
+        self.turn_exhausted = False
+        self.near_pair_streak = 0
+        self.single_resume_observation = None
+        self.single_side_since = None
+        self.single_side_last_seen = None
+        self.single_side_candidate = None
+        self.crossline_latched = False
+        self.crossline_clear_since = None
+        self.crossline_stop_until = None
+
+    def _corner_odom_callback(self, message):
+        """Keep fresh planar odometry for landmark confirmation, not blind motion."""
+        p, q = message.pose.pose.position, message.pose.pose.orientation
+        stamp = message.header.stamp.sec*1_000_000_000+message.header.stamp.nanosec
+        if (not np.isfinite([p.x,p.y,q.x,q.y,q.z,q.w]).all() or
+                abs(q.x*q.x+q.y*q.y+q.z*q.z+q.w*q.w-1.) > .05 or
+                message.child_frame_id not in ('base_link','base_footprint') or
+                not message.header.frame_id):
+            self.corner_odom = None
+            return
+        if self.corner_odom_stamp is not None and stamp <= self.corner_odom_stamp:
+            return  # Duplicate/out-of-order samples cannot refresh age.
+        if hasattr(self, 'get_clock'):
+            age = (self.get_clock().now().nanoseconds-stamp)/1e9
+            if not -.05 <= age <= self._float_parameter('corner_odom_timeout'):
+                self.corner_odom = None
+                return
+        now = self.safety_clock.now().nanoseconds/1e9
+        yaw = np.arctan2(2*(q.w*q.z+q.x*q.y), 1-2*(q.y*q.y+q.z*q.z))
+        pose = np.array([p.x,p.y,yaw])
+        prior = self.corner_odom
+        if (self.corner_odom_frame not in (None,message.header.frame_id) or
+                (prior is not None and (np.linalg.norm(pose[:2]-prior[1][:2]) > .20 or
+                                        abs(wrap(yaw-prior[1][2])) > .6))):
+            self.corner_policy.reset()
+            self.corner_odom_history = []
+            # World-frame pivot targets are invalid after an odometry reset.
+            # Do not let the control timer use one until another fresh result.
+            self._invalidate_lane()
+        self.corner_odom = (now, pose)
+        self.corner_odom_stamp = stamp
+        self.corner_odom_frame = message.header.frame_id
+        self.corner_odom_history.append((stamp, pose))
+        self.corner_odom_history = [item for item in self.corner_odom_history
+                                    if stamp-item[0] <= 2_000_000_000][-200:]
+
+    def _corner_pose_for_frame(self, now):
+        """Interpolate odometry at CAMERA time; never compare old local coordinates."""
+        odom = self.corner_odom
+        if odom is None or not 0 <= now-odom[0] <= self._float_parameter('corner_odom_timeout'):
+            return None
+        stamp = self.corner_capture_stamp
+        history = self.corner_odom_history
+        if stamp is None or not history:
+            return None
+        for (ta,a),(tb,b) in zip(history,history[1:]):
+            if ta <= stamp <= tb and tb-ta <= 300_000_000:
+                f = (stamp-ta)/(tb-ta)
+                return np.array([*(a[:2]*(1-f)+b[:2]*f), a[2]+f*wrap(b[2]-a[2])])
+        closest = min(history,key=lambda item:abs(item[0]-stamp))
+        return closest[1].copy() if abs(closest[0]-stamp) <= 50_000_000 else None
+
+    def _scan_callback(self, message):
+        self.last_scan_time = self.safety_clock.now()
+        sector = np.deg2rad(self._float_parameter('front_sector_degrees'))
+        stop_distance = self._float_parameter('front_stop_distance')
+        nearest = None
+        for index, value in enumerate(message.ranges):
+            angle = message.angle_min + index * message.angle_increment
+            angle = (angle + np.pi) % (2.0 * np.pi) - np.pi
+            if ((not getattr(self, 'robot_calibration', None) and abs(angle) > sector)
+                    or not np.isfinite(value)):
+                continue
+            if message.range_min <= value <= message.range_max:
+                nearest = value if nearest is None else min(nearest, value)
+        self.front_clear = ((nearest is not None and nearest > stop_distance)
+                            if getattr(self, 'robot_calibration', None)
+                            else nearest is None or nearest > stop_distance)
+
+    def _image_callback(self, message):
+        # Keep only the newest frame; never run YOLO in a ROS callback.
+        now = self.safety_clock.now()
+        self.last_image_time = now
+        self.latest_image = (message, now, self.inference_generation)
+
+    def _start_inference(self, now):
+        if getattr(self, 'remote_inference', False):
+            self._start_remote_inference(now)
+            return
+        if self.inference_future is not None or self.latest_image is None:
+            return
+        inference_period = 1.0 / max(
+            0.1, self._float_parameter('inference_frequency'))
+        if self.last_inference_time is not None:
+            age = (now - self.last_inference_time).nanoseconds / 1e9
+            if age < inference_period:
+                return
+        self.last_inference_time = now
+        message, received, generation = self.latest_image
+        self.latest_image = None
+        if (now - received).nanoseconds / 1e9 > self._float_parameter(
+                'image_timeout'):
+            return
+        predict_arguments = {
+            'imgsz': self._int_parameter('imgsz'),
+            'conf': self._float_parameter('confidence'),
+            'iou': self._float_parameter('iou'),
+            'retina_masks': True,
+            'verbose': False,
+        }
+        device = self._string_parameter('device').strip()
+        if device:
+            predict_arguments['device'] = device
+        future = Future()
+        self.inference_future = (future, received, generation)
+
+        def predict():
+            # Only the mailbox is shared. No state changes or ROS publishing
+            # happen on this thread, including after node shutdown.
+            try:
+                frame = self._image_to_bgr(message).copy()
+                result = self.model.predict(
+                    source=frame, **predict_arguments)[0]
+                future.set_result((
+                    frame, result, self.safety_clock.now(), message.header))
+            except Exception as exc:
+                future.set_exception(exc)
+
+        self.inference_thread = Thread(target=predict, name='lane_inference', daemon=False)
+        self.inference_thread.start()
+
+    def _start_remote_inference(self, now):
+        """Retain the original frame/time; export only JPEG over the SSH tunnel."""
+        if self.remote_pending is not None:
+            if (now-self.remote_pending[2]).nanoseconds/1e9 < self._float_parameter('result_timeout'):
+                return
+            self.remote_pending = None
+            self.remote_mailbox.clear()
+            self._invalidate_lane()
+            self.inference_error = 'remote inference timeout'
+        if self.latest_image is None:
+            return
+        if (self.last_inference_time is not None and
+                (now-self.last_inference_time).nanoseconds/1e9 <
+                1./max(.1, self._float_parameter('inference_frequency'))):
+            return
+        message, received, generation = self.latest_image
+        self.latest_image = None
+        try:
+            # Camera is on this same robot/ROS clock. Convert its timestamp to
+            # steady-clock age before transmission; never trust a PC timestamp.
+            stamp = message.header.stamp.sec*1_000_000_000+message.header.stamp.nanosec
+            capture_age = (self.get_clock().now().nanoseconds-stamp)/1e9
+            if not 0 <= capture_age < min(self._float_parameter('image_timeout'),
+                                         self._float_parameter('result_timeout')):
+                raise ValueError('camera capture timestamp stale or future')
+            captured = now-Duration(seconds=capture_age)
+            frame = self._image_to_bgr(message).copy()
+            self.remote_sequence += 1
+            token = f'{self.remote_session}:{self.remote_sequence}'
+            payload = lane_wire.encode_request(frame, token, message.header,
+                                               self.remote_model_sha256)
+            self.remote_pending = (token, generation, captured, frame, message.header)
+            self.last_inference_time = now
+            self.remote_mailbox.offer(token, payload)
+        except Exception as exc:
+            self._invalidate_lane()
+            self.inference_error = str(exc)
+
+    def _consume_remote_inference(self, now):
+        """Only exact, fresh, single-use replies may enter the existing controller."""
+        data = self.remote_mailbox.take_reply()
+        if data is None or self.remote_pending is None:
+            return
+        token, generation, captured, frame, header = self.remote_pending
+        if data['token'] != token or generation != self.inference_generation:
+            return
+        self.remote_pending = None
+        processing_started = time.monotonic()
+        age = (now-captured).nanoseconds/1e9
+        try:
+            if not 0 <= age < self._float_parameter('result_timeout'):
+                raise ValueError('remote result expired')
+            result = lane_wire.decode_result(data, frame.shape[1], frame.shape[0],
+                                             self.remote_model_sha256)
+            self.inference_seconds = age
+            self.last_result_input_time = captured
+            self.inference_error = None
+            # Saved raw frame is paired with these exact pixel coordinates.
+            self._process_result(frame, result, now, header)
+        except Exception as exc:
+            self._invalidate_lane()
+            self.inference_error = str(exc)
+            self.get_logger().warn('Remote perception rejected: '+str(exc), throttle_duration_sec=2.)
+        finally:
+            pc = data.get('pc_processing_seconds')
+            pc_text = (f'{pc:.3f}s' if isinstance(pc, (int, float))
+                       and np.isfinite(pc) and pc >= 0 else 'unavailable')
+            self.get_logger().info(
+                f'Perception timing: input_age_at_reply={age:.3f}s, '
+                f'pc_processing={pc_text}, '
+                f'robot_postprocess={time.monotonic()-processing_started:.3f}s, '
+                f'geometry={getattr(self, "last_geometry_seconds", 0.):.3f}s, '
+                f'debug_publish={getattr(self, "last_debug_seconds", 0.):.3f}s',
+                throttle_duration_sec=5.)
+
+    def _consume_inference(self, now):
+        if getattr(self, 'remote_inference', False):
+            self._consume_remote_inference(now)
+            return
+        if self.inference_future is None:
+            return
+        future, received, generation = self.inference_future
+        if not future.done():
+            return
+        self.inference_future = None
+        if generation != self.inference_generation:
+            return
+        try:
+            frame, result, completed, header = future.result()
+            self.inference_seconds = (completed - received).nanoseconds / 1e9
+            self.last_result_input_time = received
+            if (now - received).nanoseconds / 1e9 > self._float_parameter(
+                    'result_timeout'):
+                self._invalidate_lane()
+                self.crossline_streak = 0
+                self.crossline_clear_since = None
+                return
+            self.inference_error = None
+            # A successful detection is dated at completion, not at the start
+            # of CPU inference. Input age is guarded separately.
+            self._process_result(frame, result, completed, header)
+        except Exception as exc:
+            self._invalidate_lane()
+            self.inference_error = str(exc)
+            self.crossline_streak = 0
+            self.crossline_clear_since = None
+            self.get_logger().error(
+                f'Lane inference failed: {exc}', throttle_duration_sec=2.0)
+
+    def _invalidate_lane(self):
+        self.latest_linear = 0.0
+        self.latest_angular = 0.0
+        self.filtered_angular = 0.0
+        self.last_lane_time = None
+        self.boundary_count = 0
+        self.near_candidate_count = 0
+        self.near_center = None
+        self.far_center = None
+        self.metric_target = None
+        self.metric_missing_since = None
+        self.metric_last_good_target = None
+
+    def _process_result(self, frame, result, now, source_header):
+        geometry_started = time.monotonic()
+        self.corner_capture_stamp = (source_header.stamp.sec*1_000_000_000+
+                                     source_header.stamp.nanosec)
+        height, width = frame.shape[:2]
+        lane_masks = []
+        crossline_masks = []
+        polygons_by_class = []
+        masks = result.masks
+        class_ids = (
+            result.boxes.cls.int().cpu().tolist()
+            if result.boxes is not None else [])
+        self.lane_instances = class_ids.count(self.lane_class_id)
+        self.crossline_instances = class_ids.count(self.crossline_class_id)
+        if masks is not None and result.boxes is not None:
+            for class_id, polygon in zip(class_ids, masks.xy):
+                polygon = np.asarray(polygon, dtype=np.int32)
+                if polygon.shape[0] < 3:
+                    continue
+                binary_mask = np.zeros((height, width), dtype=np.uint8)
+                cv2.fillPoly(binary_mask, [polygon], 1)
+                polygons_by_class.append((class_id, polygon))
+                if class_id == self.lane_class_id:
+                    lane_masks.append(binary_mask)
+                elif class_id == self.crossline_class_id:
+                    crossline_masks.append(binary_mask)
+
+        if self.enabled:
+            self._update_crossline(crossline_masks, self.safety_clock.now())
+        image_match = None
+        if self.enabled and getattr(self, 'robot_calibration', None):
+            image_match = self.image_identity.match(frame, lane_masks, now.nanoseconds/1e9)
+        self.image_side_hint = (image_match[1] if image_match and len(lane_masks) == 1
+                                else None)
+        self.image_match = image_match
+        boundary_count = self._update_lane_command(lane_masks, width, now)
+        self.boundary_count = boundary_count
+        if self.enabled and getattr(self, 'robot_calibration', None):
+            roles = self._image_roles_from_target(lane_masks, self.metric_target)
+            if not roles and image_match:
+                roles = {image_match[0]: image_match[1]}
+            self.image_identity.commit(now.nanoseconds/1e9, roles)
+            self._update_turn_observation(lane_masks, now)
+        self.last_geometry_seconds = time.monotonic()-geometry_started
+        self.last_debug_seconds = 0.
+        if self._bool_parameter('publish_debug_image'):
+            debug_started = time.monotonic()
+            self._publish_debug(
+                frame, polygons_by_class, boundary_count, source_header)
+            self.last_debug_seconds = time.monotonic()-debug_started
+
+    def _image_roles_from_target(self, masks, target):
+        """Label current masks only from confirmed metric geometry.
+
+        The side history can then survive a frame whose centre path is invalid.
+        Nearest mask assignment is unique and limited to 4 cm lateral error.
+        """
+        if not target:
+            return {}
+        if target.get('inferred'):
+            side = target.get('visible_side')
+            index = target.get('source_mask_index', 0 if len(masks) == 1 else -1)
+            return {index: side} if side in ('left', 'right') and 0 <= index < len(masks) else {}
+        if (target.get('boundary_count') != 2 or
+                getattr(self.metric_tracker, 'streak', 0) < 2):
+            return {}
+        scores = []
+        for index, mask in enumerate(masks):
+            curves = floor_curves([mask], self.robot_calibration,
+                                  self._float_parameter('projection_max_forward_m'),
+                                  self._float_parameter('metric_path_min_m'),
+                                  self._float_parameter('metric_path_max_m'),
+                                  self._int_parameter('path_polynomial_degree'))
+            if len(curves) != 1:
+                continue
+            curve = curves[0]
+            for side in ('left', 'right'):
+                reference = np.asarray(target.get(side+'_curve', []), float)
+                if reference.ndim != 2 or len(reference) < 2:
+                    continue
+                error = curve_match_error(curve, reference)
+                scores.append((float(error), index, side))
+        roles = {}
+        for error, index, side in sorted(scores):
+            if error <= .04 and index not in roles and side not in roles.values():
+                roles[index] = side
+        return roles
+
+    def _near_curve_visible(self, curve):
+        """Require at least 4 cm of observed support inside the near floor band."""
+        points = np.asarray(curve, float)
+        if points.ndim != 2 or points.shape[1] != 2 or len(points) < 2:
+            return False
+        near = supported_chain(points, self._float_parameter('metric_path_min_m'),
+                               self._float_parameter('near_pair_max_m'))
+        return len(near) >= 2 and arc_stations(near)[-1] >= .04
+
+    def _near_pair_visible(self, target):
+        """A measured pair must overlap near the robot, not merely in the distance."""
+        if not target or target.get('boundary_count') != 2 or target.get('inferred'):
+            return False
+        left = np.asarray(target.get('left_curve', []), float)
+        right = np.asarray(target.get('right_curve', []), float)
+        if not self._near_curve_visible(left) or not self._near_curve_visible(right):
+            return False
+        lo = max(np.min(left[:, 0]), np.min(right[:, 0]), self._float_parameter('metric_path_min_m'))
+        hi = min(np.max(left[:, 0]), np.max(right[:, 0]), self._float_parameter('near_pair_max_m'))
+        return hi-lo >= .04
+
+    def _update_turn_observation(self, lane_masks, now):
+        """Use each fresh inference once to track the visible side and near pair.
+
+        The turn timer is never renewed by inference frames. Two consecutive
+        measured pairs in the near band release the turn; far pairs do not.
+        """
+        target = self.metric_target
+        if self._bool_parameter('corner_enabled') and self.corner_policy.block_recovery:
+            # A confirmed/pending corner must not fall through to blind search spin.
+            self.turn_started_at = None
+            self.turn_seen_at = None
+            self.single_side_since = None
+            return
+        # A recovered, freshly validated single-side centre path can resume the
+        # ordinary slow follower after three consistent observations. A mere
+        # visible line (or held target) cannot do this. Keep the turn budget
+        # exhausted so repeated single-side recoveries cannot cause endless spins.
+        resume = (self.turn_started_at is not None and
+                  self._bool_parameter('single_line_turn_requires_path_loss') and
+                  target and target.get('inferred') and not target.get('held') and
+                  target.get('visible_side') == self.turn_side and
+                  self._near_curve_visible(target.get('actual_curve', [])))
+        if resume:
+            prior = self.single_resume_observation
+            curve = np.asarray(target['actual_curve'], float)
+            count = 1
+            if (prior is not None and prior[1] == self.turn_side and
+                    0 < (now-prior[0]).nanoseconds/1e9 <=
+                    self._float_parameter('single_line_visibility_timeout') and
+                    self.metric_tracker._same_curve(curve, prior[2])):
+                count = prior[3]+1
+            self.single_resume_observation = (now, self.turn_side, curve.copy(), count)
+            if count >= 3:
+                self.turn_started_at = None
+                self.turn_side = None
+                self.turn_seen_at = None
+                self.turn_exhausted = True
+                self.single_resume_observation = None
+        else:
+            self.single_resume_observation = None
+        if self._near_pair_visible(target):
+            self.near_pair_streak += 1
+            self.single_side_since = None
+            self.single_side_last_seen = None
+            self.single_side_candidate = None
+            if self.near_pair_streak >= 2:
+                self.turn_started_at = None
+                self.turn_side = None
+                self.turn_seen_at = None
+                self.turn_exhausted = False
+            return
+        self.near_pair_streak = 0
+        # A valid one-sided centre path is already enough to drive. Recovery
+        # must not interrupt it just because the second boundary is offscreen.
+        if (target and not target.get('held') and self.turn_started_at is None and
+                self._bool_parameter('single_line_turn_requires_path_loss')):
+            self.single_side_since = None
+            self.single_side_last_seen = None
+            self.single_side_candidate = None
+            return
+        if len(lane_masks) != 1:
+            self.single_side_since = None
+            self.single_side_last_seen = None
+            self.single_side_candidate = None
+            return
+        side = None
+        if target and target.get('inferred') and self._near_curve_visible(target.get('actual_curve', [])):
+            side = target.get('visible_side')
+        else:
+            tracker = self.metric_tracker
+            old = getattr(tracker, 'observed_curve', None)
+            old_side = getattr(tracker, 'observed_side', None)
+            curves = floor_curves(lane_masks, self.robot_calibration,
+                                  self._float_parameter('projection_max_forward_m'),
+                                  self._float_parameter('metric_path_min_m'),
+                                  self._float_parameter('metric_path_max_m'),
+                                  self._int_parameter('path_polynomial_degree'))
+            if (old_side in ('left', 'right') and old is not None and len(curves) == 1 and
+                    self._near_curve_visible(curves[0]) and
+                    (tracker._same_curve(curves[0], old) or
+                     getattr(self, 'image_side_hint', None) == old_side)):
+                side = old_side
+        if side not in ('left', 'right') or (self.turn_side and side != self.turn_side):
+            self.single_side_since = None
+            self.single_side_last_seen = None
+            self.single_side_candidate = None
+            if self.turn_started_at is not None:
+                self.turn_seen_at = None
+            return
+        gap = ((now-self.single_side_last_seen).nanoseconds/1e9
+               if self.single_side_last_seen is not None else float('inf'))
+        if (self.single_side_candidate != side or gap < 0 or
+                gap > self._float_parameter('single_line_visibility_timeout')):
+            self.single_side_since = now
+            self.single_side_candidate = side
+        self.single_side_last_seen = now
+        if (self.turn_started_at is None and not self.turn_exhausted and
+                (now-self.single_side_since).nanoseconds/1e9 >=
+                self._float_parameter('single_line_turn_delay_seconds')):
+            self.turn_started_at = now
+            self.turn_side = side
+        if self.turn_started_at is not None:
+            self.turn_seen_at = now
+
+    def _update_lane_command(self, lane_masks, image_width, now):
+        if getattr(self, 'robot_calibration', None):
+            try:
+                if not hasattr(self, 'metric_tracker'):
+                    self.metric_tracker = MetricLaneTracker(
+                        minimum_lane_width_m=2*(self._float_parameter('corner_robot_half_width_m')+
+                                                self._float_parameter('corner_clearance_m')))
+                ordinary_error = None
+                try:
+                    target = self.metric_tracker.update(lane_masks, self.robot_calibration,
+                                       now.nanoseconds/1e9,
+                                       self._metric_lookahead(),
+                                       self._float_parameter('metric_single_line_timeout'),
+                                       lane_width=self._float_parameter('lane_width'),
+                                       degree=self._int_parameter('path_polynomial_degree'),
+                                       max_forward_m=self._float_parameter('projection_max_forward_m'),
+                                       path_min_m=self._float_parameter('metric_path_min_m'),
+                                       path_max_m=self._float_parameter('metric_path_max_m'),
+                                       image_side_hint=getattr(self, 'image_side_hint', None),
+                                       image_match=getattr(self, 'image_match', None),
+                                       recovery_side_hint=(near_pixel_side(lane_masks[0])
+                                                           if len(lane_masks) == 1 else None))
+                except ValueError as exc:
+                    target = None
+                    ordinary_error = exc
+                if self._bool_parameter('corner_enabled'):
+                    observation = getattr(self.metric_tracker, 'last_observation', None)
+                    # Only offset failure is eligible for a different path builder.
+                    # Identity, target jumps and malformed fits must not be bypassed.
+                    if ordinary_error and ('center_path curve folds back' not in str(ordinary_error)
+                                           or len(lane_masks) != 1):
+                        observation = None
+                    pose = self._corner_pose_for_frame(now.nanoseconds/1e9)
+                    target = self.corner_policy.update(observation, target, now.nanoseconds/1e9,
+                              pose, self._metric_lookahead(), self._float_parameter('corner_max_angular_speed'))
+                if target is None:
+                    if self._bool_parameter('corner_enabled') and self.corner_policy.block_recovery:
+                        info = self.corner_policy.debug
+                        raise ValueError(f"corner {info.get('mode')}: {info.get('reason')}")
+                    if ordinary_error:
+                        raise ordinary_error
+                    raise ValueError('corner: '+self.corner_policy.debug.get('reason', 'awaiting confirmation'))
+                # Pure Pursuit speed and range are configurable; retain conservative
+                # Pinky defaults but do not hard-code the previous 3cm/s, 28cm caps.
+                speed = min(self._float_parameter('maximum_linear_speed'), max(0., self._metric_speed()))
+                distance = np.hypot(target['x_m'], target['y_m'])
+                speed *= max(.5, min(1., distance/self._metric_lookahead()))
+                speed *= max(.3, 1.-.75*abs(target['y_m'])/max(distance, .01))
+                corner_active = 'corner_speed_cap' in target
+                angular_limit = self._float_parameter(
+                    'corner_max_angular_speed' if corner_active else 'maximum_angular_speed')
+                if target.get('inferred'):
+                    single_cap = (target['corner_speed_cap'] if corner_active else
+                                  self._float_parameter('single_line_max_speed'))
+                    speed = min(single_cap,
+                                speed*self._float_parameter('single_line_speed_scale'))
+                if 'corner_speed_cap' in target:
+                    speed = min(speed, target['corner_speed_cap'])
+                    # Limit target curvature too, not just the planned curve.
+                    k = abs(2*target['y_m']/max(target['x_m']**2+target['y_m']**2, 1e-8))
+                    speed = min(speed, angular_limit/max(k, 1e-6))
+                if target.get('corner_stationary'):
+                    speed, angular = 0., 0.  # Command computed using current odometry below.
+                else:
+                    angular = pursuit(target, speed, angular_limit)
+                self.metric_target = target
+                self.metric_error = (target.get('center_path_warning') or
+                                     target.get('virtual_boundary_warning'))
+                if self.metric_error:
+                    self.get_logger().warn('Lane geometry: '+self.metric_error,
+                                           throttle_duration_sec=2.)
+                self.latest_linear = speed
+                self.latest_angular = angular
+                self.filtered_angular = angular
+                self.last_lane_time = now
+                self.metric_missing_since = None
+                self.metric_last_good_target = target.copy()
+                self.metric_last_good_linear = speed
+                self.metric_last_good_angular = angular
+                self.near_center = None
+                self.far_center = None
+                return target['boundary_count']
+            except ValueError as exc:
+                self.metric_error = str(exc)
+                # Only genuinely EMPTY detections qualify for short dead reckoning.
+                # Ambiguous/nonphysical geometry and inference failures stop directly.
+                saved = getattr(self, 'metric_last_good_target', None)
+                if (not lane_masks and saved is not None and self.last_lane_time is not None
+                        and not (self._bool_parameter('corner_enabled') and self.corner_policy.block_recovery)
+                        and 0 <= (now-self.last_lane_time).nanoseconds/1e9 <
+                        self._float_parameter('lane_loss_stop_seconds')):
+                    self.metric_missing_since = self.last_lane_time
+                    self.metric_target = dict(saved, held=True, boundary_count=0)
+                    return 0
+                self.metric_target = None
+                self._invalidate_lane()
+                self.get_logger().warn('Metric lane unavailable: '+str(exc), throttle_duration_sec=2.)
+                return 0
+        band = self._float_parameter('sample_band_ratio')
+        near_ratio = self._float_parameter('near_y_ratio')
+        minimum_near_ratio = self._float_parameter(
+            'adaptive_near_min_y_ratio')
+        near_step = max(0.01, self._float_parameter('adaptive_near_step'))
+        far_candidates = lane_candidates_at(
+            lane_masks, self._float_parameter('far_y_ratio'), band)
+
+        image_center = image_width / 2.0
+        expected_near = (
+            self.near_center if self.near_center is not None else image_center)
+        expected_width = self.near_lane_width
+        if expected_width is None:
+            expected_width = (
+                image_width
+                * self._float_parameter('initial_lane_width_ratio'))
+        minimum_ratio = self._float_parameter('minimum_lane_width_ratio')
+        maximum_ratio = self._float_parameter('maximum_lane_width_ratio')
+        near, selected_ratio, candidates = select_near_lane(
+            lane_masks, image_width, expected_near, expected_width,
+            near_ratio, minimum_near_ratio, near_step, band,
+            minimum_ratio, maximum_ratio)
+        self.active_near_y_ratio = selected_ratio
+        self.near_candidate_count = candidates
+        if near is None:
+            self._invalidate_lane()
+            return 0
+
+        if near.boundary_count >= 2:
+            alpha = self._float_parameter('lane_width_alpha')
+            self.near_lane_width = (
+                (1.0 - alpha) * expected_width + alpha * near.lane_width)
+        else:
+            self.near_lane_width = expected_width
+        self.near_center = near.center_x
+
+        far_scale = self._float_parameter('far_lane_width_scale')
+        far_width = self.near_lane_width * far_scale
+        expected_far = (
+            self.far_center if self.far_center is not None else near.center_x)
+        far = estimate_lane_center(
+            far_candidates, image_width, expected_far, far_width,
+            minimum_ratio * far_scale, maximum_ratio)
+        self.far_center = far.center_x if far is not None else near.center_x
+        if far is not None and far.boundary_count == 1:
+            consistent = consistent_single_far_center(
+                lane_masks, near.center_x, selected_ratio,
+                self._float_parameter('far_y_ratio'), far_width, band)
+            self.far_center = (near.center_x if consistent is None else
+                               min(image_width - 1.0, max(0.0, consistent)))
+
+        target_angular = steering_command(
+            self.near_center, self.far_center, image_width,
+            self._float_parameter('lateral_gain'),
+            self._float_parameter('heading_gain'),
+            self._float_parameter('maximum_angular_speed'))
+        preview_severity = 0.0
+        if self._bool_parameter('near_priority_steering'):
+            target_angular, preview_severity = near_priority_command(
+                self.near_center, self.far_center, image_width,
+                self._float_parameter('lateral_gain'),
+                self._float_parameter('maximum_angular_speed'),
+                self._float_parameter('near_center_deadband'))
+        alpha = self._float_parameter('steering_alpha')
+        self.filtered_angular = (
+            (1.0 - alpha) * self.filtered_angular + alpha * target_angular)
+        self.latest_angular = self.filtered_angular
+
+        max_angular = self._float_parameter('maximum_angular_speed')
+        turn_ratio = min(
+            1.0, abs(self.latest_angular) / max(0.01, max_angular))
+        turn_ratio = max(turn_ratio, min(1.0, max(0.0,
+            self._float_parameter('curve_slowdown_gain')) * preview_severity))
+        maximum_speed = self._float_parameter('linear_speed')
+        minimum_speed = self._float_parameter('minimum_linear_speed')
+        speed = maximum_speed - turn_ratio * (maximum_speed - minimum_speed)
+        if near.boundary_count == 1:
+            speed *= self._float_parameter('single_line_speed_scale')
+        self.latest_linear = max(0.0, speed)
+        self.last_lane_time = now
+        return near.boundary_count
+
+    def _update_crossline(self, masks, now):
+        close = any(
+            crossline_is_close(
+                mask,
+                self._float_parameter('crossline_trigger_y_ratio'),
+                self._float_parameter('crossline_minimum_area_ratio'))
+            for mask in masks
+        )
+        if close:
+            self.crossline_clear_since = None
+            if not self.crossline_latched:
+                self.crossline_streak += 1
+                if self.crossline_streak >= self._int_parameter(
+                        'crossline_confirm_frames'):
+                    self.crossline_latched = True
+                    seconds = self._float_parameter('crossline_stop_seconds')
+                    self.crossline_stop_until = now + Duration(seconds=seconds)
+                    self.get_logger().info(
+                        f'Crossline reached: stopping for {seconds:.1f} seconds')
+        else:
+            self.crossline_streak = 0
+            if self.crossline_latched and not self._crossline_stop_active(now):
+                if self.crossline_clear_since is None:
+                    self.crossline_clear_since = now
+                clear_age = (
+                    now - self.crossline_clear_since).nanoseconds / 1e9
+                if clear_age >= self._float_parameter(
+                        'crossline_release_seconds'):
+                    self.crossline_latched = False
+                    self.crossline_stop_until = None
+                    self.crossline_clear_since = None
+
+    def _crossline_stop_active(self, now):
+        return (
+            self.crossline_stop_until is not None
+            and now < self.crossline_stop_until
+        )
+
+    def _control_loop(self):
+        now = self.safety_clock.now()
+        deadline = getattr(self, 'enable_deadline_ns', None)
+        if self.enabled and deadline is not None and now.nanoseconds >= deadline:
+            self._enable_callback(SetBool.Request(data=False), SetBool.Response())
+            self.get_logger().warn('Configured duration expired: lane autonomy disabled.')
+        self._consume_inference(now)
+        now = self.safety_clock.now()
+        self._start_inference(now)
+        if not self.enabled:
+            self.state = DriveState.DISABLED
+            self._publish_zero()
+            self._publish_status('DISABLED')
+            return
+        if self._crossline_stop_active(now):
+            remaining = (self.crossline_stop_until - now).nanoseconds / 1e9
+            self.state = DriveState.CROSSLINE_STOP
+            self._publish_zero()
+            self._publish_status(f'CROSSLINE_STOP: {remaining:.1f}s remaining')
+            return
+
+        safety_reason = self._safety_stop_reason(now)
+        if safety_reason:
+            self.crossline_streak = 0
+            self.crossline_clear_since = None
+            self.state = DriveState.SAFETY_STOP
+            self._publish_zero()
+            self._publish_status(f'SAFETY_STOP: {safety_reason}')
+            return
+        if self.metric_target and self.metric_target.get('corner_staged'):
+            v, w, detail = staged_command(self.metric_target,
+                self.corner_odom[1] if self.corner_odom else None,
+                now.nanoseconds/1e9, self._float_parameter('corner_max_angular_speed'),
+                self._float_parameter('corner_pivot_tolerance_m'))
+            command = Twist()
+            command.linear.x, command.angular.z = v, w
+            self.cmd_publisher.publish(command)
+            self.state = DriveState.FOLLOWING if v or w else DriveState.WAITING_FOR_LANE
+            self._publish_status(f'CORNER_STAGED: {detail}; v={v:.3f}, w={w:.3f}')
+            return
+        if self.turn_started_at is not None:
+            elapsed = (now-self.turn_started_at).nanoseconds/1e9
+            if elapsed >= self._float_parameter('single_line_turn_seconds'):
+                self.turn_exhausted = True
+            seen_age = ((now-self.turn_seen_at).nanoseconds/1e9
+                        if self.turn_seen_at is not None else float('inf'))
+            if (not self.turn_exhausted and 0 <= seen_age <=
+                    self._float_parameter('single_line_visibility_timeout')):
+                command = Twist()
+                # Left boundary means the lane interior lies to the right.
+                command.angular.z = (-1. if self.turn_side == 'left' else 1.) * \
+                    self._float_parameter('single_line_turn_speed')
+                self.state = DriveState.REACQUIRING_LANE
+                self.cmd_publisher.publish(command)
+                self._publish_status(
+                    f'REACQUIRING_LANE: side={self.turn_side}, t={elapsed:.1f}s, '
+                    f'near_pair={self.near_pair_streak}/2, w={command.angular.z:.3f}')
+                return
+            self.state = DriveState.WAITING_FOR_LANE
+            self._publish_zero()
+            reason = ('turn limit reached' if self.turn_exhausted else 'near boundary not visible')
+            self._publish_status(f'WAITING_FOR_LANE: {reason}; '+self._detection_summary())
+            return
+        if getattr(self, 'metric_missing_since', None) is not None:
+            # Run this clock-based ramp at control_frequency even if no new
+            # inference arrives. Never renew it from subsequent empty masks.
+            age = (now-self.metric_missing_since).nanoseconds/1e9
+            scale = loss_speed_scale(age, self._float_parameter('lane_loss_hold_seconds'),
+                                     self._float_parameter('lane_loss_stop_seconds'))
+            if scale <= 0:
+                self._invalidate_lane()
+                self.state = DriveState.WAITING_FOR_LANE
+                self._publish_zero()
+                self._publish_status('WAITING_FOR_LANE: centre-path hold expired')
+                return
+            speed = min(self.metric_last_good_linear, self._float_parameter('lane_loss_max_speed'))*scale
+            command = Twist()
+            command.linear.x = float(speed)
+            command.angular.z = pursuit(self.metric_target, speed, self._float_parameter('maximum_angular_speed'))
+            self.cmd_publisher.publish(command)
+            self._publish_status(f'LANE_LOSS_HOLD: age={age:.2f}s, v={speed:.3f}; stale target, not a new detection')
+            return
+        if self.last_lane_time is None:
+            self.state = DriveState.WAITING_FOR_LANE
+            self._publish_zero()
+            self._publish_status(
+                'WAITING_FOR_LANE: no usable boundary; '
+                + self._detection_summary())
+            return
+        lane_age = (now - self.last_lane_time).nanoseconds / 1e9
+        if lane_age > self._float_parameter('lane_lost_timeout'):
+            self.state = DriveState.WAITING_FOR_LANE
+            self._publish_zero()
+            self._publish_status(
+                f'WAITING_FOR_LANE: result expired ({lane_age:.2f}s); '
+                + self._detection_summary())
+            return
+
+        self.state = DriveState.FOLLOWING
+        command = Twist()
+        command.linear.x = float(self.latest_linear)
+        command.angular.z = float(self.latest_angular)
+        self.cmd_publisher.publish(command)
+        self._publish_status(
+            f'FOLLOWING: v={command.linear.x:.3f}, w={command.angular.z:.3f}; '
+            + self._detection_summary())
+
+    def _calibration_stop_reason(self):
+        if self._bool_parameter('corner_enabled'):
+            entry = self._float_parameter('corner_entry_speed_mps')
+            tolerance = self._float_parameter('corner_pivot_tolerance_m')
+            brake = self._float_parameter('corner_brake_seconds')
+            spin_timeout = self._float_parameter('corner_spin_timeout_s')
+            if (not np.isfinite([entry, tolerance, brake, spin_timeout]).all() or
+                    not .005 <= entry <= min(.03, self._float_parameter('maximum_linear_speed')) or
+                    not .01 <= tolerance <= .04 or not .2 <= brake <= 2. or
+                    not 1 <= spin_timeout <= 20.):
+                return 'Invalid staged corner parameters'
+            timeout = self._float_parameter('corner_odom_timeout')
+            if not np.isfinite(timeout) or not .05 <= timeout <= 1.:
+                return 'Invalid corner odometry timeout'
+            corner_speed = self._float_parameter('corner_speed_mps')
+            corner_angular = self._float_parameter('corner_max_angular_speed')
+            if (not np.isfinite([corner_speed, corner_angular]).all() or
+                    not 0 < corner_speed <= self._float_parameter('maximum_linear_speed') or
+                    not 0 < corner_angular <= 3.):
+                return 'Invalid corner speed limits'
+        reason = getattr(self, 'calibration_block_reason', None)
+        if not getattr(self, 'robot_calibration', None):
+            return reason
+        # Zero duration is continuous operation, enabled explicitly by service.
+        # This does not declare the nominal optical mounting physically validated.
+        duration = self._float_parameter('max_enabled_seconds')
+        values = [self._metric_speed(), self._metric_lookahead(),
+                  *[self._float_parameter(name) for name in
+                    ('maximum_linear_speed', 'maximum_angular_speed', 'lane_width',
+                     'single_line_max_speed', 'single_line_speed_scale', 'projection_max_forward_m',
+                     'metric_path_min_m', 'metric_path_max_m',
+                     'near_pair_max_m', 'single_line_turn_speed',
+                     'single_line_turn_delay_seconds', 'single_line_turn_seconds',
+                     'single_line_visibility_timeout',
+                     'lane_loss_hold_seconds', 'lane_loss_stop_seconds', 'lane_loss_max_speed',
+                     'linear_velocity', 'lookahead_distance')]]
+        if not np.isfinite(values).all():
+            return 'Metric control parameters must be finite'
+        if (not np.isfinite(duration) or duration < 0 or
+                not 0 <= self._metric_speed() <= self._float_parameter('maximum_linear_speed') <= .5 or
+                not 0 < self._float_parameter('maximum_angular_speed') <= 3. or
+                not .05 <= self._metric_lookahead() <= self._float_parameter('projection_max_forward_m') <= 5. or
+                not .05 <= self._float_parameter('metric_path_min_m') < self._metric_lookahead() <=
+                    self._float_parameter('metric_path_max_m') <= self._float_parameter('projection_max_forward_m') or
+                not self._float_parameter('metric_path_min_m')+.04 <=
+                    self._float_parameter('near_pair_max_m') <= self._float_parameter('metric_path_max_m') or
+                not 0 < self._float_parameter('single_line_turn_speed') <=
+                    self._float_parameter('maximum_angular_speed') or
+                not 0 < self._float_parameter('single_line_turn_delay_seconds') <= 20. or
+                not 0 < self._float_parameter('single_line_turn_seconds') <= 20. or
+                not .1 <= self._float_parameter('single_line_visibility_timeout') <= 1. or
+                not .04 <= self._float_parameter('lane_width') <= 1.5 or
+                not 0 < self._float_parameter('single_line_max_speed') <= self._float_parameter('maximum_linear_speed') or
+                not 0 < self._float_parameter('single_line_speed_scale') <= 1 or
+                not 0 <= self._float_parameter('lane_loss_hold_seconds') < self._float_parameter('lane_loss_stop_seconds') <= 1.5 or
+                not 0 <= self._float_parameter('lane_loss_max_speed') <= self._float_parameter('maximum_linear_speed') or
+                self._int_parameter('path_polynomial_degree') not in (1, 2, 3) or
+                self._float_parameter('linear_velocity') < -1 or self._float_parameter('lookahead_distance') < -1 or
+                not np.isfinite(self._float_parameter('metric_single_line_timeout')) or
+                self._float_parameter('metric_single_line_timeout') < 0):
+            return 'Metric control parameters invalid'
+        return None
+
+    def _safety_stop_reason(self, now):
+        reason = self._calibration_stop_reason()
+        if reason:
+            return reason
+        if self.last_image_time is None:
+            return 'no camera frame'
+        image_age = (now - self.last_image_time).nanoseconds / 1e9
+        if image_age > self._float_parameter('image_timeout'):
+            return f'camera timeout ({image_age:.2f}s)'
+        if self.inference_error is not None:
+            return 'inference failed'
+        if (self._bool_parameter('corner_enabled') and self.metric_target and
+                self.metric_target.get('corner_speed_cap') is not None):
+            odom = self.corner_odom
+            if odom is None or not 0 <= now.nanoseconds/1e9-odom[0] <= self._float_parameter('corner_odom_timeout'):
+                return 'corner odometry timeout'
+        if self.last_result_input_time is not None:
+            input_age = (now - self.last_result_input_time).nanoseconds / 1e9
+            if input_age > self._float_parameter('result_timeout'):
+                return f'inference input expired ({input_age:.2f}s)'
+        if self._bool_parameter('use_lidar_guard'):
+            if self.last_scan_time is None:
+                return 'no lidar scan'
+            scan_age = (now - self.last_scan_time).nanoseconds / 1e9
+            if scan_age > self._float_parameter('lidar_timeout'):
+                return f'lidar timeout ({scan_age:.2f}s)'
+            if not self.front_clear:
+                return 'obstacle ahead'
+        return None
+
+    @staticmethod
+    def _image_to_bgr(message):
+        """Decode the existing JPEG camera stream or a raw ROS image."""
+        if isinstance(message, CompressedImage):
+            frame = cv2.imdecode(np.frombuffer(message.data, dtype=np.uint8),
+                                 cv2.IMREAD_COLOR)
+            if frame is None:
+                raise ValueError('Invalid compressed camera frame')
+            return frame
+        encoding = message.encoding.casefold()
+        channels_by_encoding = {
+            'bgr8': 3, 'rgb8': 3, '8uc3': 3,
+            'bgra8': 4, 'rgba8': 4,
+            'mono8': 1, '8uc1': 1,
+            'yuyv': 2, 'yuv422_yuy2': 2,
+        }
+        if encoding not in channels_by_encoding:
+            raise ValueError(f'Unsupported camera encoding: {message.encoding}')
+        channels = channels_by_encoding[encoding]
+        rows = np.frombuffer(message.data, dtype=np.uint8).reshape(
+            message.height, message.step)
+        pixels = rows[:, :message.width * channels].reshape(
+            message.height, message.width, channels)
+        if encoding == 'rgb8':
+            pixels = cv2.cvtColor(pixels, cv2.COLOR_RGB2BGR)
+        elif encoding == 'rgba8':
+            pixels = cv2.cvtColor(pixels, cv2.COLOR_RGBA2BGR)
+        elif encoding == 'bgra8':
+            pixels = cv2.cvtColor(pixels, cv2.COLOR_BGRA2BGR)
+        elif encoding in ('mono8', '8uc1'):
+            pixels = cv2.cvtColor(pixels[:, :, 0], cv2.COLOR_GRAY2BGR)
+        elif encoding in ('yuyv', 'yuv422_yuy2'):
+            pixels = cv2.cvtColor(pixels, cv2.COLOR_YUV2BGR_YUY2)
+        return np.ascontiguousarray(pixels)
+
+    @staticmethod
+    def _bgr_to_message(frame, header):
+        """Build a bgr8 ROS image without cv_bridge."""
+        message = Image()
+        message.header = header
+        message.height, message.width = frame.shape[:2]
+        message.encoding = 'bgr8'
+        message.is_bigendian = 0
+        message.step = message.width * 3
+        message.data = np.ascontiguousarray(frame).tobytes()
+        return message
+
+    def _publish_debug(self, frame, polygons, boundary_count, header):
+        overlay = frame.copy()
+        for class_id, polygon in polygons:
+            color = (
+                (255, 180, 0) if class_id == self.lane_class_id
+                else (0, 0, 255))
+            cv2.fillPoly(overlay, [polygon], color)
+            cv2.polylines(frame, [polygon], True, color, 2)
+        cv2.addWeighted(overlay, 0.28, frame, 0.72, 0.0, frame)
+        height, width = frame.shape[:2]
+        calibration = getattr(self, 'floor_calibration', None)
+        robot_calibration = getattr(self, 'robot_calibration', None)
+        if robot_calibration:
+            for class_id, polygon in polygons:
+                point = max(polygon, key=lambda p: p[1])
+                label = 'Lane' if class_id == self.lane_class_id else 'Crossline'
+                try:
+                    x_m, y_m = robot_floor_point(*map(float, point), robot_calibration, (width, height))
+                    text = f'{label} base X~{x_m*100:.1f} Y~{y_m*100:.1f}cm'
+                except ValueError:
+                    text = f'{label} base distance N/A'
+                cv2.putText(frame, text, (10, max(90, min(height-10, int(point[1])))),
+                            cv2.FONT_HERSHEY_SIMPLEX, .45, (0, 255, 255), 1)
+            cv2.putText(frame, 'URDF projection: mounting UNVERIFIED; X forward Y left',
+                        (10, 69), cv2.FONT_HERSHEY_SIMPLEX, .39, (0, 220, 255), 1)
+            target = getattr(self, 'metric_target', None)
+            if target:
+                cv2.putText(frame, f"Target X={target['x_m']*100:.1f} Y={target['y_m']*100:.1f}cm",
+                            (10, 89), cv2.FONT_HERSHEY_SIMPLEX, .45, (0, 255, 0), 1)
+        if calibration:
+            for class_id, polygon in polygons:
+                # Bottom-most detected vertex; never clamp/extrapolate a
+                # near out-of-range line into the calibrated band.
+                point = max(polygon, key=lambda p: p[1])
+                label = 'Lane' if class_id == self.lane_class_id else 'Crossline'
+                try:
+                    distance = forward_cm(float(point[0]), float(point[1]),
+                                          calibration, (width, height))
+                    text = f'{label} cam-forward~{distance:.1f}cm'
+                except ValueError:
+                    text = f'{label} distance N/A (calibration range)'
+                x = max(5, min(int(point[0]), width-330))
+                y = max(85, min(int(point[1])-8, height-10))
+                cv2.putText(frame, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX,
+                            .45, (0, 255, 255), 1)
+            cv2.putText(frame, 'APPROX camera-forward only; mount unverified',
+                        (10, 69), cv2.FONT_HERSHEY_SIMPLEX, .43, (0, 220, 255), 1)
+        samples = () if robot_calibration else (
+            (self.active_near_y_ratio,
+             self.near_center, (0, 255, 0)),
+            (self._float_parameter('far_y_ratio'),
+             self.far_center, (0, 255, 255)),
+        )
+        for ratio, center, color in samples:
+            y_coordinate = int(height * ratio)
+            cv2.line(
+                frame, (0, y_coordinate), (width - 1, y_coordinate), color, 1)
+            if center is not None:
+                cv2.circle(frame, (int(center), y_coordinate), 6, color, -1)
+        cv2.line(
+            frame, (width // 2, 0), (width // 2, height - 1),
+            (255, 255, 255), 1)
+        cv2.putText(
+            frame,
+            f'Lane={self.lane_instances} Crossline={self.crossline_instances} '
+            f'used_boundaries={boundary_count}',
+            (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        summary = (f'METRIC target={getattr(self, "metric_target", None)}'
+                   if robot_calibration else
+                   f'near_y={self.active_near_y_ratio:.2f} candidates={self.near_candidate_count}')
+        if robot_calibration:
+            t = getattr(self, 'metric_target', None)
+            summary = (("HELD " if t.get('held') else "") + f"METRIC X={t['x_m']*100:.0f} Y={t['y_m']*100:.1f}cm" if t else 'METRIC no valid target')
+        cv2.putText(
+            frame, summary + f' processing={self.inference_seconds:.2f}s',
+            (10, 47), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        if robot_calibration:
+            draw_metric_target(frame, getattr(self, 'metric_target', None), robot_calibration)
+            reason = getattr(self, 'metric_error', None)
+            if not reason and t:
+                reason = t.get('center_path_warning')
+            if reason:
+                cv2.putText(frame, reason[:90], (10, 68), cv2.FONT_HERSHEY_SIMPLEX,
+                            .4, (0, 0, 255), 1)
+            if self.turn_started_at is not None:
+                elapsed = (self.safety_clock.now()-self.turn_started_at).nanoseconds/1e9
+                limit = self._float_parameter('single_line_turn_seconds')
+                label = (f'{"TURN LIMIT" if self.turn_exhausted else "TURN"} {self.turn_side}: {min(elapsed, limit):.1f}/'
+                         f'{self._float_parameter("single_line_turn_seconds"):.0f}s '
+                         f'near pair {self.near_pair_streak}/2')
+                cv2.putText(frame, label, (10, 130), cv2.FONT_HERSHEY_SIMPLEX,
+                            .45, (0, 165, 255), 1)
+            if self._bool_parameter('corner_enabled'):
+                info = self.corner_policy.debug
+                label = (f"{info.get('mode')} {info.get('direction','')} "
+                         f"angle={info.get('angle_deg',0):.0f} "
+                         f"distance={info.get('corner_distance_m',0)*100:.0f}cm "
+                         f"confirm={info.get('confirmations',0)}")
+                cv2.putText(frame, label, (10, 152), cv2.FONT_HERSHEY_SIMPLEX,
+                            .4, (0, 200, 255), 1)
+        debug_message = self._bgr_to_message(frame, header)
+        self.debug_publisher.publish(debug_message)
+
+    def _detection_summary(self):
+        if getattr(self, 'robot_calibration', None):
+            target = getattr(self, 'metric_target', None)
+            brief = None if target is None else {k: target[k] for k in
+                ('x_m', 'y_m', 'width_m', 'boundary_count', 'inferred')}
+            return (f'Lane={self.lane_instances}, used_boundaries={self.boundary_count}, '
+                    f'metric_target={brief}, corner={self.corner_policy.debug}')
+        return (
+            f'Lane={self.lane_instances}, Crossline={self.crossline_instances}, '
+            f'used_boundaries={self.boundary_count}, '
+            f'candidates={self.near_candidate_count}, '
+            f'near_y={self.active_near_y_ratio:.2f}')
+
+    def _publish_zero(self):
+        self.cmd_publisher.publish(Twist())
+
+    def _publish_status(self, text):
+        now = self.safety_clock.now()
+        unchanged = text == self.last_status_text
+        if (unchanged and self.last_status_time is not None
+                and (now - self.last_status_time).nanoseconds < 1_000_000_000):
+            return
+        message = String()
+        message.data = text
+        self.status_publisher.publish(message)
+        self.last_status_text = text
+        self.last_status_time = now
+        if not unchanged:
+            self.get_logger().info(text)
+
+    def destroy_node(self):
+        """Stop safely while the ROS context is still valid."""
+        if rclpy.ok(context=self.context):
+            self._publish_zero()
+        remote_server = getattr(self, 'remote_server', None)
+        if remote_server is not None:
+            remote_server.close()
+        worker = getattr(self, 'inference_thread', None)
+        if worker is not None:
+            worker.join(timeout=3.)
+        super().destroy_node()
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = None
+    try:
+        node = LaneAutonomy()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
+    finally:
+        if node is not None:
+            node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

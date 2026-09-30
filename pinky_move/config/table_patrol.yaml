@@ -1,0 +1,59 @@
+pinky_move:
+  ros__parameters:
+    # 반드시 false로 시작합니다. 센서를 확인한 뒤 서비스로 켭니다.
+    enabled: false
+
+    image_topic: /camera/image_raw
+    scan_topic: /scan
+    odom_topic: /odom
+    cmd_vel_topic: /cmd_vel
+
+    # 실물 Pinky Pro의 기존 ADC 드라이버가 세 IR 값을 한 배열로 발행합니다.
+    ir_adc_topic: /ir_sensor/range
+
+    # Pinky Pro용 보수적인 저속 기본값입니다.
+    control_frequency: 20.0
+    linear_speed: 0.04
+    linear_acceleration: 0.04
+    angular_speed: 0.5
+    turn_kp: 1.5
+    minimum_turn_speed: 0.15
+    turn_angle_degrees: 180.0
+    turn_tolerance_degrees: 4.0
+    drive_heading_kp: 2.0
+    drive_max_angular_speed: 0.20
+    cross_track_kp: 2.0
+    cross_track_max_correction_degrees: 10.0
+    drive_heading_stop_degrees: 20.0
+
+    # 실제 로봇 첫 바닥 시험용 0.30 m입니다. 책상을 잰 뒤 안전 여백을 두고 조정하세요.
+    # 중앙에서 시작하므로 첫 이동만 절반(0.15 m)입니다.
+    patrol_length: 0.30
+    start_at_center: true
+    pause_seconds: 1.0
+
+    use_surface_guard: true
+    use_lidar_guard: true
+    use_ir_guard: true
+    sensor_timeout: 0.7
+    ir_timeout: 0.3
+
+    # 실측 전에는 의도적으로 주행을 막습니다. HTML의 보정 절차를 마친 뒤
+    # 각 채널의 책상 위 범위를 입력하고 true로 바꾸세요.
+    ir_adc_calibrated: true
+    ir_adc_min_values: [0, 0, 0]
+    ir_adc_max_values: [4095, 4095, 4095]
+
+    # 갈색 책상/시뮬레이션 테이블용 OpenCV HSV 범위입니다.
+    # 실제 책상에서는 README의 보정 절차를 먼저 수행하세요.
+    surface_ratio_threshold: 0.20
+    roi_top_ratio: 0.55
+    surface_h_min: 5
+    surface_h_max: 25
+    surface_s_min: 50
+    surface_v_min: 20
+    surface_v_max: 230
+
+    front_stop_distance: 0.20
+    front_sector_degrees: 30.0
+    turn_stop_distance: 0.12

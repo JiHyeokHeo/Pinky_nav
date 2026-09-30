@@ -1,0 +1,669 @@
+#!/usr/bin/env python3
+"""Safely patrol a straight line on a tabletop with Pinky Pro."""
+
+from enum import Enum
+import math
+
+import cv2
+from cv_bridge import CvBridge
+from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry
+import numpy as np
+import rclpy
+from rclpy.node import Node
+from rclpy.parameter import Parameter
+from rclpy.qos import qos_profile_sensor_data
+from rclpy.signals import SignalHandlerOptions
+from sensor_msgs.msg import Image, LaserScan
+from std_msgs.msg import Bool, Float32, String, UInt16MultiArray
+from std_srvs.srv import SetBool
+
+
+def normalize_angle(angle):
+    """Return an angle in the range [-pi, pi)."""
+    return (angle + math.pi) % (2.0 * math.pi) - math.pi
+
+
+def usable_laser_range(distance, range_min, range_max):
+    """Convert one LaserScan sample to a usable clearance distance."""
+    if math.isnan(distance):
+        return None
+    if math.isinf(distance):
+        return range_max if distance > 0.0 else None
+    if range_min <= distance <= range_max:
+        return distance
+    return None
+
+
+def ir_adc_channels_on_surface(values, minimums, maximums):
+    """Return whether all three raw IR channels match calibrated ranges."""
+    if len(values) != 3 or len(minimums) != 3 or len(maximums) != 3:
+        return False
+
+    try:
+        adc_values = [int(value) for value in values]
+        lower_limits = [int(value) for value in minimums]
+        upper_limits = [int(value) for value in maximums]
+    except (TypeError, ValueError):
+        return False
+
+    return all(
+        0 <= lower <= value <= upper <= 4095
+        for value, lower, upper in zip(
+            adc_values, lower_limits, upper_limits)
+    )
+
+
+def projected_progress(start, current, heading):
+    """Return signed travel along one intended straight-leg heading."""
+    dx = current[0] - start[0]
+    dy = current[1] - start[1]
+    return dx * math.cos(heading) + dy * math.sin(heading)
+
+
+def path_cross_track_error(origin, current, reference_heading):
+    """Return signed lateral displacement from the original patrol line."""
+    dx = current[0] - origin[0]
+    dy = current[1] - origin[1]
+    return -dx * math.sin(reference_heading) + dy * math.cos(
+        reference_heading)
+
+
+def absolute_leg_heading(reference_heading, travel_direction, turn_angle):
+    """Return one of two fixed headings without accumulating turn error."""
+    offset = 0.0 if travel_direction > 0 else turn_angle
+    return normalize_angle(reference_heading + offset)
+
+
+def path_heading_with_correction(base_heading, travel_direction,
+                                 cross_track_error, gain,
+                                 maximum_correction):
+    """Steer a moving leg gently back toward the original patrol line."""
+    correction = -float(travel_direction) * gain * cross_track_error
+    correction = min(maximum_correction, max(-maximum_correction, correction))
+    return normalize_angle(base_heading + correction)
+
+
+def yaw_from_quaternion(quaternion):
+    """Extract planar yaw from a geometry_msgs Quaternion."""
+    sin_yaw = 2.0 * (
+        quaternion.w * quaternion.z
+        + quaternion.x * quaternion.y
+    )
+    cos_yaw = 1.0 - 2.0 * (
+        quaternion.y * quaternion.y
+        + quaternion.z * quaternion.z
+    )
+    return math.atan2(sin_yaw, cos_yaw)
+
+
+class MotionState(Enum):
+    """Internal states of the tabletop patrol controller."""
+
+    DISABLED = 'DISABLED'
+    WAITING = 'WAITING'
+    DRIVING = 'DRIVING'
+    PAUSING = 'PAUSING'
+    TURNING = 'TURNING'
+
+
+class PinkyMove(Node):
+    """Drive a guarded out-and-back tabletop patrol."""
+
+    def __init__(self):
+        super().__init__('pinky_move')
+        self._declare_parameters()
+
+        self.bridge = CvBridge()
+        self.surface_visible = False
+        self.front_clear = False
+        self.rotation_clear = False
+        self.ir_safe = False
+        self.surface_ratio = 0.0
+        self.ir_adc_values = []
+        self.ir_unsafe_streak = 0
+        self.last_image_time = None
+        self.last_scan_time = None
+        self.last_ir_adc_time = None
+        self.last_odom_time = None
+        self.odom_x = None
+        self.odom_y = None
+        self.odom_yaw = None
+        self.route_origin = None
+        self.patrol_reference_yaw = None
+        self.drive_target_yaw = None
+        self.travel_direction = 1
+        self.segment_start = None
+        self.segment_target_distance = None
+        self.turn_target_yaw = None
+        self.current_speed = 0.0
+        self.last_control_time = self.get_clock().now()
+        self.state_started_time = self.last_control_time
+        self.state = MotionState.DISABLED
+        self.last_status = None
+        self.was_enabled = False
+        self.first_leg = True
+
+        image_topic = self._string_parameter('image_topic')
+        scan_topic = self._string_parameter('scan_topic')
+        odom_topic = self._string_parameter('odom_topic')
+        cmd_vel_topic = self._string_parameter('cmd_vel_topic')
+        ir_adc_topic = self._string_parameter('ir_adc_topic')
+
+        self.cmd_vel_publisher = self.create_publisher(
+            Twist, cmd_vel_topic, 10)
+        self.ratio_publisher = self.create_publisher(
+            Float32, '~/surface_ratio', 10)
+        self.ir_safe_publisher = self.create_publisher(
+            Bool, '~/ir_safe', 10)
+        self.status_publisher = self.create_publisher(
+            String, '~/status', 10)
+        self.enable_service = self.create_service(
+            SetBool, '~/enable', self.enable_callback)
+
+        self.create_subscription(
+            Image,
+            image_topic,
+            self.image_callback,
+            qos_profile_sensor_data,
+        )
+        self.create_subscription(
+            LaserScan,
+            scan_topic,
+            self.scan_callback,
+            qos_profile_sensor_data,
+        )
+        self.create_subscription(
+            Odometry, odom_topic, self.odom_callback, 10)
+
+        self.create_subscription(
+            UInt16MultiArray,
+            ir_adc_topic,
+            self.ir_adc_callback,
+            qos_profile_sensor_data,
+        )
+
+        frequency = max(1.0, self._float_parameter('control_frequency'))
+        self.control_timer = self.create_timer(
+            1.0 / frequency, self.control_loop)
+
+        self.get_logger().info(
+            'Table patrol ready and disabled. '
+            'Call /pinky_move/enable with data=true after safety checks.')
+        self.get_logger().info(
+            f'Sensors: image={image_topic}, scan={scan_topic}, '
+            f'ir_adc={ir_adc_topic}, odom={odom_topic}; '
+            f'output={cmd_vel_topic}')
+
+    def _declare_parameters(self):
+        """Declare all user-configurable ROS parameters."""
+        parameters = (
+            ('enabled', False),
+            ('image_topic', '/camera/image_raw'),
+            ('scan_topic', '/scan'),
+            ('odom_topic', '/odom'),
+            ('cmd_vel_topic', '/cmd_vel'),
+            ('ir_adc_topic', '/ir_sensor/range'),
+            ('control_frequency', 20.0),
+            ('linear_speed', 0.04),
+            ('linear_acceleration', 0.04),
+            ('angular_speed', 0.5),
+            ('turn_kp', 1.5),
+            ('minimum_turn_speed', 0.15),
+            ('turn_angle_degrees', 180.0),
+            ('turn_tolerance_degrees', 4.0),
+            ('drive_heading_kp', 2.0),
+            ('drive_max_angular_speed', 0.20),
+            ('cross_track_kp', 2.0),
+            ('cross_track_max_correction_degrees', 10.0),
+            ('drive_heading_stop_degrees', 20.0),
+            ('patrol_length', 2.20),
+            ('start_at_center', True),
+            ('pause_seconds', 1.0),
+            ('use_surface_guard', True),
+            ('use_lidar_guard', True),
+            ('use_ir_guard', False),
+            ('ir_adc_calibrated', False),
+            ('ir_adc_min_values', [0, 0, 0]),
+            ('ir_adc_max_values', [4095, 4095, 4095]),
+            ('ir_unsafe_consecutive_samples', 3),
+            ('ir_timeout', 0.3),
+            ('surface_ratio_threshold', 0.20),
+            ('roi_top_ratio', 0.55),
+            ('surface_h_min', 5),
+            ('surface_h_max', 25),
+            ('surface_s_min', 50),
+            ('surface_v_min', 20),
+            ('surface_v_max', 230),
+            ('front_stop_distance', 0.20),
+            ('front_sector_degrees', 30.0),
+            ('turn_stop_distance', 0.12),
+            ('sensor_timeout', 0.7),
+        )
+        for name, default in parameters:
+            self.declare_parameter(name, default)
+
+    def enable_callback(self, request, response):
+        """Enable or disable motion through a simple ROS service."""
+        result = self.set_parameters([
+            Parameter('enabled', Parameter.Type.BOOL, request.data),
+        ])
+        response.success = bool(result and result[0].successful)
+        response.message = (
+            'table patrol enabled' if request.data
+            else 'table patrol disabled; stop command sent'
+        )
+        if not request.data:
+            self._disable_and_stop()
+        return response
+
+    def image_callback(self, msg):
+        """Measure how much configured tabletop colour is in the image ROI."""
+        try:
+            image = self.bridge.imgmsg_to_cv2(
+                msg, desired_encoding='bgr8')
+        except Exception as error:  # cv_bridge supplies several error types.
+            self.surface_visible = False
+            self.get_logger().error(f'Image conversion failed: {error}')
+            return
+
+        height = image.shape[0]
+        roi_top_ratio = min(max(
+            self._float_parameter('roi_top_ratio'), 0.0), 0.95)
+        roi = image[int(height * roi_top_ratio):, :]
+        hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+        lower = np.array([
+            self._int_parameter('surface_h_min'),
+            self._int_parameter('surface_s_min'),
+            self._int_parameter('surface_v_min'),
+        ], dtype=np.uint8)
+        upper = np.array([
+            self._int_parameter('surface_h_max'),
+            255,
+            self._int_parameter('surface_v_max'),
+        ], dtype=np.uint8)
+
+        mask = cv2.inRange(hsv, lower, upper)
+        self.surface_ratio = (
+            float(cv2.countNonZero(mask)) / float(mask.size))
+        threshold = self._float_parameter('surface_ratio_threshold')
+        self.surface_visible = self.surface_ratio >= threshold
+        self.last_image_time = self.get_clock().now()
+
+        ratio_msg = Float32()
+        ratio_msg.data = self.surface_ratio
+        self.ratio_publisher.publish(ratio_msg)
+
+    def scan_callback(self, msg):
+        """Check front driving clearance and all-around turning clearance."""
+        half_sector = math.radians(
+            self._float_parameter('front_sector_degrees') / 2.0)
+        front_ranges = []
+        all_ranges = []
+
+        for index, distance in enumerate(msg.ranges):
+            usable_distance = usable_laser_range(
+                distance, msg.range_min, msg.range_max)
+            if usable_distance is None:
+                continue
+            all_ranges.append(usable_distance)
+            angle = msg.angle_min + index * msg.angle_increment
+            angle = normalize_angle(angle)
+            if abs(angle) <= half_sector:
+                front_ranges.append(usable_distance)
+
+        self.front_clear = (
+            bool(front_ranges)
+            and min(front_ranges)
+            > self._float_parameter('front_stop_distance')
+        )
+        self.rotation_clear = (
+            bool(all_ranges)
+            and min(all_ranges)
+            > self._float_parameter('turn_stop_distance')
+        )
+        self.last_scan_time = self.get_clock().now()
+
+    def ir_adc_callback(self, msg):
+        """Evaluate the real robot's three raw reflective IR channels."""
+        self.ir_adc_values = [int(value) for value in msg.data]
+        minimums = self._integer_array_parameter('ir_adc_min_values')
+        maximums = self._integer_array_parameter('ir_adc_max_values')
+        sample_is_safe = ir_adc_channels_on_surface(
+            self.ir_adc_values, minimums, maximums)
+        consecutive_unsafe = max(
+            1, self._int_parameter('ir_unsafe_consecutive_samples'))
+        if sample_is_safe:
+            self.ir_unsafe_streak = 0
+            self.ir_safe = True
+        else:
+            self.ir_unsafe_streak += 1
+            self.ir_safe = self.ir_unsafe_streak < consecutive_unsafe
+        self.last_ir_adc_time = self.get_clock().now()
+        self._publish_ir_safe()
+
+    def _publish_ir_safe(self):
+        """Publish the combined three-sensor tabletop decision."""
+        message = Bool()
+        message.data = bool(self.ir_safe)
+        self.ir_safe_publisher.publish(message)
+
+    def odom_callback(self, msg):
+        """Store the latest planar robot pose."""
+        position = msg.pose.pose.position
+        self.odom_x = float(position.x)
+        self.odom_y = float(position.y)
+        self.odom_yaw = yaw_from_quaternion(msg.pose.pose.orientation)
+        self.last_odom_time = self.get_clock().now()
+
+    def control_loop(self):
+        """Advance the patrol state machine and publish one velocity command."""
+        now = self.get_clock().now()
+        dt = max((now - self.last_control_time).nanoseconds / 1e9, 0.0)
+        self.last_control_time = now
+        enabled = bool(self.get_parameter('enabled').value)
+
+        if not enabled:
+            if self.was_enabled or self.state is not MotionState.DISABLED:
+                self._disable_and_stop()
+            else:
+                self._publish_command()
+            self.was_enabled = False
+            self._publish_status('DISABLED: motion permission is off')
+            return
+
+        starting_patrol = not self.was_enabled
+
+        ready, reason = self._base_safety_ready(now)
+        if not ready:
+            self.current_speed = 0.0
+            self._publish_command()
+            self._publish_status(f'STOPPED: {reason}')
+            return
+
+        if starting_patrol:
+            self._reset_patrol(now)
+        self.was_enabled = True
+
+        if self.state is MotionState.WAITING:
+            self._start_driving(now)
+
+        if self.state is MotionState.DRIVING:
+            self._control_driving(now, dt)
+        elif self.state is MotionState.PAUSING:
+            self._control_pausing(now)
+        elif self.state is MotionState.TURNING:
+            self._control_turning(now)
+
+    def _base_safety_ready(self, now):
+        """Return whether required sensors and tabletop guards are safe."""
+        timeout = self._float_parameter('sensor_timeout')
+        if not self._is_fresh(self.last_odom_time, now, timeout):
+            return False, 'odometry missing or stale'
+
+        if bool(self.get_parameter('use_surface_guard').value):
+            if not self._is_fresh(self.last_image_time, now, timeout):
+                return False, 'camera missing or stale'
+            if not self.surface_visible:
+                return False, 'configured tabletop colour is not visible'
+
+        if bool(self.get_parameter('use_ir_guard').value):
+            ir_timeout = self._float_parameter('ir_timeout')
+            calibrated = bool(
+                self.get_parameter('ir_adc_calibrated').value)
+            if not calibrated:
+                return False, 'IR ADC thresholds are not calibrated'
+            if not self._is_fresh(
+                    self.last_ir_adc_time, now, ir_timeout):
+                return False, 'IR ADC data missing or stale'
+            if len(self.ir_adc_values) != 3:
+                return False, 'IR ADC message needs three channels'
+            if not self.ir_safe:
+                return False, 'one or more IR sensors do not see tabletop'
+
+        if bool(self.get_parameter('use_lidar_guard').value):
+            if not self._is_fresh(self.last_scan_time, now, timeout):
+                return False, 'lidar missing or stale'
+            if self.state is MotionState.TURNING:
+                if not self.rotation_clear:
+                    return False, 'turning space is blocked'
+            elif not self.front_clear:
+                return False, 'front path is blocked'
+        return True, ''
+
+    def _control_driving(self, now, dt):
+        """Drive forward until the current leg distance has been reached."""
+        distance = self._distance_from_segment_start()
+        if distance >= self.segment_target_distance:
+            self.current_speed = 0.0
+            self.state = MotionState.PAUSING
+            self.state_started_time = now
+            self._publish_command()
+            self._publish_status(
+                f'PAUSING: leg complete at {distance:.3f} m')
+            return
+
+        cross_track = path_cross_track_error(
+            self.route_origin,
+            (self.odom_x, self.odom_y),
+            self.patrol_reference_yaw,
+        )
+        maximum_correction = math.radians(max(
+            0.0, self._float_parameter(
+                'cross_track_max_correction_degrees')))
+        target_heading = path_heading_with_correction(
+            self.drive_target_yaw,
+            self.travel_direction,
+            cross_track,
+            max(0.0, self._float_parameter('cross_track_kp')),
+            maximum_correction,
+        )
+        heading_error = normalize_angle(target_heading - self.odom_yaw)
+        maximum_angular = max(
+            0.0, self._float_parameter('drive_max_angular_speed'))
+        angular_z = min(maximum_angular, max(
+            -maximum_angular,
+            self._float_parameter('drive_heading_kp') * heading_error,
+        ))
+
+        target_speed = max(0.0, self._float_parameter('linear_speed'))
+        heading_stop = math.radians(max(
+            0.1, self._float_parameter('drive_heading_stop_degrees')))
+        if abs(heading_error) > heading_stop:
+            target_speed = 0.0
+        acceleration = max(
+            0.0, self._float_parameter('linear_acceleration'))
+        if acceleration == 0.0:
+            self.current_speed = target_speed
+        elif self.current_speed < target_speed:
+            self.current_speed = min(
+                target_speed, self.current_speed + acceleration * dt)
+        else:
+            self.current_speed = max(
+                target_speed, self.current_speed - acceleration * dt)
+        self._publish_command(
+            linear_x=self.current_speed,
+            angular_z=angular_z,
+        )
+        self._publish_status(
+            f'DRIVING: {distance:.3f}/{self.segment_target_distance:.3f} m '
+            f'cross_track={cross_track:.3f} m '
+            f'heading_error={math.degrees(heading_error):.2f} deg'
+        )
+
+    def _control_pausing(self, now):
+        """Hold still briefly before beginning a 180 degree turn."""
+        self.current_speed = 0.0
+        self._publish_command()
+        elapsed = (now - self.state_started_time).nanoseconds / 1e9
+        pause_seconds = max(0.0, self._float_parameter('pause_seconds'))
+        if elapsed < pause_seconds:
+            self._publish_status(
+                f'PAUSING: {pause_seconds - elapsed:.1f} s remaining')
+            return
+
+        turn_angle = math.radians(
+            self._float_parameter('turn_angle_degrees'))
+        self.travel_direction *= -1
+        self.turn_target_yaw = absolute_leg_heading(
+            self.patrol_reference_yaw,
+            self.travel_direction,
+            turn_angle,
+        )
+        self.state = MotionState.TURNING
+        self.state_started_time = now
+        self._publish_status('TURNING: starting turn')
+
+    def _control_turning(self, now):
+        """Turn in place, then begin the next straight leg."""
+        error = normalize_angle(self.turn_target_yaw - self.odom_yaw)
+        tolerance = math.radians(
+            max(0.1, self._float_parameter('turn_tolerance_degrees')))
+        if abs(error) <= tolerance:
+            self._publish_command()
+            self.first_leg = False
+            self._start_driving(now)
+            return
+
+        maximum = max(0.0, self._float_parameter('angular_speed'))
+        minimum = min(
+            maximum,
+            max(0.0, self._float_parameter('minimum_turn_speed')),
+        )
+        turn_kp = max(0.0, self._float_parameter('turn_kp'))
+        angular_speed = min(maximum, max(minimum, turn_kp * abs(error)))
+        angular_speed = math.copysign(angular_speed, error)
+        self._publish_command(angular_z=angular_speed)
+        self._publish_status(
+            f'TURNING: {math.degrees(error):.1f} deg remaining')
+
+    def _reset_patrol(self, now):
+        """Arm a fresh patrol without moving until all safety checks pass."""
+        self.state = MotionState.WAITING
+        self.state_started_time = now
+        self.route_origin = (self.odom_x, self.odom_y)
+        self.patrol_reference_yaw = self.odom_yaw
+        self.drive_target_yaw = self.odom_yaw
+        self.travel_direction = 1
+        self.segment_start = None
+        self.segment_target_distance = None
+        self.turn_target_yaw = None
+        self.current_speed = 0.0
+        self.first_leg = True
+        self._publish_command()
+        self._publish_status('WAITING: checking sensors')
+
+    def _start_driving(self, now):
+        """Record a new leg start pose and select its target distance."""
+        patrol_length = max(0.05, self._float_parameter('patrol_length'))
+        start_at_center = bool(
+            self.get_parameter('start_at_center').value)
+        if self.first_leg and start_at_center:
+            self.segment_target_distance = patrol_length / 2.0
+        else:
+            self.segment_target_distance = patrol_length
+        self.segment_start = (self.odom_x, self.odom_y)
+        turn_angle = math.radians(
+            self._float_parameter('turn_angle_degrees'))
+        self.drive_target_yaw = absolute_leg_heading(
+            self.patrol_reference_yaw, self.travel_direction, turn_angle)
+        self.state = MotionState.DRIVING
+        self.state_started_time = now
+        self.current_speed = 0.0
+        self._publish_status(
+            f'DRIVING: new {self.segment_target_distance:.3f} m leg')
+
+    def _disable_and_stop(self):
+        """Clear the patrol state and publish an immediate stop command."""
+        self.state = MotionState.DISABLED
+        self.segment_start = None
+        self.turn_target_yaw = None
+        self.current_speed = 0.0
+        self._publish_command()
+
+    def _distance_from_segment_start(self):
+        """Return progress along the intended heading, ignoring side drift."""
+        if self.segment_start is None or self.drive_target_yaw is None:
+            return 0.0
+        return max(0.0, projected_progress(
+            self.segment_start,
+            (self.odom_x, self.odom_y),
+            self.drive_target_yaw,
+        ))
+
+    def _publish_command(self, linear_x=0.0, angular_z=0.0):
+        """Publish a differential-drive velocity command."""
+        command = Twist()
+        command.linear.x = float(linear_x)
+        command.angular.z = float(angular_z)
+        self.cmd_vel_publisher.publish(command)
+
+    def _publish_status(self, text):
+        """Publish and log status only when it changes meaningfully."""
+        status_key = text.split(':', maxsplit=1)[0]
+        previous_key = (
+            self.last_status.split(':', maxsplit=1)[0]
+            if self.last_status else None
+        )
+        status_msg = String()
+        status_msg.data = text
+        self.status_publisher.publish(status_msg)
+        if status_key != previous_key:
+            self.get_logger().info(
+                f'{text} | surface_ratio={self.surface_ratio:.3f} '
+                f'| ir_safe={self.ir_safe}')
+        self.last_status = text
+
+    @staticmethod
+    def _is_fresh(last_time, now, timeout):
+        """Return whether a sensor timestamp is within the allowed age."""
+        if last_time is None:
+            return False
+        age = (now - last_time).nanoseconds / 1e9
+        return age <= timeout
+
+    def _string_parameter(self, name):
+        """Read one string parameter."""
+        return str(self.get_parameter(name).value)
+
+    def _float_parameter(self, name):
+        """Read one floating-point parameter."""
+        return float(self.get_parameter(name).value)
+
+    def _int_parameter(self, name):
+        """Read one integer parameter."""
+        return int(self.get_parameter(name).value)
+
+    def _integer_array_parameter(self, name):
+        """Read one integer-array parameter."""
+        return [int(value) for value in self.get_parameter(name).value]
+
+    def stop_robot(self):
+        """Publish several stop commands to improve shutdown reliability."""
+        self.current_speed = 0.0
+        for _ in range(3):
+            self._publish_command()
+
+
+def main(args=None):
+    """Run the tabletop patrol ROS node."""
+    # Keep the context alive so finally can publish zero velocity.
+    rclpy.init(
+        args=args,
+        signal_handler_options=SignalHandlerOptions.NO,
+    )
+    node = PinkyMove()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if rclpy.ok():
+            node.stop_robot()
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

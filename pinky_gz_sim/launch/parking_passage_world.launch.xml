@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- Starts the shared Gazebo world only.  Spawn robots with parking_passage_robot.launch.xml. -->
+<launch>
+  <arg name="gui" default="true"/>
+  <arg name="world" default="$(find-pkg-share pinky_gz_sim)/worlds/parking_passage.world"/>
+  <include file="$(find-pkg-share ros_gz_sim)/launch/gz_sim.launch.py">
+    <arg name="gz_args" value="-r -s -v4, $(var world)"/>
+    <arg name="on_exit_shutdown" value="true"/>
+  </include>
+  <include file="$(find-pkg-share ros_gz_sim)/launch/gz_sim.launch.py" if="$(var gui)">
+    <arg name="gz_args" value="-g -v4"/>
+  </include>
+</launch>

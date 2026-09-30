@@ -1,0 +1,117 @@
+lane_autonomy:
+  ros__parameters:
+    # 반드시 false로 시작하고 카메라/라이다/마스크를 확인한 뒤 서비스로 켭니다.
+    enabled: false
+    # 0: run until explicitly disabled or stopped by perception/watchdog checks.
+    max_enabled_seconds: 0.0
+    # Actual single-boundary observations must continue; not blind driving.
+    metric_single_line_timeout: 0.0  # continuous ONLY while the reference remains tracked
+    # Width between boundary centrelines along their normal, in metres.
+    # 0.154 is a prior camera estimate for THIS course, not a tape measurement.
+    lane_width: 0.154
+    path_polynomial_degree: 3
+    projection_max_forward_m: 2.0
+    metric_path_min_m: 0.14  # Fit boundary samples from 14 cm forward.
+    metric_path_max_m: 0.48  # Stop fitting at 48 cm; no distant lane extrapolation.
+    near_pair_max_m: 0.28  # Both measured boundaries must overlap inside 14-28 cm.
+    # Observed-boundary classifier + conservative local corner planner (no Nav2).
+    # Thresholds are initial tuning values, not validated course measurements.
+    corner_enabled: true
+    corner_odom_topic: /odom
+    corner_odom_timeout: 0.3
+    corner_angle_deg: 50.0
+    corner_window_m: 0.12
+    corner_segment_m: 0.05
+    corner_confirm_frames: 3
+    corner_exit_frames: 3
+    corner_max_gap_s: 0.6
+    corner_approach_m: 0.30
+    # Confirmed but constrained corner path: slower than normal lane tracking.
+    corner_speed_mps: 0.05
+    corner_staged_turn: true  # Confirmed 65-115 degree corners use ENTRY/BRAKE/PIVOT_TURN.
+    corner_entry_speed_mps: 0.03
+    corner_pivot_tolerance_m: 0.025
+    corner_brake_seconds: 0.3
+    corner_spin_timeout_s: 20.0
+    corner_max_angular_speed: 0.25  # Corner approach/turn only; ordinary limit remains below.
+    corner_min_speed_mps: 0.003
+    corner_clearance_m: 0.0  # Painted line margin removed; actual robot footprint still checked.
+    # Existing navigation footprint, not a reduced shape to force acceptance.
+    # Width .154 currently CANNOT pass .150 + 2*.005 clearance: measure the lane.
+    corner_robot_front_m: 0.060
+    corner_robot_rear_m: 0.090
+    corner_robot_half_width_m: 0.075
+    single_line_turn_speed: 0.08  # rad/s, zero forward speed while reacquiring.
+    single_line_turn_delay_seconds: 3.0  # Continuous one-sided detections before turning.
+    single_line_turn_requires_path_loss: true  # Keep following a valid single-line centre path.
+    single_line_turn_seconds: 20.0  # Hard cap per turn episode.
+    single_line_visibility_timeout: 0.6  # Stop turning if near boundary vanishes.
+    # New aliases: -1 preserves linear_speed / metric_lookahead_m below.
+    linear_velocity: -1.0
+    lookahead_distance: -1.0
+    metric_lookahead_m: 0.22  # Radial target distance; support remains 14-48 cm.
+    # Safety upper bound for explicit tuning; normal default remains 0.10 m/s.
+    maximum_linear_speed: 0.20
+    # A single trusted boundary is a reduced-confidence / risk condition.
+    single_line_max_speed: 0.03
+    # Empty masks only: short hold at <=1cm/s, then stop by 0.8s since last good path.
+    lane_loss_hold_seconds: 0.3
+    lane_loss_stop_seconds: 0.8
+    # Do not apply the risk-zone cruise speed to stale/empty detections.
+    lane_loss_max_speed: 0.01
+    model_path: /home/tory/Downloads/yolo_runs/segment/train/weights/best.pt
+
+    image_topic: /pinky/camera/image_raw/compressed
+    image_compressed: true
+    scan_topic: /scan
+    cmd_vel_topic: /cmd_vel
+    debug_image_topic: /lane_autonomy/debug_image
+    control_frequency: 20.0
+    inference_frequency: 10.0
+    imgsz: 320
+    confidence: 0.55
+    iou: 0.70
+    device: ''
+
+    # 지정된 near 범위에서 유효한 두 경계가 있는 가장 가까운 높이를 우선합니다.
+    # 두 경계 쌍이 없을 때만 한 경계로 추정합니다. 탐색 범위 밖 먼 선은 제외합니다.
+    near_y_ratio: 0.78
+    adaptive_near_min_y_ratio: 0.66
+    adaptive_near_step: 0.04
+    far_y_ratio: 0.58
+    sample_band_ratio: 0.04
+    initial_lane_width_ratio: 0.55
+    far_lane_width_scale: 0.55
+    lane_width_alpha: 0.15
+    minimum_lane_width_ratio: 0.18
+    maximum_lane_width_ratio: 0.95
+
+    lateral_gain: 0.85
+    heading_gain: 1.15
+    # Far curve controls slowdown, not early steering into the next S bend.
+    near_priority_steering: true
+    near_center_deadband: 0.04
+    curve_slowdown_gain: 0.75
+    steering_alpha: 0.35
+    # Normal verified two-boundary tracking speed; constrained modes are capped above.
+    linear_speed: 0.10
+    minimum_linear_speed: 0.01
+    single_line_speed_scale: 0.70
+    maximum_angular_speed: 0.15
+    image_timeout: 1.50
+    # 카메라 수신, 검출 완료 후 경과, 추론 입력 수신 후 경과를 각각 검사합니다.
+    lane_lost_timeout: 1.50
+    result_timeout: 2.0  # Pinky2 remote launch overrides this with result_timeout:=0.8.
+
+    # Crossline이 가까운 상태가 2프레임 이어지면 3초 정지합니다.
+    crossline_stop_seconds: 3.0
+    crossline_trigger_y_ratio: 0.68
+    crossline_minimum_area_ratio: 0.002
+    crossline_confirm_frames: 2
+    crossline_release_seconds: 0.8
+
+    use_lidar_guard: false
+    lidar_timeout: 0.7
+    front_stop_distance: 0.25
+    front_sector_degrees: 25.0
+    publish_debug_image: true

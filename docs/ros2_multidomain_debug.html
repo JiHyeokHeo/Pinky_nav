@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ROS 2 다중 도메인·Nav2 디버깅 노트</title>
+  <style>
+    :root { color-scheme: dark; --bg:#10151e; --panel:#192231; --text:#e9eef7; --muted:#adbbcf; --ok:#65d6a7; --bad:#ff8f8f; --accent:#8eb8ff; }
+    body { max-width: 960px; margin: 0 auto; padding: 28px 18px 60px; background:var(--bg); color:var(--text); font: 16px/1.65 system-ui, sans-serif; }
+    h1,h2 { line-height:1.25; } h2 { margin-top:42px; color:var(--accent); }
+    .card { background:var(--panel); border-radius:10px; padding:18px 20px; margin:16px 0; }
+    code { background:#263449; padding:2px 5px; border-radius:4px; } pre { overflow:auto; background:#090d13; padding:14px; border-radius:8px; } pre code { padding:0; background:none; }
+    .ok { color:var(--ok); } .bad { color:var(--bad); } table { width:100%; border-collapse:collapse; } td,th { padding:9px; border-bottom:1px solid #344154; text-align:left; }
+  </style>
+</head>
+<body>
+  <h1>ROS 2 다중 도메인·Nav2 디버깅 노트</h1>
+  <p>프로젝트: <code>ws/pinky_pro</code> · 중앙 관제 Domain 22 · 로봇 1 Domain 23 · 로봇 2 Domain 24</p>
+
+  <div class="card">
+    <strong>이번 증상</strong><br>
+    Domain 22에서 <code>/clicked_point</code>를 발행했지만 Gazebo 로봇이 움직이지 않았다.
+    관제 노드는 점을 수신했으나, 로봇 도메인의 Nav2 구성요소가 컨테이너에 올라오지 않아
+    <code>NavigateToPose</code> 액션 서버가 없었던 것이 원인이었다.
+  </div>
+
+  <h2>1. 전체 명령 흐름</h2>
+  <pre><code>Domain 22                 domain_bridge             Domain 23 / 24
+/clicked_point ─▶ coordinator ─▶ /pinkyN/navigate_to_pose ─▶ /pinkyN Nav2
+                                                                  │
+Gazebo ◀──────────────────────── /pinkyN/cmd_vel ◀───────────────┘</code></pre>
+  <p>도메인은 DDS 통신 범위를 나누고, 네임스페이스는 같은 도메인 안에서 로봇별 토픽·액션 이름을 나눈다. 따라서 관제에서는 <code>/pinky1/...</code>, <code>/pinky2/...</code>처럼 구분한다.</p>
+
+  <h2>2. 가장 먼저 확인할 4단계</h2>
+  <table>
+    <tr><th>단계</th><th>명령</th><th>정상 기준</th></tr>
+    <tr><td>관제 수신</td><td><code>ROS_DOMAIN_ID=22 ros2 topic info /clicked_point -v</code></td><td>coordinator 구독자 1개 이상</td></tr>
+    <tr><td>Nav2 액션</td><td><code>ROS_DOMAIN_ID=23 ros2 action list -t</code></td><td><code>/pinky1/navigate_to_pose</code> 존재</td></tr>
+    <tr><td>Nav2 노드</td><td><code>ROS_DOMAIN_ID=23 ros2 node list</code></td><td>amcl, planner, controller, bt_navigator 등</td></tr>
+    <tr><td>Gazebo 입력</td><td><code>ROS_DOMAIN_ID=23 ros2 topic info /pinky1/cmd_vel -v</code></td><td>Nav2 publisher + robot bridge subscriber</td></tr>
+  </table>
+
+  <h2>3. 이번처럼 액션 서버가 없을 때</h2>
+  <p>아래가 빈 결과라면 Nav2가 실행된 것이 아니다. Domain 22에 보이는 액션은 bridge의 프록시일 수 있으므로 반드시 로봇 도메인에서 확인한다.</p>
+  <pre><code>source /opt/ros/jazzy/setup.bash
+source ~/ws/pinky_pro/install/setup.bash
+ROS_DOMAIN_ID=23 ros2 component list
+ROS_DOMAIN_ID=23 ros2 action list -t</code></pre>
+  <p><span class="bad">비정상:</span> <code>component list</code>에 컨테이너만 보이고 내부 노드가 없다. 이 경우 해당 로봇의 Nav2 터미널에서 Ctrl+C 후, 조합 노드를 끄고 다시 띄운다.</p>
+  <pre><code>export ROS_DOMAIN_ID=23
+ros2 launch pinky_navigation gz_bringup_launch.xml \
+  namespace:=pinky1 use_composition:=False \
+  map:=~/ws/pinky_pro/install/pinky_navigation/share/pinky_navigation/map/parking_passage_map.yaml \
+  params_file:=~/ws/pinky_pro/install/pinky_navigation/share/pinky_navigation/params/pinky1_parking_passage_nav2_v2.yaml</code></pre>
+  <p>pinky2도 <code>ROS_DOMAIN_ID=24</code>, <code>namespace:=pinky2</code>, pinky2 파라미터 파일로 바꿔 동일하게 실행한다. 이후 액션 목록에 <code>/pinkyN/navigate_to_pose</code>가 보여야 한다.</p>
+
+  <h2>4. 액션은 있는데도 안 움직일 때</h2>
+  <pre><code># 센서와 시뮬레이션 시간이 실제 흐르는지 확인
+ROS_DOMAIN_ID=23 ros2 topic echo /clock --once
+ROS_DOMAIN_ID=23 ros2 topic echo /pinky1/scan --once
+ROS_DOMAIN_ID=23 ros2 topic echo /pinky1/odom --once
+
+# Nav2가 내보내는 속도와 Gazebo bridge 연결을 확인
+ROS_DOMAIN_ID=23 ros2 topic info /pinky1/cmd_vel -v
+
+# 프레임 변환 점검 (map → base_footprint)
+ROS_DOMAIN_ID=23 ros2 run tf2_ros tf2_echo pinky1/map pinky1/base_footprint</code></pre>
+  <p><span class="ok">정상:</span> clock, scan, odom 값이 계속 갱신되고 <code>/pinky1/cmd_vel</code>에 Nav2 publisher 및 bridge subscriber가 모두 보인다. TF가 없거나 맵의 벽 안에 목표점을 찍으면 Nav2는 움직이지 않을 수 있다.</p>
+
+  <h2>5. 관제에서 목표 보내기</h2>
+  <pre><code>export ROS_DOMAIN_ID=22
+ros2 run pinky_multi_robot two_pinky_coordinator
+
+# 다른 터미널에서 (좌표는 map 좌표계)
+ros2 topic pub --once /clicked_point geometry_msgs/msg/PointStamped \
+  "{header: {frame_id: 'map'}, point: {x: 0.50, y: 0.60, z: 0.0}}"</code></pre>
+  <p><strong>중요:</strong> <code>frame_id: 'map'</code>을 넣는다. 현재 coordinator는 하나의 점을 두 로봇에게 전달한다. 로봇마다 다른 목표가 필요하면 coordinator에 로봇별 goal 토픽 또는 서비스 기능을 추가해야 한다.</p>
+
+  <h2>6. 재현 가능한 점검 순서</h2>
+  <ol>
+    <li>Gazebo world를 Domain 22에서 실행한다.</li>
+    <li>pinky1은 Domain 23, pinky2는 Domain 24에서 spawn·robot bridge를 실행한다.</li>
+    <li>각 로봇 도메인에서 Nav2를 실행하고 <code>ros2 action list -t</code>로 액션을 검증한다.</li>
+    <li>Domain 22에서 두 domain_bridge를 실행한다.</li>
+    <li>Domain 22에서 coordinator를 실행하고 <code>/clicked_point</code>를 발행한다.</li>
+  </ol>
+</body>
+</html>

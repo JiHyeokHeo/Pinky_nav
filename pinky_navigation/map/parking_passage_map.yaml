@@ -1,0 +1,10 @@
+# Matches pinky_gz_sim/worlds/parking_passage.world.
+# map_v4.pgm's 0.05 m cells are represented as 0.10 m collision cells in Gazebo.
+image: map_v4.pgm
+mode: trinary
+resolution: 0.100
+origin: [-1.300, -2.050, 0.0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
+

@@ -1,0 +1,68 @@
+ir_adc_sim:
+  ros__parameters:
+    # Gazebo 내부 Range 3개를 실물과 같은 ADC 배열 토픽으로 바꿉니다.
+    left_range_topic: /ir/left
+    center_range_topic: /ir/center
+    right_range_topic: /ir/right
+    adc_topic: /ir_sensor/range
+    publish_rate: 30.0
+    input_timeout: 0.3
+    tabletop_max_distance: 0.05
+    surface_adc_values: [3200, 3200, 3200]
+    off_surface_adc_values: [100, 100, 100]
+    adc_noise_stddev: 12.0
+    random_seed: 7
+
+pinky_move:
+  ros__parameters:
+    enabled: false
+
+    image_topic: /camera/image_raw
+    scan_topic: /scan
+    odom_topic: /odom
+    cmd_vel_topic: /cmd_vel
+
+    # 실물과 시뮬레이션 모두 같은 ADC 토픽/메시지를 사용합니다.
+    ir_adc_topic: /ir_sensor/range
+
+    control_frequency: 20.0
+    linear_speed: 0.04
+    linear_acceleration: 0.04
+    angular_speed: 0.40
+    turn_kp: 1.2
+    minimum_turn_speed: 0.08
+    turn_angle_degrees: 180.0
+    turn_tolerance_degrees: 2.0
+    drive_heading_kp: 2.0
+    drive_max_angular_speed: 0.20
+    cross_track_kp: 2.0
+    cross_track_max_correction_degrees: 10.0
+    drive_heading_stop_degrees: 20.0
+
+    # 2.8 m 상판에서 양 끝 0.4 m씩을 남겨 회전 여유를 확보합니다.
+    patrol_length: 2.00
+    start_at_center: true
+    pause_seconds: 1.0
+
+    # 시뮬레이션에서는 IR이 책상 끝 감지의 주 센서입니다.
+    # 카메라 토픽은 유지하지만 색상 판정은 주행 조건에서 제외합니다.
+    use_surface_guard: false
+    use_lidar_guard: true
+    use_ir_guard: true
+    sensor_timeout: 0.7
+    ir_timeout: 0.3
+    ir_adc_calibrated: true
+    ir_adc_min_values: [2500, 2500, 2500]
+    ir_adc_max_values: [3900, 3900, 3900]
+
+    surface_ratio_threshold: 0.20
+    roi_top_ratio: 0.55
+    surface_h_min: 5
+    surface_h_max: 25
+    surface_s_min: 50
+    surface_v_min: 20
+    surface_v_max: 230
+
+    front_stop_distance: 0.20
+    front_sector_degrees: 30.0
+    turn_stop_distance: 0.12
