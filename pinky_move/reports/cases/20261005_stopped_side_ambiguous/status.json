@@ -1,0 +1,20 @@
+{
+  "local_date": "2026-10-05",
+  "domain_id": 22,
+  "robot": "pinky2",
+  "debug_capture_stamp": [1789917483, 579302824],
+  "cmd_vel": {"v": 0.0, "w": 0.0},
+  "odom_velocity": {"v": 0.0, "w": 0.0},
+  "status": "WAITING_FOR_LANE",
+  "lane_instances": 2,
+  "used_boundaries": 0,
+  "metric_target": null,
+  "corner": {
+    "mode": "UNKNOWN",
+    "reason": "no fresh trusted boundary",
+    "local_map_frames": 0,
+    "local_map_retention_s": 10.0,
+    "ordinary_error": "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)"
+  },
+  "note": "Read-only snapshot. Raw/debug images are different received frames, not guaranteed synchronised. Robot clock differs from PC clock. Full logs were retrieved later and may include subsequent cases. No enable or movement command was sent."
+}

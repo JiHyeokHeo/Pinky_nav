@@ -1,0 +1,34 @@
+{
+  "date_kst": "2026-10-05",
+  "baseline_commit": "4a6011d",
+  "work_branch": "debug/lane-edge-cases-20261005",
+  "robot": "pinky2",
+  "domain_id": 22,
+  "read_only_capture": true,
+  "cases": [
+    {
+      "directory": "20261005_stopped_side_ambiguous",
+      "reason": "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)",
+      "lane_instances": 2,
+      "accepted_boundaries": 0,
+      "velocity_at_observation": [0.0, 0.0],
+      "files": ["camera_raw.jpg", "debug_image.jpg", "status.json", "lane_autonomy.log", "camera_stream.log"],
+      "next_check": "Trace projected single-boundary role association; UNKNOWN centre-path continuation requires a valid ordinary centre first."
+    },
+    {
+      "directory": "20261005_005730_edge02",
+      "reason": "inferred target discontinuity",
+      "lane_instances": 2,
+      "accepted_boundaries": 0,
+      "velocities_during_capture": [[0.0, 0.0]],
+      "files": ["camera_raw.jpg", "debug_image.jpg", "capture.json", "status.log", "lane_autonomy.log", "camera_stream.log"],
+      "next_check": "Compare current and prior inferred centre targets, odom correction and boundary identity; a discontinuity refusal happens before UNKNOWN continuation."
+    }
+  ],
+  "provenance_notes": [
+    "Raw/debug images are separate received frames; use recorded header stamps rather than assuming synchronisation.",
+    "The robot's ROS clock differs from PC wall time; folders use PC/KST dates and logs retain original robot timestamps.",
+    "Full robot logs begin at launch and include more than the captured case. First case logs were retrieved after its images.",
+    "This is a case archive, not a verified fix or a deterministic full-state replay. Temporal target errors may require additional frame history."
+  ]
+}

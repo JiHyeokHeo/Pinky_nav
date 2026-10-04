@@ -1,0 +1,41 @@
+SAFETY_STOP: inference input expired (0.98s)
+SAFETY_STOP: inference input expired (1.03s)
+SAFETY_STOP: inference input expired (1.08s)
+WAITING_FOR_LANE: no usable boundary; Lane=2, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'inferred target discontinuity'}
+SAFETY_STOP: inference input expired (0.85s)
+SAFETY_STOP: inference input expired (0.90s)
+SAFETY_STOP: inference input expired (0.95s)
+WAITING_FOR_LANE: no usable boundary; Lane=3, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'no unambiguous left/right boundary pair (projected=2, fitted=2; side association ambiguous)'}
+SAFETY_STOP: inference input expired (0.82s)
+SAFETY_STOP: inference input expired (0.87s)
+SAFETY_STOP: inference input expired (0.92s)
+SAFETY_STOP: inference input expired (0.97s)
+SAFETY_STOP: inference input expired (1.02s)
+WAITING_FOR_LANE: no usable boundary; Lane=2, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'inferred target discontinuity'}
+SAFETY_STOP: inference input expired (0.82s)
+SAFETY_STOP: inference input expired (0.87s)
+SAFETY_STOP: inference input expired (0.92s)
+SAFETY_STOP: inference input expired (0.97s)
+SAFETY_STOP: inference input expired (1.02s)
+WAITING_FOR_LANE: no usable boundary; Lane=3, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'no unambiguous left/right boundary pair (projected=2, fitted=2; side association ambiguous)'}
+SAFETY_STOP: inference input expired (0.82s)
+SAFETY_STOP: inference input expired (0.87s)
+SAFETY_STOP: inference input expired (0.92s)
+SAFETY_STOP: inference input expired (0.97s)
+SAFETY_STOP: inference input expired (1.02s)
+WAITING_FOR_LANE: no usable boundary; Lane=2, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'inferred target discontinuity'}
+SAFETY_STOP: inference input expired (0.82s)
+WAITING_FOR_LANE: no usable boundary; Lane=2, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'inferred target discontinuity'}
+WAITING_FOR_LANE: no usable boundary; Lane=2, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'inferred target discontinuity'}
+WAITING_FOR_LANE: no usable boundary; Lane=2, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'inferred target discontinuity'}
+WAITING_FOR_LANE: no usable boundary; Lane=2, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'inferred target discontinuity'}
+SAFETY_STOP: inference input expired (0.82s)
+WAITING_FOR_LANE: no usable boundary; Lane=2, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'inferred target discontinuity'}
+SAFETY_STOP: inference input expired (0.82s)
+SAFETY_STOP: inference input expired (0.87s)
+SAFETY_STOP: inference input expired (0.92s)
+WAITING_FOR_LANE: no usable boundary; Lane=3, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'no unambiguous left/right boundary pair (projected=2, fitted=2; side association ambiguous)'}
+SAFETY_STOP: inference input expired (0.82s)
+SAFETY_STOP: inference input expired (0.87s)
+SAFETY_STOP: inference input expired (0.92s)
+WAITING_FOR_LANE: no usable boundary; Lane=2, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'inferred target discontinuity'}
