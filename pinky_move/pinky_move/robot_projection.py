@@ -106,6 +106,42 @@ def robot_floor_point(u, v, calibration, image_size, max_forward_m=2.0):
     return point[:2]
 
 
+def robot_floor_points(pixels, calibration, image_size, max_forward_m=2.0):
+    """Batch equivalent of robot_floor_point; invalid rays become NaN rows.
+
+    Calibration is shared within this batch only, never cached across frames or
+    configuration changes. Keep invalid entries until the caller filters them,
+    preserving original sample order and all scalar forward/range limits.
+    """
+    uv = np.asarray(pixels, dtype=float)
+    if uv.ndim != 2 or uv.shape[1] != 2:
+        raise ValueError('Pixels must have shape (N, 2)')
+    if list(image_size) != calibration['image_size']:
+        raise ValueError('Calibration resolution mismatch')
+    if not np.isfinite(max_forward_m) or max_forward_m <= 0:
+        raise ValueError('Invalid projection distance limit')
+    k = np.asarray(calibration['camera_matrix'], float)
+    d = np.asarray(calibration['distortion_coefficients'], float)
+    t = np.asarray(calibration['base_from_upright_optical'], float)
+    if t.shape != (4, 4) or not np.isfinite(t).all():
+        raise ValueError('Invalid optical transform')
+    result = np.full((len(uv), 2), np.nan)
+    valid = (np.isfinite(uv).all(axis=1) & (uv[:, 0] >= 0) & (uv[:, 0] < image_size[0]) &
+             (uv[:, 1] >= 0) & (uv[:, 1] < image_size[1]))
+    indices = np.flatnonzero(valid)
+    ground = float(calibration.get('ground_plane_z_m', 0.))
+    if not len(indices) or t[2, 3] <= ground:
+        return result
+    xy = cv2.undistortPoints(uv[indices].reshape(-1, 1, 2), k, d).reshape(-1, 2)
+    rays = np.column_stack((xy, np.ones(len(xy))))@t[:3, :3].T
+    downward = rays[:, 2] < -1e-6
+    indices, rays = indices[downward], rays[downward]
+    points = t[:3, 3]+((ground-t[2, 3])/rays[:, 2])[:, None]*rays
+    in_range = np.isfinite(points).all(axis=1) & (points[:, 0] > 0) & (points[:, 0] <= max_forward_m)
+    result[indices[in_range]] = points[in_range, :2]
+    return result
+
+
 def robot_floor_pixel(x_m, y_m, calibration, image_size):
     """Inverse projection, using the SAME robot frame and floor height."""
     if list(image_size) != calibration['image_size']:
@@ -139,7 +175,10 @@ def draw_metric_target(frame, target, calibration):
     colour = (0, 165, 255) if inferred else (255, 0, 255)
     if target.get('held'):
         colour = (0, 255, 255)
-    centre_path = target.get('center_path', [])
+    # Show only the current approach segment when the target is capped before
+    # a bend. The full outgoing path remains in the planner, not discarded.
+    centre_path = (target.get('approach_path', target.get('center_path', []))
+                   if target.get('bend_entry_limited') else target.get('center_path', []))
     for p, q in zip(centre_path, centre_path[1:]):
         try:
             a = robot_floor_pixel(*p, calibration, (width, height))

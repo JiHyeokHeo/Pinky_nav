@@ -6,7 +6,7 @@ functions so they can be replayed/tested without motors or a YOLO model.
 """
 import cv2
 import numpy as np
-from .robot_projection import robot_floor_point
+from .robot_projection import robot_floor_points
 
 
 def arc_stations(points):
@@ -82,6 +82,24 @@ def curve_match_error(a, b, lo=.05, hi=2.):
     return float(np.median(np.linalg.norm(a[run]-q[run], axis=1)))
 
 
+def short_curve_match_error(a, b):
+    """Match the WHOLE short observation, not endpoint proximity alone.
+
+    The regular interior matcher loses a little support at both ends; a 4 cm
+    complete stripe can therefore fail to match itself. Limit this exception
+    to 4–6 cm chains agreeing everywhere within 5 mm in traversal order.
+    """
+    a, b = np.asarray(a), np.asarray(b)
+    if not all(.04 <= arc_stations(p)[-1] <= .06 for p in (a, b)):
+        return float('inf')
+    a, b = resample_chain(a), resample_chain(b)
+    delta = np.linalg.norm(a-b, axis=1)
+    ta, tb = np.diff(a, axis=0), np.diff(b, axis=0)
+    cosine = np.sum(ta*tb, axis=1)/np.maximum(
+        np.linalg.norm(ta, axis=1)*np.linalg.norm(tb, axis=1), 1e-12)
+    return float(np.median(delta)) if max(delta) <= .005 and min(cosine) >= .95 else float('inf')
+
+
 def first_self_intersection(points):
     """First nonadjacent segment crossing/touch; None for a simple open path."""
     p = np.asarray(points, float)
@@ -113,7 +131,8 @@ class LaneImageIdentity:
     unique mask overlap is accepted; an old image is never a driving target.
     The images are reduced to 160x120 to keep this inexpensive on the robot.
     """
-    def __init__(self):
+    def __init__(self, tracking_gap_s=.8):
+        self.tracking_gap_s = tracking_gap_s
         self.previous_gray = None
         self.previous_masks = {}
         self.previous_at = None
@@ -131,7 +150,7 @@ class LaneImageIdentity:
         """Return a unique (mask index, side) match or None for this frame."""
         self.pending_gray, self.pending_masks = self._prepare(frame, masks)
         if (self.previous_gray is None or not self.previous_masks or not masks or
-                self.previous_at is None or not 0 <= now_s-self.previous_at <= .8):
+                self.previous_at is None or not 0 <= now_s-self.previous_at <= self.tracking_gap_s):
             return None
         flow = cv2.calcOpticalFlowFarneback(
             self.pending_gray, self.previous_gray, None, .5, 2, 15, 2, 5, 1.1, 0)
@@ -164,8 +183,42 @@ class LaneImageIdentity:
         self.previous_at = now_s
 
 
+def fit_connected_approach(points, degree=3):
+    """Retain the first verified local section of a long connected curve.
+
+    Grow an observed prefix from 8 to 28 cm in 4 cm increments. Stop at the
+    FIRST failed section; never search past a bad bend for a better distant
+    fit. Existing residual, self-intersection and downstream offset checks
+    remain mandatory. This is local prefix fitting, not straight extrapolation.
+    """
+    points=np.asarray(points,float)
+    if points.ndim!=2 or points.shape[1]!=2 or len(points)<5 or not np.isfinite(points).all():
+        raise ValueError('invalid connected approach')
+    stations=arc_stations(points)
+    last=None
+    for length in (.08,.12,.16,.20,.24,.28):
+        if stations[-1]<length:
+            break
+        prefix=points[stations<=length]
+        try:
+            if len(prefix)<5 or np.any(np.diff(arc_stations(prefix))>.03):
+                break
+            fit=fit_boundary(prefix,degree)
+            distances=np.linalg.norm(prefix-nearest_on_chain(prefix,fit)[0],axis=1)
+            rms=float(np.sqrt(np.mean(distances**2)))
+            if rms>.006 or np.max(distances)>.008:
+                break
+            last=(prefix,fit,rms,float(arc_stations(prefix)[-1]))
+        except ValueError:
+            break
+    if last is None:
+        raise ValueError('no supported connected approach')
+    return last
+
+
 def floor_curves(masks, calibration, max_forward_m=2.0,
-                 path_min_m=.05, path_max_m=None, degree=3):
+                 path_min_m=.05, path_max_m=None, degree=3, recover_short_hook=False,
+                 component_recovery=True):
     """Compare row/column extraction instead of committing to one image axis.
 
     Perspective can make a legitimate near stripe too thick for column scans,
@@ -196,8 +249,89 @@ def floor_curves(masks, calibration, max_forward_m=2.0,
         if candidates:
             best_rms = min(candidate[2] for candidate in candidates)
             accurate = [candidate for candidate in candidates if candidate[2] <= best_rms+.002]
-            curves.append(max(accurate, key=lambda candidate: candidate[3])[0])
+            chosen = max(accurate, key=lambda candidate: candidate[3])
+            # A short endpoint hook can fit very accurately while discarding
+            # the main stripe. Prefer a single much longer observed chain if
+            # its fit remains within 6 mm RMS. Do not join chains, relax the
+            # fit/self-intersection checks, or flatten a full-sized corner.
+            longer = [candidate for candidate in candidates
+                      if chosen[3] < .08 and candidate[3] >= max(.24, 3*chosen[3])
+                      and candidate[2] <= .006]
+            if recover_short_hook and len(longer) == 1:
+                chosen = longer[0]
+            # At a lateral turn, wide near rows fail the run-width gate while
+            # a thin FAR outgoing leg still fits. A successful axis fit is not
+            # evidence that its starting point is the nearest visible boundary.
+            # Prefer a real connected prefix only in this specific far-start
+            # case. Never splice it to the far leg or extrapolate a missing bend.
+            chosen_near = supported_chain(chosen[0], path_min_m, hi)
+            if (len(masks) == 1 and chosen[3] >= .08 and
+                    chosen_near[0,0] > max(.20,path_min_m+.06)):
+                connected = connected_floor_curve(mask, calibration, max_forward_m)
+                if len(connected) == 1:
+                    prefix = supported_chain(connected[0],path_min_m,hi)
+                    local_candidate = None
+                    try:
+                        fit = fit_boundary(prefix,degree)
+                        q,_,_ = nearest_on_chain(prefix,fit)
+                        rms = float(np.sqrt(np.mean(np.sum((prefix-q)**2,axis=1))))
+                        if rms<=.006:
+                            local_candidate=(connected[0],fit,rms,float(arc_stations(prefix)[-1]))
+                    except ValueError:
+                        pass
+                    if local_candidate is None:
+                        try:
+                            local_candidate=fit_connected_approach(prefix,degree)
+                        except ValueError:
+                            pass
+                    if local_candidate is not None:
+                        prefix=supported_chain(local_candidate[0],path_min_m,hi)
+                        if (prefix[0,0] <= path_min_m+.04 and
+                                chosen_near[0,0]-prefix[0,0] >= .06 and
+                                arc_stations(prefix)[-1] >= .075):
+                            chosen = local_candidate
+            curves.append(chosen[0])
+    if not curves and len(masks) == 1:
+        # Only failed axis extraction reaches this path. Apply the same metric
+        # fitting checks to the connected observation before accepting it.
+        for points in connected_floor_curve(masks[0], calibration, max_forward_m):
+            try:
+                hi = max_forward_m if path_max_m is None else path_max_m
+                fit_boundary(supported_chain(points, path_min_m, hi), degree)
+            except ValueError:
+                continue
+            curves.append(points)
+    if not curves and component_recovery and len(masks) == 1:
+        component = near_connected_component(masks[0])
+        if component is not None:
+            curves = floor_curves([component], calibration, max_forward_m,
+                                  path_min_m, path_max_m, degree,
+                                  recover_short_hook, component_recovery=False)
     return curves
+
+
+def near_connected_component(mask):
+    """Failure-only removal of <=2px bridges to an entirely distant fragment.
+
+    Never merge gaps or choose between two near stripes. Keep an actual large
+    connected component, and require every rejected component above the near
+    image band. This does not establish left/right identity by itself.
+    """
+    if not isinstance(mask, np.ndarray) or mask.ndim != 2:
+        return None
+    binary = (mask > 0).astype(np.uint8)
+    opened = cv2.morphologyEx(binary, cv2.MORPH_OPEN, np.ones((3,3),np.uint8))
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(opened, 8)
+    significant = [i for i in range(1,count) if stats[i,cv2.CC_STAT_AREA] >= 30]
+    if len(significant) < 2:
+        return None
+    near = [i for i in significant if stats[i,cv2.CC_STAT_TOP]+stats[i,cv2.CC_STAT_HEIGHT] >= .65*mask.shape[0]]
+    if len(near) != 1:
+        return None
+    index = near[0]
+    if stats[index,cv2.CC_STAT_AREA] < max(100,.15*np.count_nonzero(binary)):
+        return None
+    return (labels == index).astype(np.uint8)
 
 
 def _axis_floor_curves(masks, calibration, max_forward_m, by_column):
@@ -256,23 +390,94 @@ def _axis_floor_curves(masks, calibration, max_forward_m, by_column):
         tracks = sorted((t for t in tracks if len(t) >= 5), key=len, reverse=True)
         if not tracks or (len(tracks)>1 and len(tracks[1]) >= .7*len(tracks[0])):
             continue  # Two similarly supported branches are genuinely ambiguous.
-        points = []
-        for centre, row in tracks[0]:
-            try:
-                u, v = (row, centre) if by_column else (centre, row)
-                points.append(robot_floor_point(u, v,
-                                                calibration, (width, height), max_forward_m))
-            except ValueError:
-                continue
+        pixels = np.asarray([(row, centre) if by_column else (centre, row)
+                             for centre, row in tracks[0]], dtype=float)
+        try:
+            projected = robot_floor_points(pixels, calibration, (width, height), max_forward_m)
+        except ValueError:
+            continue
+        points = projected[np.isfinite(projected).all(axis=1)]
         if len(points) < 5:
             continue
-        points = np.array(points)
         # Reverse the whole chain if necessary, NEVER sort individual x values.
         # The nearer endpoint establishes traversal, not left/right identity.
         if points[-1, 0] < points[0, 0]:
             points = points[::-1].copy()
         curves.append(points)
     return curves
+
+
+def connected_floor_curve(mask, calibration, max_forward_m=2.):
+    """Failure-only centreline extraction, preserving image connectivity.
+
+    Zhang-Suen thinning needs no extra runtime dependency. Follow from the
+    uniquely nearest image endpoint; stop at a branch rather than choosing an
+    unseen shortcut. Never join components or sort floor coordinates by x.
+    """
+    if not isinstance(mask, np.ndarray) or mask.ndim != 2:
+        return []
+    height, width = mask.shape
+    small = cv2.resize((mask > 0).astype(np.uint8),
+                       ((width+1)//2, (height+1)//2), interpolation=cv2.INTER_NEAREST)
+    _, _, stats, _ = cv2.connectedComponentsWithStats(small, 8)
+    areas = stats[1:, cv2.CC_STAT_AREA]
+    if not len(areas) or np.count_nonzero(areas >= max(12, .05*max(areas))) != 1:
+        return []  # A merged instance containing two real stripes is ambiguous.
+    a = np.pad(small, 1)
+    for iteration in range(128):
+        changed = False
+        for phase in (0, 1):
+            p = [a[:-2, 1:-1], a[:-2, 2:], a[1:-1, 2:], a[2:, 2:],
+                 a[2:, 1:-1], a[2:, :-2], a[1:-1, :-2], a[:-2, :-2]]
+            neighbours = sum(p)
+            transitions = sum(((p[i] == 0) & (p[(i+1) % 8] == 1)).astype(np.uint8)
+                              for i in range(8))
+            triplets = ((p[0]*p[2]*p[4], p[2]*p[4]*p[6]) if phase == 0 else
+                        (p[0]*p[2]*p[6], p[0]*p[4]*p[6]))
+            remove = ((a[1:-1, 1:-1] == 1) & (neighbours >= 2) &
+                      (neighbours <= 6) & (transitions == 1) &
+                      (triplets[0] == 0) & (triplets[1] == 0))
+            changed |= bool(remove.any())
+            a[1:-1, 1:-1][remove] = 0
+        if not changed:
+            break
+    else:
+        return []  # Bounded work; incomplete thinning is not a reliable path.
+    vertices = set(map(tuple, np.argwhere(a[1:-1, 1:-1])))
+
+    def adjacent(point):
+        row, col = point
+        result = []
+        for dr in (-1, 0, 1):
+            for dc in (-1, 0, 1):
+                if not (dr or dc) or (row+dr, col+dc) not in vertices:
+                    continue
+                # Avoid diagonal triangles around an orthogonally linked bend.
+                if dr and dc and ((row+dr, col) in vertices or (row, col+dc) in vertices):
+                    continue
+                result.append((row+dr, col+dc))
+        return result
+
+    endpoints = sorted((v for v in vertices if len(adjacent(v)) == 1), reverse=True)
+    if (not endpoints or endpoints[0][0] < .65*small.shape[0] or
+            (len(endpoints) > 1 and endpoints[0][0]-endpoints[1][0] < 4)):
+        return []
+    chain, seen = [endpoints[0]], {endpoints[0]}
+    while True:
+        onward = [v for v in adjacent(chain[-1]) if v not in seen]
+        if len(onward) != 1:
+            break  # Retain only the connected prefix before an ambiguous fork.
+        chain.append(onward[0])
+        seen.add(onward[0])
+    if len(chain) < 12:
+        return []
+    pixels = np.array([(col*2., row*2.) for row, col in chain])
+    projected = robot_floor_points(pixels, calibration, (width, height), max_forward_m)
+    indices = np.flatnonzero(np.isfinite(projected).all(axis=1))
+    if not len(indices):
+        return []
+    indices = np.split(indices, np.flatnonzero(np.diff(indices) > 1)+1)[0]
+    return [projected[indices]] if len(indices) >= 5 else []
 
 
 def fit_boundary(points, degree=3):
@@ -365,11 +570,49 @@ def center_path_from_boundary(curve, distance):
         return p, 'center_path truncated before distant fold'
 
 
+def fit_drivable_boundary(near, distance, degree=3, fitted=None):
+    """Refit a shorter OBSERVED S-bend prefix only after full offset fails.
+
+    Never apply to a sharp corner or straighten it into an artificial road.
+    Bound deviation from observations to 8 mm; retain cusp/intersection checks.
+    """
+    fitted = fit_boundary(near, degree) if fitted is None else fitted
+    try:
+        centre, warning = center_path_from_boundary(fitted, distance)
+        return fitted, centre, warning
+    except OffsetCurveError as original:
+        # Local import avoids a module cycle: corner classification uses the
+        # geometry primitives above, but does not invoke this path builder.
+        from .lane_corner import classify_boundary, CornerConfig
+        if classify_boundary(near, CornerConfig())['kind'] != 'S_BEND':
+            raise
+        stations = arc_stations(near)
+        for length in (.26, .22, .18, .15, .12):
+            if length >= stations[-1]-.02:
+                continue
+            prefix = near[stations <= length]
+            try:
+                candidate = fit_boundary(prefix, degree)
+                errors = np.linalg.norm(prefix-nearest_on_chain(prefix, candidate)[0], axis=1)
+                if max(errors) > .008:
+                    continue
+                centre = normal_offset(candidate, distance, 'center_path')
+                if arc_stations(centre)[-1] < .06 or np.any(centre[:, 0] <= .05):
+                    continue
+                select_lookahead(centre, .22)  # Also checks intersection/forward support.
+                return candidate, centre, 'S-bend observed prefix refit'
+            except ValueError:
+                continue
+        raise original
+
+
 def near_pixel_side(mask):
     """Recovery hint only: median near-field pixels relative to image centre.
 
     Ignore distant-only masks and a central 10% dead band. This is not a
     persistent identity: a tracked curve can cross the image centre in a bend.
+    Sample up to 18% of image height above the detected bottom (formerly 8%),
+    while keeping the upper cutoff at 65% of image height.
     """
     if not isinstance(mask, np.ndarray) or mask.ndim != 2:
         return None
@@ -380,13 +623,75 @@ def near_pixel_side(mask):
     bottom = int(rows.max())
     if bottom < .65 * height:
         return None
-    near = cols[rows >= max(.65 * height, bottom - .08 * height)]
+    near = cols[rows >= max(.65 * height, bottom - .18 * height)]
     if len(near) < 10:
         return None
     offset = float(np.median(near)) - width / 2
     if abs(offset) <= .05 * width:
         return None
     return 'right' if offset > 0 else 'left'
+
+
+def distinct_near_masks(masks):
+    """Drop only strongly overlapping same-side segmentation duplicates.
+
+    Near pixels must agree on side and overlap >=90%, AND whole-mask IoU must
+    be >=85%. A nearby candidate is not sufficient to erase a different far
+    branch. Keep the first (YOLO order) mask unchanged; never union masks.
+    """
+    kept, evidence = [], []
+    for mask in masks:
+        side = near_pixel_side(mask)
+        binary = mask > 0 if isinstance(mask, np.ndarray) and mask.ndim == 2 else None
+        duplicate = False
+        if side is not None:
+            for old_side, old in evidence:
+                if old_side != side or old is None or old.shape != binary.shape:
+                    continue
+                start = int(binary.shape[0]*.65)
+                near_union = np.count_nonzero(binary[start:] | old[start:])
+                near_overlap = np.count_nonzero(binary[start:] & old[start:])
+                full_union = np.count_nonzero(binary | old)
+                if (near_union and full_union and near_overlap/near_union >= .9 and
+                        np.count_nonzero(binary & old)/full_union >= .85):
+                    duplicate = True
+                    break
+        if not duplicate:
+            kept.append(mask)
+            evidence.append((side, binary))
+    return kept
+
+
+def unique_near_boundary(masks, calibration, max_forward_m, lo, hi, degree):
+    """Candidate for temporal confirmation when distant masks cannot pair.
+
+    Exactly one reliable near stripe must be at least 6 cm ahead of all other
+    projected starts. An unprojectable mask is ignored only if wholly distant
+    in the image. This is not permission to bypass an invalid measured width.
+    """
+    observations = []
+    for index, mask in enumerate(masks):
+        curves = floor_curves([mask], calibration, max_forward_m, lo, hi, degree)
+        if len(curves) != 1:
+            rows = np.nonzero(mask)[0]
+            if not len(rows) or rows.max() >= .65*mask.shape[0]:
+                return None
+            continue
+        try:
+            near = supported_chain(curves[0], lo, hi)
+            fitted = fit_boundary(near, degree)
+            side = initial_boundary_side(fitted)
+        except ValueError:
+            return None
+        observations.append((float(near[0,0]), index, side, curves[0]))
+    observations.sort(key=lambda item: item[0])
+    if not observations:
+        return None
+    x, index, side, curve = observations[0]
+    if (x > .28 or near_pixel_side(masks[index]) != side or
+            (len(observations) > 1 and observations[1][0]-x < .06)):
+        return None
+    return index, side, curve
 
 
 def center_from_pair(left, right):
@@ -404,7 +709,14 @@ def center_from_pair(left, right):
     # Accept a short *observed* segment; lookahead uses its endpoint instead
     # of extrapolating unseen road. Never join non-overlapping boundaries.
     if hi-lo < .02:
-        raise ValueError(f'no common observed lane interval: x_overlap={hi-lo:.4f}m, minimum=0.0200m')
+        # On a diagonal/turn the two boundaries may have no common x even
+        # though they have real, unique correspondences along their normals.
+        # Reuse the existing strict normal matcher; do not extend either line.
+        try:
+            return _normal_pair(left, right)
+        except ValueError as exc:
+            raise ValueError(f'no common observed lane interval: x_overlap={hi-lo:.4f}m, '
+                             f'minimum=0.0200m; normal fallback: {exc}') from exc
     xs = np.linspace(lo, hi, 60)
     ly = np.interp(xs, left[:, 0], left[:, 1])
     ry = np.interp(xs, right[:, 0], right[:, 1])
@@ -555,6 +867,7 @@ def classify_lanes(curves, reference_x, previous=None):
 
 def metric_target(masks, calibration, lookahead=.28, previous=None, degree=3,
                   max_forward_m=2., path_min_m=.05, path_max_m=None):
+    masks = distinct_near_masks(masks)
     if len(masks) < 2:
         raise ValueError('two lane boundaries required')
     curves = []
@@ -569,6 +882,35 @@ def metric_target(masks, calibration, lookahead=.28, previous=None, degree=3,
             rejected.append(str(exc))
             continue
     lanes = classify_lanes(curves, min(lookahead, .30), previous)
+    if ('left' not in lanes or 'right' not in lanes) and not previous and len(masks) == 2:
+        # A robot off centre may see BOTH boundaries on the same side. Recover
+        # roles only from a unique ordered geometric pair, not mask order.
+        # Individual extraction also enables connected-mask fallback when one
+        # member failed ordinary row/column extraction in the pair batch.
+        candidates = []
+        for mask in masks:
+            one = floor_curves([mask], calibration, max_forward_m, path_min_m, path_max_m, degree)
+            if len(one) != 1:
+                break
+            try:
+                candidates.append(fit_boundary(supported_chain(one[0], path_min_m, path_max_m), degree))
+            except ValueError:
+                break
+        pairings = []
+        if len(candidates) == 2:
+            for left, right in (candidates, candidates[::-1]):
+                try:
+                    path, widths = _normal_pair(left, right)
+                    # Require real positive ordering and useful support, not
+                    # coincident duplicate detections or a crossing pair.
+                    if np.min(widths) < .04 or first_self_intersection(path) is not None:
+                        continue
+                    select_lookahead(path, lookahead)
+                    pairings.append(dict(left=left, right=right))
+                except ValueError:
+                    continue
+        if len(pairings) == 1:
+            lanes = pairings[0]
     if 'left' not in lanes or 'right' not in lanes:
         detail = ', '.join(sorted(set(rejected))) or 'side association ambiguous'
         raise ValueError('no unambiguous left/right boundary pair '
@@ -580,7 +922,9 @@ def metric_target(masks, calibration, lookahead=.28, previous=None, degree=3,
     width = float(widths[j]*(1-f)+widths[j+1]*f)
     forward_pair = (np.all(np.diff(lanes['left'][:, 0]) > 0) and
                     np.all(np.diff(lanes['right'][:, 0]) > 0) and
-                    min(np.ptp(lanes['left'][:, 0]), np.ptp(lanes['right'][:, 0])) >= .04)
+                    min(np.ptp(lanes['left'][:, 0]), np.ptp(lanes['right'][:, 0])) >= .04 and
+                    min(lanes['left'][-1, 0], lanes['right'][-1, 0])-
+                    max(lanes['left'][0, 0], lanes['right'][0, 0], .05) >= .02)
     tangent = path[j+1]-path[j]
     normal_width = width*abs(tangent[0])/np.linalg.norm(tangent) if forward_pair else width
     if previous and abs(point[1]-previous['y_m']) > max(.05, .25*normal_width):
@@ -657,7 +1001,10 @@ class MetricLaneTracker:
     two consecutive measured pairs replace that width. Never renew the width
     confirmation timestamp using inferred geometry.
     """
-    def __init__(self, minimum_lane_width_m=0., width_measure_interval_s=.5):
+    def __init__(self, minimum_lane_width_m=0., width_measure_interval_s=.5, tracking_gap_s=.8):
+        if not np.isfinite(tracking_gap_s) or tracking_gap_s <= 0:
+            raise ValueError('invalid tracking gap')
+        self.tracking_gap_s = tracking_gap_s
         self.confirmed = None
         self.confirmed_at = None
         self.streak = 0
@@ -666,6 +1013,11 @@ class MetricLaneTracker:
         self.observed_side = None
         self.observed_at = None
         self.initial_side = None
+        self.bootstrap_hint = None
+        self.pair_hint = None
+        self.pair_transition = None
+        self.preferred_observation_side = None
+        self.context_only_indices = []
         self.requires_pair = False
         self.recovery = None
         self.recovery_side = None
@@ -685,6 +1037,7 @@ class MetricLaneTracker:
         # Bootstrap/recovery is a transaction: no confirmed geometry or role
         # transition survives failed fitting, offset, target or continuity checks.
         self.last_observation = None  # Fresh measured boundary, never a virtual curve.
+        self.context_only_indices = []
         bootstrap = self.confirmed is None
         fields = ('confirmed', 'confirmed_at', 'previous', 'observed_curve',
                   'observed_side', 'observed_at', 'requires_pair')
@@ -694,6 +1047,7 @@ class MetricLaneTracker:
                                 lane_width, degree, max_forward_m, path_min_m,
                                 path_max_m, image_side_hint, image_match, recovery_side_hint)
         except ValueError:
+            self.pair_transition = None
             if bootstrap:
                 for name, value in before.items():
                     setattr(self, name, value)
@@ -714,6 +1068,11 @@ class MetricLaneTracker:
                 or timeout_s < 0 or lane_width < 0 or lane_width > 2 or lookahead <= 0):
             raise ValueError('invalid inference timeout')
         path_max_m = lookahead+.20 if path_max_m is None else path_max_m
+        if len(masks) != 1:
+            self.bootstrap_hint = None
+        if len(masks) < 2:
+            self.pair_hint = None
+            self.pair_transition = None
         if (not np.isfinite([path_min_m, path_max_m]).all() or
                 not .05 <= path_min_m < path_max_m <= max_forward_m or
                 not path_min_m <= lookahead <= path_max_m):
@@ -728,11 +1087,58 @@ class MetricLaneTracker:
             self.observed_side = None
             self.observed_at = None
             self.requires_pair = True
+            self.preferred_observation_side = None
+        if (len(masks) >= 2 and self.observed_side in ('left','right') and
+                self.observed_curve is not None and self.observed_at is not None and
+                0 <= now_s-self.observed_at <= self.tracking_gap_s):
+            # An isolated upper stripe must not replace a CURRENT near lock.
+            # Keep connected far parts of that lock intact for turn prediction.
+            projected = [floor_curves([mask],calibration,max_forward_m,
+                          path_min_m,path_max_m,degree) for mask in masks]
+            anchors=[]
+            for index,curves in enumerate(projected):
+                if len(curves)!=1:
+                    continue
+                near=supported_chain(curves[0],path_min_m,path_max_m)
+                if (len(near)>=5 and near[0,0]<=lookahead and
+                        (image_match==(index,self.observed_side) or
+                         self._same_curve(curves[0],self.observed_curve))):
+                    anchors.append(index)
+            if len(anchors)==1:
+                anchor=anchors[0]
+                connected=cv2.dilate((masks[anchor]>0).astype(np.uint8),np.ones((3,3),np.uint8))
+                context=[]
+                for index,curves in enumerate(projected):
+                    if index==anchor or len(curves)!=1:
+                        continue
+                    rows=np.nonzero(masks[index])[0]
+                    near=supported_chain(curves[0],path_min_m,path_max_m)
+                    if (len(rows) and rows.max()<.65*masks[index].shape[0] and
+                            len(near)>=5 and np.min(near[:,0])>lookahead+.06 and
+                            not np.any(connected & (masks[index]>0))):
+                        context.append(index)
+                if context:
+                    retained=[i for i in range(len(masks)) if i not in context]
+                    mapped=(retained.index(image_match[0]),image_match[1]) if (
+                        image_match is not None and image_match[0] in retained) else None
+                    try:
+                        result=self.update([masks[i] for i in retained],calibration,now_s,
+                            lookahead,timeout_s,lane_width,degree,max_forward_m,path_min_m,path_max_m,
+                            mapped[1] if mapped and len(retained)==1 else image_side_hint,
+                            mapped,recovery_side_hint)
+                    finally:
+                        self.context_only_indices=context
+                    if result.get('inferred'):
+                        selected=result.get('source_mask_index',0 if len(retained)==1 else -1)
+                        if selected>=0:
+                            result['source_mask_index']=retained[selected]
+                    result['context_only_indices']=context
+                    return result
         if len(masks) >= 2:
             try:
                 target = metric_target(masks, calibration, lookahead, self.previous,
                                        degree, max_forward_m, path_min_m, path_max_m)
-            except ValueError:
+            except ValueError as pair_error:
                 self.streak = 0
                 # A second YOLO instance need not be the opposite boundary.
                 # Continue only a UNIQUE geometric match to the locked boundary;
@@ -754,10 +1160,33 @@ class MetricLaneTracker:
                                            self.observed_side if flow_match else None)
                         target['source_mask_index'] = index
                         return target
+                if (self.confirmed is None and self.observed_side is None and lane_width > 0
+                        and ('no unambiguous left/right boundary pair' in str(pair_error)
+                             or 'no common observed lane interval' in str(pair_error))):
+                    candidate = unique_near_boundary(
+                        masks, calibration, max_forward_m, path_min_m, path_max_m, degree)
+                    if candidate is not None:
+                        index, side, curve = candidate
+                        old = self.pair_hint
+                        count = 1
+                        if (old is not None and old[1] == side and 0 < now_s-old[0] <= self.tracking_gap_s
+                                and self._same_curve(curve, old[2])):
+                            count = old[3]+1
+                        self.pair_hint = (now_s, side, curve.copy(), count)
+                        if count < 3:
+                            raise ValueError(f'confirming unique near boundary {side}: {count}/3')
+                        target = self.update([masks[index]], calibration, now_s, lookahead,
+                                             timeout_s, lane_width, degree, max_forward_m,
+                                             path_min_m, path_max_m)
+                        target['source_mask_index'] = index
+                        target['pair_fallback'] = 'temporally confirmed near boundary'
+                        return target
+                self.pair_hint = None
                 self.recovery = None
                 raise
             # A valid pair's width is checked separately. A narrow/outlying
             # pair must stop and remeasure, never turn into a one-line fallback.
+            self.pair_hint = None
             saved_width = self.width_estimator.observe(
                 target['normal_width_m'], now_s)
             if (saved_width is not None and
@@ -765,8 +1194,60 @@ class MetricLaneTracker:
                     self.width_estimator.tolerance_m):
                 raise ValueError('lane width changed; remeasuring pair')
             trusted_width = saved_width if saved_width is not None else target['normal_width_m']
-            self.last_observation = dict(curve=np.asarray(target['left_curve']), side='left',
-                                         other=np.asarray(target['right_curve']),
+            # A newly visible stripe must not instantly replace a locked
+            # single boundary or switch the corner observer from RIGHT to LEFT.
+            # Validate the pair's width first: narrow pairs cannot bypass STOP.
+            if (self.previous is not None and self.previous.get('boundary_count') == 1
+                    and self.observed_side in ('left', 'right')):
+                side = self.observed_side
+                candidates = []
+                if (self.observed_at is not None and
+                        0 <= now_s-self.observed_at <= self.tracking_gap_s):
+                    for index, mask in enumerate(masks):
+                        curves = floor_curves([mask], calibration, max_forward_m,
+                                              path_min_m, path_max_m, degree)
+                        flow = image_match == (index, side)
+                        if len(curves) == 1 and (flow or self._same_curve(curves[0], self.observed_curve)):
+                            candidates.append((index, mask, flow))
+                if len(candidates) != 1:
+                    raise ValueError('new pair lacks unique continuing boundary')
+                previous_transition = self.pair_transition
+                self.pair_transition = None
+                index, mask, flow = candidates[0]
+                # Build CURRENT geometry of the same boundary, never replay an
+                # old target while waiting for a new opposite stripe.
+                continuation = self.update([mask], calibration, now_s, lookahead,
+                    timeout_s, lane_width, degree, max_forward_m, path_min_m,
+                    path_max_m, side if flow else None)
+                compatible = (self._same_curve(np.asarray(target[side+'_curve']), self.observed_curve)
+                    and self._same_curve(np.asarray(target['center_path']),
+                                         np.asarray(continuation['center_path'])))
+                count = 0
+                if compatible:
+                    count = 1
+                    other = 'right' if side == 'left' else 'left'
+                    if (previous_transition is not None and previous_transition['side'] == side
+                            and 0 < now_s-previous_transition['time'] <= self.tracking_gap_s
+                            and self._same_curve(np.asarray(target[other+'_curve']),
+                                                 previous_transition['other'])):
+                        count = previous_transition['count']+1
+                    self.pair_transition = dict(side=side,time=now_s,count=count,
+                                               other=np.asarray(target[other+'_curve']).copy())
+                if count < 3:
+                    continuation.update(source_mask_index=index,
+                        pair_transition_count=count,
+                        pair_fallback='retain current boundary while confirming opposite stripe')
+                    return continuation
+                self.preferred_observation_side = side
+                self.pair_transition = None
+                target['pair_transition_count'] = count
+                self.streak = max(self.streak, 1)  # Three observed pairs already confirmed.
+            else:
+                self.pair_transition = None
+            side = self.preferred_observation_side or self.observed_side or 'left'
+            other = 'right' if side == 'left' else 'left'
+            self.last_observation = dict(curve=np.asarray(target[side+'_curve']), side=side,
+                                         other=np.asarray(target[other+'_curve']),
                                          width=trusted_width, width_source='measured')
             self.streak += 1
             self.previous = target
@@ -781,8 +1262,11 @@ class MetricLaneTracker:
                 self.recovery = None
             return target
         self.streak = 0
+        curves = None  # Reuse projection only within this one update/frame.
+        bootstrapped_here = False
         if not masks:
             self.recovery = None
+            self.bootstrap_hint = None
             # The node controls brief hold/deceleration. Do not renew tracking
             # timestamps, but allow the SAME boundary to return before gap expiry.
             raise ValueError('no boundaries detected')
@@ -804,7 +1288,33 @@ class MetricLaneTracker:
                     # below are required before accepting the new role.
                     self.initial_side = recovery_side_hint
                 elif not self.requires_pair:
-                    self.initial_side = initial_boundary_side(curves[0], lookahead)
+                    try:
+                        self.initial_side = initial_boundary_side(curves[0], lookahead)
+                        self.bootstrap_hint = None
+                    except ValueError as exc:
+                        if 'overlaps robot reference' not in str(exc):
+                            self.bootstrap_hint = None
+                            raise
+                        # Pixel side is weak evidence, not an instantaneous
+                        # replacement for metric identity. Require three fresh,
+                        # geometrically continuous observations before bootstrap.
+                        hint = near_pixel_side(masks[0])
+                        if hint is None:
+                            self.bootstrap_hint = None
+                            raise
+                        old = self.bootstrap_hint
+                        count = 1
+                        if (old is not None and old[1] == hint and
+                                0 < now_s-old[0] <= self.tracking_gap_s and
+                                self._same_curve(curves[0], old[2])):
+                            count = old[3]+1
+                        self.bootstrap_hint = (now_s, hint, curves[0].copy(), count)
+                        if count < 3:
+                            raise ValueError(f'initial boundary overlaps robot reference; '
+                                             f'confirming near-pixel {hint}: {count}/3')
+                        self.initial_side = hint
+            else:
+                self.bootstrap_hint = None
             if self.requires_pair and lane_width > 0 and timeout_s == 0:
                 # Stay stopped during confirmation. An opposite-side detection,
                 # a long gap or inconsistent geometry restarts confirmation.
@@ -815,7 +1325,7 @@ class MetricLaneTracker:
                 previous = self.recovery
                 count = 1
                 if (previous is not None and self.recovery_side == self.initial_side
-                        and 0 < now_s-previous[0] <= .8
+                        and 0 < now_s-previous[0] <= self.tracking_gap_s
                         and self._same_curve(curve, previous[1])):
                     count = previous[2]+1
                 self.recovery = (now_s, curve.copy(), count)
@@ -833,7 +1343,25 @@ class MetricLaneTracker:
             self.last_observation = dict(curve=near.copy(), side=self.initial_side,
                                          width=lane_width, width_source='configured')
             direction = -1 if self.initial_side == 'left' else 1
-            center_path_from_boundary(actual, direction*lane_width*.5)
+            try:
+                actual, _, _ = fit_drivable_boundary(near, direction*lane_width*.5, degree, actual)
+            except OffsetCurveError:
+                # Retry ONLY a failed short-hook bootstrap. Successful normal
+                # paths and existing tracking are never replaced by this rule.
+                alternative = floor_curves(
+                    masks, calibration, max_forward_m, path_min_m, path_max_m,
+                    degree, recover_short_hook=True)
+                if (len(alternative) != 1 or
+                        initial_boundary_side(alternative[0], lookahead) != self.initial_side):
+                    raise
+                alternate_near = supported_chain(alternative[0], path_min_m, path_max_m)
+                alternate_actual = fit_boundary(alternate_near, degree)
+                # Keep last_observation on the original if recovery also folds,
+                # so the independent corner policy still sees the true corner.
+                center_path_from_boundary(alternate_actual, direction*lane_width*.5)
+                curves, near, actual = alternative, alternate_near, alternate_actual
+                self.last_observation = dict(curve=near.copy(), side=self.initial_side,
+                                             width=lane_width, width_source='configured')
             virtual, _ = optional_virtual_boundary(actual, direction*lane_width)
             self.confirmed = dict(normal_width_m=lane_width, width_m=lane_width,
                                   x_m=lookahead, width_source='configured',
@@ -842,16 +1370,26 @@ class MetricLaneTracker:
             self.observed_side = self.initial_side
             self.observed_curve = curves[0]
             self.observed_at = now_s
+            bootstrapped_here = True
         if len(masks) != 1 or self.confirmed is None:
             raise ValueError('single line requires recent confirmed pair')
-        curves = floor_curves(masks, calibration, max_forward_m,
-                              path_min_m, path_max_m, degree)
+        if curves is None:
+            curves = floor_curves(masks, calibration, max_forward_m,
+                                  path_min_m, path_max_m, degree)
         if len(curves) != 1:
             raise ValueError('no reliable visible boundary')
+        if self.observed_curve is not None and not self._same_curve(curves[0], self.observed_curve):
+            # Bootstrap may have rejected a tiny endpoint hook and selected
+            # the long stripe. Keep using it when the SAME long observation
+            # matches history, instead of reverting to the hook next frame.
+            alternatives = floor_curves(masks, calibration, max_forward_m,
+                                        path_min_m, path_max_m, degree, recover_short_hook=True)
+            if len(alternatives) == 1 and self._same_curve(alternatives[0], self.observed_curve):
+                curves = alternatives
         curve = curves[0]
         matches = []
         reference_time = self.observed_at if self.observed_at is not None else self.confirmed_at
-        if reference_time is None or not 0 <= now_s-reference_time <= .8:
+        if reference_time is None or not 0 <= now_s-reference_time <= self.tracking_gap_s:
             # Image flow can preserve a role across vehicle rotation, but a
             # stale ground curve cannot be driven. Stop now and require the
             # ordinary three-frame recovery on the next observations.
@@ -869,7 +1407,13 @@ class MetricLaneTracker:
         for side in sides:
             old = (self.observed_curve if self.observed_side else
                    np.array(self.confirmed[side+'_curve']))
-            error = curve_match_error(curve, old, .15, max(.45, lookahead+.15))
+            # This exact observation was just classified and validated above;
+            # it need not prove 4 cm of interior overlap with ITSELF. Across
+            # different frames the ordinary overlap/tangent matcher remains.
+            error = (0. if bootstrapped_here and side == self.initial_side else
+                     curve_match_error(curve, old, .15, max(.45, lookahead+.15)))
+            if not np.isfinite(error):
+                error = short_curve_match_error(curve, old)
             if np.isfinite(error):
                 matches.append((error, side))
         matches.sort()
@@ -901,7 +1445,7 @@ class MetricLaneTracker:
         self.last_observation = dict(curve=near.copy(), side=side, width=width,
                                      width_source=self.confirmed.get('width_source', 'measured'))
         direction = -1 if side == 'left' else 1
-        centres, center_warning = center_path_from_boundary(real, direction*width*.5)
+        real, centres, center_warning = fit_drivable_boundary(near, direction*width*.5, degree, real)
         virtual, virtual_warning = optional_virtual_boundary(real, direction*width)
         point, adaptive = select_lookahead(centres, lookahead)
         x, y = map(float, point)
@@ -927,6 +1471,7 @@ class MetricLaneTracker:
         self.observed_curve = curve.copy()
         self.observed_side = side
         self.observed_at = now_s
+        self.preferred_observation_side = side
         return target
 
 

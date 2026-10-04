@@ -82,6 +82,39 @@ def test_short_observed_entry_allows_supported_pivot_but_not_extrapolation():
         p._start_staged(obs, f, np.zeros(3), 1.)
 
 
+def test_rejected_staging_keeps_valid_distant_ordinary_path(monkeypatch):
+    p = CornerPolicy(CornerConfig(staged_turn=True, clearance_m=0.))
+    def reject(*args):
+        raise ValueError('corner entry: pivot outside observed entry support')
+    monkeypatch.setattr(p, '_start_staged', reject)
+    for now in (1., 1.2, 1.4):
+        target = p.update(observation(), ordinary(), now, np.zeros(3), .22, .25)
+    assert target['x_m'] == ordinary()['x_m']
+    assert not p.block_recovery and p.staged is None
+    assert p.update(observation(), None, 1.6, np.zeros(3), .22, .25) is None
+    assert p.block_recovery
+
+
+@pytest.mark.parametrize('sign', [1, -1])
+@pytest.mark.parametrize('travel', [.001, .003, .0049])
+def test_visible_entry_origin_is_not_robot_distance(sign, travel):
+    p = CornerPolicy(CornerConfig(staged_turn=True, clearance_m=0.))
+    # Analytic 90-degree measured outer boundary with a ~20 cm axle pivot.
+    obs = dict(observation(sign), width=.214)
+    feature = dict(entry=np.array([.307-.107-travel, -sign*.107]),
+                   corner=np.array([.307, -sign*.107]),
+                   exit=np.array([.307, sign*.15]),
+                   tin=np.array([1., 0.]), tout=np.array([0., float(sign)]))
+    p._start_staged(obs, feature, np.zeros(3), 1.)
+    np.testing.assert_allclose(p.staged['pivot'], [.2, 0.], atol=1e-9)
+    assert p.debug['entry_travel_m'] == pytest.approx(travel)
+    # Still reject an intersection beyond the explicit 10mm endpoint grace.
+    p.reset()
+    feature['entry'][0] = .211
+    with pytest.raises(ValueError, match='outside observed'):
+        p._start_staged(obs, feature, np.zeros(3), 1.)
+
+
 def test_controller_staged_spin_obeys_stale_frame_and_odom_stop(controller):
     p, obs, target = prepared()
     pose = np.r_[target['corner_pivot_world'], 0.]

@@ -6,6 +6,7 @@ lane_autonomy:
     max_enabled_seconds: 0.0
     # Actual single-boundary observations must continue; not blind driving.
     metric_single_line_timeout: 0.0  # continuous ONLY while the reference remains tracked
+    lane_tracking_gap_seconds: 2.0  # Identity/reacquisition only; stale-command watchdogs unchanged.
     # Width between boundary centrelines along their normal, in metres.
     # 0.154 is a prior camera estimate for THIS course, not a tape measurement.
     lane_width: 0.154
@@ -25,6 +26,8 @@ lane_autonomy:
     corner_confirm_frames: 3
     corner_exit_frames: 3
     corner_max_gap_s: 0.6
+    corner_relaxed_tracking: true  # Prefer fresh measured lanes over stale S-route lockout.
+    debug_image_frequency: 3.0  # Isolated DDS image process; never blocks motor control.
     corner_approach_m: 0.30
     # Confirmed but constrained corner path: slower than normal lane tracking.
     corner_speed_mps: 0.05

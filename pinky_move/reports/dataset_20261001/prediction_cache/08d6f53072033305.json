@@ -1,0 +1,1 @@
+{"signature": {"model_sha256": "7f63f6d82778aaa5725ac99f7d04555c054288438755a74e98f8289fbecab049", "imgsz": 320, "confidence": 0.55, "iou": 0.7, "retina_masks": true, "image_sha256": "3f7ed5defd511dc83c1989953fc6e3509441e4d8710498912159f1dbfe57a3e0"}, "instances": [], "inference_ms": 15.1782360044308}

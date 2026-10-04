@@ -1,0 +1,56 @@
+{
+  "images": 407,
+  "gained": 20,
+  "regressed": 0,
+  "remaining_no_target": 23,
+  "max_existing_target_delta_m": 0.0,
+  "gains": [
+    "train/images/rec_20260912_165456_000296_jpg.rf.5bc3b928b4a6e7c3b64a15198c86841e.jpg",
+    "train/images/rec_20260912_165456_000320_jpg.rf.b28c69517c369045e81206d33abdee7d.jpg",
+    "train/images/rec_20260912_165456_000344_jpg.rf.a6ff307908937e00cb2134404679c334.jpg",
+    "train/images/rec_20260912_165456_002344_jpg.rf.2526751c80b468eae06b017958bee667.jpg",
+    "train/images/rec_20260912_165456_002664_jpg.rf.9a720a15505a85a6778722bc28a05a04.jpg",
+    "train/images/rec_20260912_165456_002680_jpg.rf.20d922c8d47bfbcc91e0dba7f07315c6.jpg",
+    "train/images/rec_20260912_165456_002696_jpg.rf.e7a86b2bfd063173dac31fac50ffcffc.jpg",
+    "train/images/rec_20260912_165456_004096_jpg.rf.facc74ec25e16b54d1bfe863942ab716.jpg",
+    "train/images/rec_20260912_165456_004112_jpg.rf.0ea758aa98c2356e0c13db3507adec41.jpg",
+    "train/images/rec_20260912_165456_004128_jpg.rf.ae9f69be6093ad328318b712e93c8cd8.jpg",
+    "train/images/rec_20260912_165456_004232_jpg.rf.62c26dd23833fbd41f30cbeb33f83c17.jpg",
+    "train/images/rec_20260912_165456_004240_jpg.rf.d2cfc7861efba3ecaf7d30659a6e6323.jpg",
+    "train/images/rec_20260912_165456_004248_jpg.rf.7dc73d5bd2bea5b2a1b500f48f26b47c.jpg",
+    "train/images/rec_20260912_165456_004456_jpg.rf.898e3766b4e0248ea27a269721cc66d2.jpg",
+    "valid/images/rec_20260912_165456_000304_jpg.rf.254a224a83e0320fbe7db2c64ac019e6.jpg",
+    "valid/images/rec_20260912_165456_002688_jpg.rf.22a3bdf2788a69c67c013eb673c7ebd3.jpg",
+    "valid/images/rec_20260912_165456_004104_jpg.rf.13ce398fc2c54e8ffd772efbe7cbc323.jpg",
+    "valid/images/rec_20260912_165456_004120_jpg.rf.191fd967791acb337832afc378e3479c.jpg",
+    "valid/images/rec_20260912_165456_004224_jpg.rf.0a46d905252e777a5776f0ed8078f848.jpg",
+    "valid/images/rec_20260912_165456_004256_jpg.rf.50dbec03766b199e666a5eeba2e0210c.jpg"
+  ],
+  "regressions": [],
+  "label_issues": [
+    {
+      "image": "valid/images/rec_20260912_165456_002520_jpg.rf.d0d101883dce36ab2fa76a31257bbef7.jpg",
+      "reason": "line 1: bounding_box_not_segmentation"
+    }
+  ],
+  "before": "s_curve_final",
+  "after": "remaining_confirmed",
+  "same_inference": false,
+  "signatures": [
+    {
+      "model_sha256": "7f63f6d82778aaa5725ac99f7d04555c054288438755a74e98f8289fbecab049",
+      "imgsz": 320,
+      "confidence": 0.55,
+      "iou": 0.7,
+      "retina_masks": true
+    },
+    {
+      "model_sha256": "7f63f6d82778aaa5725ac99f7d04555c054288438755a74e98f8289fbecab049",
+      "imgsz": 320,
+      "confidence": 0.55,
+      "iou": 0.7,
+      "retina_masks": true,
+      "retry_imgsz": 640
+    }
+  ]
+}

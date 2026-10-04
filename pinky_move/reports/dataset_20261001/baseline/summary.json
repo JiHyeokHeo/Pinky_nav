@@ -1,0 +1,173 @@
+{
+  "images": 407,
+  "splits": {
+    "train": {
+      "images": 285,
+      "input_errors": 0,
+      "label_error_images": 0,
+      "pred_target_available": 239,
+      "gt_target_available": 236,
+      "pred_no_lane": 4,
+      "unexpected_errors": 0,
+      "pivot_candidates": 6,
+      "reasons": {
+        "target_available": 239,
+        "no common observed lane interval": 11,
+        "no boundaries detected": 4,
+        "no unambiguous left/right boundary pair": 13,
+        "center_path curve folds back": 6,
+        "initial boundary overlaps robot reference": 3,
+        "initial boundary=None; lane width requires real pair": 8,
+        "visible boundary identity ambiguous": 1
+      },
+      "corner_kinds": {
+        "NORMAL": 210,
+        "CORNER": 7,
+        "S_BEND": 24,
+        "NO_OBSERVATION": 40,
+        "UNKNOWN": 4
+      },
+      "lane_pixel_iou_global": 0.7506296320387679,
+      "crossline_pixel_iou_global": 0.8055874155467029,
+      "inference_ms": {
+        "p50": 17.49677499901736,
+        "p95": 20.195609802613035,
+        "maximum": 125.15660900680814
+      },
+      "pred_geometry_ms": {
+        "p50": 61.426298998412676,
+        "p95": 100.19815360428768,
+        "maximum": 112.34225999942282
+      }
+    },
+    "valid": {
+      "images": 81,
+      "input_errors": 0,
+      "label_error_images": 1,
+      "pred_target_available": 67,
+      "gt_target_available": 63,
+      "pred_no_lane": 1,
+      "unexpected_errors": 0,
+      "pivot_candidates": 1,
+      "reasons": {
+        "target_available": 67,
+        "no boundaries detected": 1,
+        "initial boundary overlaps robot reference": 2,
+        "initial boundary=None; lane width requires real pair": 1,
+        "no unambiguous left/right boundary pair": 5,
+        "multiple ambiguous boundaries on same side": 2,
+        "no common observed lane interval": 3
+      },
+      "corner_kinds": {
+        "NORMAL": 61,
+        "NO_OBSERVATION": 14,
+        "UNKNOWN": 2,
+        "S_BEND": 3,
+        "CORNER": 1
+      },
+      "lane_pixel_iou_global": 0.739316248518972,
+      "crossline_pixel_iou_global": 0.8490303758366227,
+      "inference_ms": {
+        "p50": 17.134362999058794,
+        "p95": 18.95114700164413,
+        "maximum": 20.32122500531841
+      },
+      "pred_geometry_ms": {
+        "p50": 71.80493900523288,
+        "p95": 97.49838199786609,
+        "maximum": 102.74170200136723
+      }
+    },
+    "test": {
+      "images": 41,
+      "input_errors": 0,
+      "label_error_images": 0,
+      "pred_target_available": 36,
+      "gt_target_available": 38,
+      "pred_no_lane": 0,
+      "unexpected_errors": 0,
+      "pivot_candidates": 0,
+      "reasons": {
+        "target_available": 36,
+        "no common observed lane interval": 3,
+        "initial boundary overlaps robot reference": 1,
+        "center_path curve folds back": 1
+      },
+      "corner_kinds": {
+        "NORMAL": 31,
+        "NO_OBSERVATION": 4,
+        "S_BEND": 6
+      },
+      "lane_pixel_iou_global": 0.7506096301287608,
+      "crossline_pixel_iou_global": 0.7976927977876886,
+      "inference_ms": {
+        "p50": 17.882435997307766,
+        "p95": 19.87314200232504,
+        "maximum": 30.955969996284693
+      },
+      "pred_geometry_ms": {
+        "p50": 62.881042998924386,
+        "p95": 99.59133400116116,
+        "maximum": 111.49989199475385
+      }
+    },
+    "all": {
+      "images": 407,
+      "input_errors": 0,
+      "label_error_images": 1,
+      "pred_target_available": 342,
+      "gt_target_available": 337,
+      "pred_no_lane": 5,
+      "unexpected_errors": 0,
+      "pivot_candidates": 7,
+      "reasons": {
+        "target_available": 342,
+        "no common observed lane interval": 17,
+        "no boundaries detected": 5,
+        "no unambiguous left/right boundary pair": 18,
+        "center_path curve folds back": 7,
+        "initial boundary overlaps robot reference": 6,
+        "initial boundary=None; lane width requires real pair": 9,
+        "visible boundary identity ambiguous": 1,
+        "multiple ambiguous boundaries on same side": 2
+      },
+      "corner_kinds": {
+        "NORMAL": 302,
+        "CORNER": 8,
+        "S_BEND": 33,
+        "NO_OBSERVATION": 58,
+        "UNKNOWN": 6
+      },
+      "lane_pixel_iou_global": 0.7482884725761544,
+      "crossline_pixel_iou_global": 0.811478752320754,
+      "inference_ms": {
+        "p50": 17.485456002759747,
+        "p95": 19.976785400649533,
+        "maximum": 125.15660900680814
+      },
+      "pred_geometry_ms": {
+        "p50": 62.0379839965608,
+        "p95": 98.44506200242904,
+        "maximum": 112.34225999942282
+      }
+    }
+  },
+  "signature": {
+    "model_sha256": "7f63f6d82778aaa5725ac99f7d04555c054288438755a74e98f8289fbecab049",
+    "imgsz": 320,
+    "confidence": 0.55,
+    "iou": 0.7,
+    "retina_masks": true
+  },
+  "calibration_sha256": "93a1acb8662fcbeb83040d54214265b00b7387ae95b4f665d7134e6050e6410c",
+  "metric_code_sha256": "40bdbb69953a356a7b329616a78f7e770644b28a3418205ded8f0f4d178d883d",
+  "corner_code_sha256": "cfc792350ded858677ffab22c302be18f08cadaf64ab70b797b303e2a2051585",
+  "elapsed_seconds": 66.42374696600018,
+  "limitations": [
+    "Static independent cold starts; no odometry or temporal driving test.",
+    "Same resolution does not prove same camera pose/intrinsics.",
+    "Training split is not a held-out generalization estimate.",
+    "Pixel IoU is class-union overlap, not mAP.",
+    "One-sided geometry uses configured width, not measured free space."
+  ]
+}

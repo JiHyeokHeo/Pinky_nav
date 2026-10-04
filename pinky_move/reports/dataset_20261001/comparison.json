@@ -1,0 +1,30 @@
+{
+  "images": 407,
+  "gained": 14,
+  "regressed": 0,
+  "remaining_no_target": 51,
+  "max_existing_target_delta_m": 0.0,
+  "gains": [
+    "train/images/rec_20260912_165456_000216_jpg.rf.eb58f998ca14839874a2ea7c481cfbb8.jpg",
+    "train/images/rec_20260912_165725_001632_jpg.rf.ddcc6df8062a9e0cb302e0337be80acb.jpg",
+    "train/images/rec_20260912_165725_001920_jpg.rf.fa090f51da5f27653a74675f71f3fe74.jpg",
+    "train/images/rec_20260912_165725_002336_jpg.rf.fa6207c27d9814bdb6fa01e89ea1cd81.jpg",
+    "train/images/rec_20260912_165725_002352_jpg.rf.b513201f223b7a43af352e8cc13b1b3a.jpg",
+    "train/images/rec_20260912_165725_002368_jpg.rf.0f82f128eef52f49d05843b0badd0117.jpg",
+    "train/images/rec_20260912_165725_002376_jpg.rf.a96087c002e078a5d140f9d509987f09.jpg",
+    "train/images/rec_20260912_165725_002384_jpg.rf.a2b102b0df72d9fd3f9b7fcc0cec82df.jpg",
+    "train/images/rec_20260912_165725_002504_jpg.rf.457ad7e623d3c763438ea706e5ed1c77.jpg",
+    "valid/images/rec_20260912_165725_002344_jpg.rf.30f679a16a62cbecff2926d1b33e131b.jpg",
+    "valid/images/rec_20260912_165725_002360_jpg.rf.bce5ff7c4ff712eb4962adf7c3708204.jpg",
+    "test/images/rec_20260912_165456_002328_jpg.rf.6c15ecad59d6a89c1e806efa2fb922f8.jpg",
+    "test/images/rec_20260912_165725_001912_jpg.rf.24cac03274bbb04b2fbc0a730064496e.jpg",
+    "test/images/rec_20260912_165725_002512_jpg.rf.142af6a1902c447885927b43da84fd7f.jpg"
+  ],
+  "regressions": [],
+  "label_issues": [
+    {
+      "image": "valid/images/rec_20260912_165456_002520_jpg.rf.d0d101883dce36ab2fa76a31257bbef7.jpg",
+      "reason": "line 1: bounding_box_not_segmentation"
+    }
+  ]
+}

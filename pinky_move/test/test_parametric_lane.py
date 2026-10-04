@@ -86,6 +86,32 @@ def test_short_forward_overlap_is_used_without_extrapolation():
     np.testing.assert_allclose(widths, .16)
 
 
+def test_diagonal_pair_uses_normals_when_x_support_does_not_overlap():
+    tangent = np.array([.5, np.sqrt(.75)])
+    normal = np.array([-tangent[1], tangent[0]])
+    middle = np.array([.22, 0.])+np.linspace(0., .12, 60)[:, None]*tangent
+    left, right = middle+.08*normal, middle-.08*normal
+    assert np.max(left[:, 0]) < np.min(right[:, 0])
+    centre, widths = center_from_pair(left, right)
+    np.testing.assert_allclose(widths, .16, atol=1e-10)
+    delta = centre-middle[0]
+    np.testing.assert_allclose(delta@normal, 0., atol=1e-10)
+    assert np.all(delta@tangent >= -1e-10)
+    assert np.all(delta@tangent <= .12+1e-10)
+
+
+def test_normal_fallback_width_is_not_projected_twice(monkeypatch):
+    import pinky_move.metric_lane as module
+    tangent = np.array([.5, np.sqrt(.75)])
+    normal = np.array([-tangent[1], tangent[0]])
+    middle = np.array([.22, 0.])+np.linspace(0., .12, 60)[:, None]*tangent
+    lanes = dict(left=middle+.08*normal, right=middle-.08*normal)
+    monkeypatch.setattr(module, 'floor_curves', lambda *a, **k: list(lanes.values()))
+    monkeypatch.setattr(module, 'classify_lanes', lambda *a, **k: lanes)
+    result = module.metric_target([object(), object()], None, .22, path_min_m=.1, path_max_m=.5)
+    assert result['normal_width_m'] == pytest.approx(.16)
+
+
 @pytest.mark.parametrize('start', [.24, .26])
 def test_tiny_or_disjoint_forward_overlap_still_rejected(start):
     left = np.column_stack((np.linspace(.15, .25, 20), np.full(20, .08)))

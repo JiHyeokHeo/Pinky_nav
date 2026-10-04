@@ -1,0 +1,21 @@
+{
+  "images": 407,
+  "gained": 3,
+  "regressed": 0,
+  "remaining_no_target": 48,
+  "max_existing_target_delta_m": 0.0,
+  "gains": [
+    "valid/images/rec_20260912_165725_001944_jpg.rf.5d29dc3958c93694b1b56f7e9fafd010.jpg",
+    "valid/images/rec_20260912_165725_001952_jpg.rf.b5b317d65462fbb1a8961785f424bf52.jpg",
+    "test/images/rec_20260912_165725_002304_jpg.rf.5f4c72b0ff4aabbfc3f56b51bedc506b.jpg"
+  ],
+  "regressions": [],
+  "label_issues": [
+    {
+      "image": "valid/images/rec_20260912_165456_002520_jpg.rf.d0d101883dce36ab2fa76a31257bbef7.jpg",
+      "reason": "line 1: bounding_box_not_segmentation"
+    }
+  ],
+  "before": "improved",
+  "after": "edge_verified"
+}

@@ -1,4 +1,4 @@
-"""PC runs segmentation only; SSH carries camera frames and pixel polygons."""
+"""PC runs segmentation and requested geometry; robot owns motor commands."""
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess
 from launch.substitutions import LaunchConfiguration

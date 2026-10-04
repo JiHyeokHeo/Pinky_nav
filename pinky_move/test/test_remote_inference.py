@@ -161,3 +161,24 @@ def test_worker_only_emits_known_segmentation_polygons():
     assert len(response['instances']) == 2 and 'cmd_vel' not in response
     response = lane_wire.unpack(predict_reply(model,'wrong',data))
     assert 'error' in response
+
+
+@pytest.mark.parametrize('retry_size', [0, 640])
+def test_worker_no_lane_retry_keeps_crossline_and_capture_token(retry_size):
+    frame = np.zeros((100,200,3),np.uint8)
+    data = lane_wire.unpack(lane_wire.encode_request(frame,'session:9',Header(),'weights'))
+    lane = reply()['instances'][0]
+    crossline = dict(lane, **{'class': 'crossline'})
+    initial = lane_wire.decode_result(reply(instances=[crossline]),200,100,'weights')
+    recovered = lane_wire.decode_result(reply(instances=[lane]),200,100,'weights')
+    calls = []
+    def predict(*args, **kwargs):
+        calls.append(kwargs)
+        return [initial if len(calls) == 1 else recovered]
+    model = SimpleNamespace(names={0:'crossline',1:'lane'}, predict=predict)
+    response = lane_wire.unpack(predict_reply(model,'weights',data,retry_imgsz=retry_size))
+    assert response['token'] == 'session:9'
+    assert [c['imgsz'] for c in calls] == ([320,640] if retry_size else [320])
+    assert all(c['conf'] == .55 for c in calls)
+    assert any(i['class'] == 'crossline' for i in response['instances'])
+    assert any(i['class'] == 'lane' for i in response['instances']) == bool(retry_size)

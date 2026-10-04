@@ -1,0 +1,23 @@
+{
+  "images": 407,
+  "gained": 5,
+  "regressed": 0,
+  "remaining_no_target": 43,
+  "max_existing_target_delta_m": 0.0,
+  "gains": [
+    "train/images/rec_20260912_165456_002632_jpg.rf.c5104da7ca7361d38e87d6e12044d2a2.jpg",
+    "train/images/rec_20260912_165456_002640_jpg.rf.a2e9a84f806479bf66234f4469bdc0a1.jpg",
+    "train/images/rec_20260912_165456_002648_jpg.rf.d4ffcfbaada1902dd1a7ef6ae182e2ec.jpg",
+    "train/images/rec_20260912_165456_002656_jpg.rf.b39fe7b0dab2e2b79b6b45b442946200.jpg",
+    "train/images/rec_20260912_165456_002672_jpg.rf.d77ba09e49b9076a17e14e169a3ff734.jpg"
+  ],
+  "regressions": [],
+  "label_issues": [
+    {
+      "image": "valid/images/rec_20260912_165456_002520_jpg.rf.d0d101883dce36ab2fa76a31257bbef7.jpg",
+      "reason": "line 1: bounding_box_not_segmentation"
+    }
+  ],
+  "before": "edge_verified",
+  "after": "s_curve_final"
+}

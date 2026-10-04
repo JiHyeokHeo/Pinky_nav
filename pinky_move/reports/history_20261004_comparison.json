@@ -1,0 +1,36 @@
+{
+  "images": 407,
+  "gained": 0,
+  "regressed": 0,
+  "remaining_no_target": 23,
+  "max_existing_target_delta_m": 0.0,
+  "gains": [],
+  "regressions": [],
+  "label_issues": [
+    {
+      "image": "valid/images/rec_20260912_165456_002520_jpg.rf.d0d101883dce36ab2fa76a31257bbef7.jpg",
+      "reason": "line 1: bounding_box_not_segmentation"
+    }
+  ],
+  "before": "dataset_20261001/remaining_confirmed",
+  "after": "dataset_20261004/history_final",
+  "same_inference": true,
+  "signatures": [
+    {
+      "model_sha256": "7f63f6d82778aaa5725ac99f7d04555c054288438755a74e98f8289fbecab049",
+      "imgsz": 320,
+      "confidence": 0.55,
+      "iou": 0.7,
+      "retina_masks": true,
+      "retry_imgsz": 640
+    },
+    {
+      "model_sha256": "7f63f6d82778aaa5725ac99f7d04555c054288438755a74e98f8289fbecab049",
+      "imgsz": 320,
+      "confidence": 0.55,
+      "iou": 0.7,
+      "retina_masks": true,
+      "retry_imgsz": 640
+    }
+  ]
+}

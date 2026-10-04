@@ -1,4 +1,4 @@
-"""PC-side YOLO segmentation ONLY. No ROS publishers or motor commands.
+"""PC-side segmentation and optional metric planning. No motor commands.
 
 Connects to Pinky2's loopback perception mailbox through authenticated SSH.
 Same model weights, image dimensions and class names as the robot deployment.
@@ -17,7 +17,8 @@ import numpy as np
 from . import lane_wire
 
 
-def predict_reply(model, model_hash, request, imgsz=320, confidence=.55, iou=.70):
+def predict_reply(model, model_hash, request, imgsz=320, confidence=.55, iou=.70,
+                  retry_imgsz=640, planner=None):
     started = time.monotonic()
     reply = dict(version=1, token=request['token'], width=request['width'],
                  height=request['height'], model_sha256=model_hash)
@@ -37,13 +38,33 @@ def predict_reply(model, model_hash, request, imgsz=320, confidence=.55, iou=.70
                 # Original-image coordinates, not resized network-input pixels.
                 points = np.asarray(polygon, float)
                 instances.append(dict(**{'class': name}, points=points.tolist()))
+        # Retry only genuine Lane absence, on the SAME captured frame. Never
+        # lower confidence or renew the robot's capture timestamp/TTL.
+        if not any(item['class'] == 'lane' for item in instances) and retry_imgsz > imgsz:
+            retry = model.predict(frame, imgsz=retry_imgsz, conf=confidence, iou=iou,
+                                  retina_masks=True, device='cpu', verbose=False)[0]
+            recovered = []
+            if retry.masks is not None and retry.boxes is not None:
+                for class_id, polygon in zip(retry.boxes.cls.int().cpu().tolist(), retry.masks.xy):
+                    if str(names[class_id]).casefold() == 'lane':
+                        recovered.append({'class': 'lane', 'points': np.asarray(polygon, float).tolist()})
+            # Preserve original crossline observations rather than erasing a
+            # stop-line detection when the retry resolution changes.
+            instances.extend(recovered)
+            reply['retry_imgsz'] = retry_imgsz
         reply['instances'] = instances
-        lane_wire.decode_result(reply, frame.shape[1], frame.shape[0], model_hash)
+        decoded = lane_wire.decode_result(reply, frame.shape[1], frame.shape[0], model_hash)
+        if 'planning' in request:
+            if planner is None:
+                raise ValueError('PC planner is required by this robot')
+            planning_started = time.monotonic()
+            reply['plan'] = planner.process(request, decoded, frame)
+            reply['pc_geometry_seconds'] = time.monotonic()-planning_started
     except Exception as exc:
         reply['error'] = str(exc)[:200]
     # Duration only; robot never uses PC timestamps to extend input freshness.
     reply['pc_processing_seconds'] = time.monotonic() - started
-    return json.dumps(reply).encode()
+    return json.dumps(reply, allow_nan=False).encode()
 
 
 def main():
@@ -52,6 +73,8 @@ def main():
     parser.add_argument('--model', default='/home/tory/Downloads/yolo_runs/segment/train/weights/best.pt')
     parser.add_argument('--port', type=int, default=18765)
     parser.add_argument('--imgsz', type=int, default=320)
+    parser.add_argument('--retry-imgsz', type=int, default=640,
+                        help='One same-frame retry when Lane is absent; 0 disables')
     parser.add_argument('--confidence', type=float, default=.55)
     parser.add_argument('--iou', type=float, default=.70)
     parser.add_argument('--threads', type=int, default=4)
@@ -60,6 +83,7 @@ def main():
     args = parser.parse_args()
     if (not 1024 <= args.port <= 65535 or not 32 <= args.imgsz <= 1280 or
             not 1 <= args.threads <= 32 or args.max_results < 0 or
+            not (args.retry_imgsz == 0 or 32 <= args.retry_imgsz <= 1280) or
             not 0 < args.confidence <= 1 or not 0 < args.iou <= 1 or args.robot.startswith('-')):
         parser.error('invalid inference/connection arguments')
     if not Path(args.model).is_file():
@@ -79,6 +103,9 @@ def main():
     # Warm up BEFORE pulling a camera frame. Startup cost must not consume its TTL.
     model.predict(np.zeros((480, 640, 3), np.uint8), imgsz=args.imgsz,
                   device='cpu', verbose=False)
+    if args.retry_imgsz > args.imgsz:
+        model.predict(np.zeros((480, 640, 3), np.uint8), imgsz=args.retry_imgsz,
+                      device='cpu', verbose=False)
     tunnel = subprocess.Popen([
         'ssh', '-N', '-T', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
         '-o', 'ExitOnForwardFailure=yes', '-o', 'ConnectTimeout=5',
@@ -89,8 +116,10 @@ def main():
     http = build_opener(ProxyHandler({}))
     url = f'http://127.0.0.1:{args.port}'
     count = 0
+    from .lane_planning_remote import PCPlanner
+    planner = PCPlanner()
     last_warning = 0.
-    print(f'PC segmentation ready (CPU); robot={args.robot}, model_sha256={model_hash}', flush=True)
+    print(f'PC segmentation + planning ready (CPU); robot={args.robot}, model_sha256={model_hash}', flush=True)
     try:
         while tunnel.poll() is None:
             try:
@@ -101,7 +130,8 @@ def main():
                     payload = response.read(lane_wire.MAX_MESSAGE+1)
                 request = lane_wire.unpack(payload)
                 started = time.monotonic()
-                reply = predict_reply(model, model_hash, request, args.imgsz, args.confidence, args.iou)
+                reply = predict_reply(model, model_hash, request, args.imgsz, args.confidence,
+                                      args.iou, args.retry_imgsz, planner=planner)
                 with http.open(Request(url+'/result', data=reply,
                                        headers={'Content-Type': 'application/json'}), timeout=2.):
                     pass

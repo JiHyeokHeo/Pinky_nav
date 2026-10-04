@@ -1,0 +1,22 @@
+{
+  "date_kst": "2026-10-05",
+  "changes": [
+    "Relaxed current-observation S-route tracking and local-map replacement",
+    "Continue valid current centre paths under UNKNOWN classification",
+    "Separate diagnostic image DDS publication into a spawned process with bounded IPC",
+    "Retain measured odom points within forward/rear +/-1m without age expiry"
+  ],
+  "verification": {
+    "local_regression_suite": {"passed": 515, "duration_seconds": 52.64, "excluded": ["copyright", "flake8", "pep257"]},
+    "local_debug_transport_suite": {"passed": 4, "includes_real_ros_image_delivery": true},
+    "pinky2_selected_regressions": {"passed": 89, "duration_seconds": 10.59},
+    "local_colcon_build": "passed",
+    "pinky2_colcon_build": "passed",
+    "deployed_core_sha256_matches": true
+  },
+  "limitations": [
+    "Real wireless periodic-stall elimination has not been demonstrated in a complete driving run",
+    "Spatial archive is in-process memory and is reset on process restart or odometry discontinuity",
+    "No movement was enabled during these checks; unit success does not establish course completion"
+  ]
+}

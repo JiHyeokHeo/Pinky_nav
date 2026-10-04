@@ -2,6 +2,7 @@
 """YOLO segmentation lane follower for Pinky Pro."""
 
 from concurrent.futures import Future
+from array import array
 from enum import Enum
 import os
 import json
@@ -9,6 +10,8 @@ import hashlib
 import uuid
 import time
 from threading import Thread
+from copy import deepcopy
+from types import SimpleNamespace
 
 import cv2
 from geometry_msgs.msg import Twist
@@ -40,7 +43,36 @@ from .metric_lane import (MetricLaneTracker, LaneImageIdentity, pursuit, near_pi
                           loss_speed_scale, floor_curves, curve_match_error,
                           supported_chain, arc_stations)
 from . import lane_wire
+from .debug_worker import LatestDebugWorker, IsolatedImageTransport, DiagnosticPublisher
+from .lane_history import LaneHistory, SpatialLaneArchive
+from .local_map_view import render_local_map
 from .lane_corner import CornerConfig, CornerPolicy, wrap, staged_command
+
+
+def draw_boundary_labels(frame, polygons, lane_class_id, labels, corner):
+    """Annotate actual assigned roles, not a guess from screen left/right."""
+    h, w = frame.shape[:2]
+    index = 0
+    occupied = []
+    for class_id, polygon in polygons:
+        if class_id != lane_class_id:
+            continue
+        side, source = labels.get(index, ('unknown', 'UNASSIGNED'))
+        text = f'#{index+1} {side.upper()} [{source}]'
+        mode = f"STATE: {corner.get('mode', 'UNKNOWN')} {corner.get('direction', '')}"
+        point = np.asarray(polygon).mean(axis=0).astype(int)
+        x = max(2, min(w-310, int(point[0])-120))
+        y = max(175, min(h-45, int(point[1])-12))
+        while any(abs(y-old)<40 for old in occupied) and y+40 < h-40:
+            y += 40
+        occupied.append(y)
+        color = {'left': (60,255,60), 'right': (255,180,40)}.get(side, (0,200,255))
+        cv2.line(frame, tuple(point), (x,y), color, 1)
+        for offset, line in enumerate((text, mode)):
+            origin = (x,y+offset*17)
+            cv2.putText(frame,line,origin,cv2.FONT_HERSHEY_SIMPLEX,.43,(0,0,0),3)
+            cv2.putText(frame,line,origin,cv2.FONT_HERSHEY_SIMPLEX,.43,color,1)
+        index += 1
 
 
 class DriveState(Enum):
@@ -87,6 +119,8 @@ class LaneAutonomy(Node):
 
         model_path = self._string_parameter('model_path')
         self.remote_inference = self._bool_parameter('remote_inference')
+        if self._bool_parameter('remote_geometry') and not self.remote_inference:
+            raise ValueError('remote_geometry requires remote_inference')
         self.remote_session = uuid.uuid4().hex
         self.remote_sequence = 0
         self.remote_pending = None
@@ -169,6 +203,8 @@ class LaneAutonomy(Node):
         self.debug_publisher = self.create_publisher(
             Image, self._string_parameter('debug_image_topic'),
             QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT))
+        self.local_map_publisher = self.create_publisher(
+            Image, '~/local_map', QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT))
         self.enable_service = self.create_service(
             SetBool, '~/enable', self._enable_callback)
         if self.remote_inference:
@@ -206,6 +242,7 @@ class LaneAutonomy(Node):
         parameters = (
             ('enabled', False),
             ('remote_inference', False),
+            ('remote_geometry', False),
             ('remote_port', 18765),
             ('max_enabled_seconds', 0.0),
             ('model_path', default_model),
@@ -213,6 +250,7 @@ class LaneAutonomy(Node):
             ('metric_trial_enabled', False),  # Deprecated compatibility parameter; no enable gate.
             ('metric_lookahead_m', .22),
             ('metric_single_line_timeout', 0.0),
+            ('lane_tracking_gap_seconds', 2.0),
             ('lane_width', .154),  # metres; estimate from this course, replace with measurement
             ('path_polynomial_degree', 3),
             ('projection_max_forward_m', 2.0),
@@ -233,6 +271,7 @@ class LaneAutonomy(Node):
             ('corner_confirm_frames', 3),
             ('corner_exit_frames', 3),
             ('corner_max_gap_s', .6),
+            ('corner_relaxed_tracking', True),
             ('corner_approach_m', .30),
             ('corner_speed_mps', .05),
             ('corner_max_angular_speed', .25),
@@ -297,6 +336,7 @@ class LaneAutonomy(Node):
             ('front_stop_distance', 0.25),
             ('front_sector_degrees', 25.0),
             ('publish_debug_image', True),
+            ('debug_image_frequency', 3.0),
         )
         for name, value in parameters:
             self.declare_parameter(name, value)
@@ -381,9 +421,11 @@ class LaneAutonomy(Node):
         self.crossline_streak = 0
         self.metric_target = None
         self.metric_tracker = MetricLaneTracker(
+            tracking_gap_s=self._float_parameter('lane_tracking_gap_seconds'),
             minimum_lane_width_m=2*(self._float_parameter('corner_robot_half_width_m')+
                                     self._float_parameter('corner_clearance_m')))
         self.corner_policy = CornerPolicy(CornerConfig(
+            relaxed_tracking=self._bool_parameter('corner_relaxed_tracking'),
             staged_turn=self._bool_parameter('corner_staged_turn'),
             entry_speed_mps=self._float_parameter('corner_entry_speed_mps'),
             pivot_tolerance_m=self._float_parameter('corner_pivot_tolerance_m'),
@@ -407,7 +449,13 @@ class LaneAutonomy(Node):
         self.corner_odom_frame = None
         self.corner_odom_history = []
         self.corner_capture_stamp = None
-        self.image_identity = LaneImageIdentity()
+        self.image_identity = LaneImageIdentity(self._float_parameter('lane_tracking_gap_seconds'))
+        self.lane_history = LaneHistory(max_frames=5,
+                                       max_age_s=self._float_parameter('lane_tracking_gap_seconds'))
+        self.local_map_history = LaneHistory(max_frames=600, max_age_s=10.)
+        if not hasattr(self, 'local_map_archive'):
+            self.local_map_archive = SpatialLaneArchive()
+        self.local_map_pose = None
         self.image_side_hint = None
         self.image_match = None
         self.metric_missing_since = None
@@ -451,9 +499,17 @@ class LaneAutonomy(Node):
                                         abs(wrap(yaw-prior[1][2])) > .6))):
             self.corner_policy.reset()
             self.corner_odom_history = []
+            self.lane_history.clear()
+            self.local_map_history.clear()
+            self.local_map_archive.clear()
             # World-frame pivot targets are invalid after an odometry reset.
             # Do not let the control timer use one until another fresh result.
             self._invalidate_lane()
+            if self._bool_parameter('remote_geometry'):
+                self.inference_generation += 1
+                self.remote_pending = None
+                if getattr(self, 'remote_mailbox', None) is not None:
+                    self.remote_mailbox.clear()
         self.corner_odom = (now, pose)
         self.corner_odom_stamp = stamp
         self.corner_odom_frame = message.header.frame_id
@@ -577,6 +633,19 @@ class LaneAutonomy(Node):
             token = f'{self.remote_session}:{self.remote_sequence}'
             payload = lane_wire.encode_request(frame, token, message.header,
                                                self.remote_model_sha256)
+            if self._bool_parameter('remote_geometry'):
+                from .lane_planning_remote import plain
+                self.corner_capture_stamp = stamp
+                context = plain(dict(generation=generation, enabled=self.enabled,
+                    now_ns=now.nanoseconds, pose=self._corner_pose_for_frame(now.nanoseconds/1e9),
+                    calibration=self.robot_calibration, staged=self.corner_policy.staged,
+                    parameters={name: self.get_parameter(name).value for name in self._parameters}))
+                data = json.loads(payload)
+                data['planning'] = context
+                payload = json.dumps(data, allow_nan=False).encode()
+                if len(payload) > lane_wire.MAX_MESSAGE:
+                    raise ValueError('planning request too large')
+                self.remote_plan_context = context
             self.remote_pending = (token, generation, captured, frame, message.header)
             self.last_inference_time = now
             self.remote_mailbox.offer(token, payload)
@@ -600,6 +669,10 @@ class LaneAutonomy(Node):
                 raise ValueError('remote result expired')
             result = lane_wire.decode_result(data, frame.shape[1], frame.shape[0],
                                              self.remote_model_sha256)
+            if self._bool_parameter('remote_geometry'):
+                from .lane_planning_remote import validate_plan
+                stamp = header.stamp.sec*1_000_000_000+header.stamp.nanosec
+                result.remote_plan = validate_plan(data.get('plan'), token, generation, stamp)
             self.inference_seconds = age
             self.last_result_input_time = captured
             self.inference_error = None
@@ -616,9 +689,13 @@ class LaneAutonomy(Node):
             self.get_logger().info(
                 f'Perception timing: input_age_at_reply={age:.3f}s, '
                 f'pc_processing={pc_text}, '
+                f'planning={"PC" if self._bool_parameter("remote_geometry") else "robot"}, '
                 f'robot_postprocess={time.monotonic()-processing_started:.3f}s, '
                 f'geometry={getattr(self, "last_geometry_seconds", 0.):.3f}s, '
-                f'debug_publish={getattr(self, "last_debug_seconds", 0.):.3f}s',
+                f'debug_enqueue={getattr(self, "last_debug_seconds", 0.):.3f}s, '
+                f'debug_worker={getattr(getattr(self, "debug_worker", None), "last_seconds", 0.):.3f}s, '
+                f'debug_publish={getattr(getattr(self, "debug_transport", None), "last_seconds", 0.):.3f}s, '
+                f'debug_dropped={getattr(getattr(self, "debug_transport", None), "dropped", 0)}',
                 throttle_duration_sec=5.)
 
     def _consume_inference(self, now):
@@ -697,25 +774,74 @@ class LaneAutonomy(Node):
 
         if self.enabled:
             self._update_crossline(crossline_masks, self.safety_clock.now())
+        if self._bool_parameter('remote_geometry') and getattr(self, 'remote_inference', False):
+            self._process_planned_result(result.remote_plan, now)
+            self.local_map_pose = self._corner_pose_for_frame(now.nanoseconds/1e9)
+            self.local_map_history.remember(self.corner_capture_stamp, self.local_map_pose,
+                                           self.metric_tracker.last_observation)
+            self.local_map_archive.remember(self.corner_capture_stamp, self.local_map_pose,
+                                           self.metric_tracker.last_observation)
+            self.last_geometry_seconds = time.monotonic()-geometry_started
+            if self._bool_parameter('publish_debug_image'):
+                self._queue_debug(frame, polygons_by_class, self.boundary_count, source_header)
+            return
         image_match = None
         if self.enabled and getattr(self, 'robot_calibration', None):
             image_match = self.image_identity.match(frame, lane_masks, now.nanoseconds/1e9)
         self.image_side_hint = (image_match[1] if image_match and len(lane_masks) == 1
                                 else None)
         self.image_match = image_match
+        # If optical-flow association is unavailable, use odometry-aligned
+        # measured history as a role hint BEFORE the single tracker update.
+        # Never process the same frame twice: that would double confirmation
+        # counters and violate CornerPolicy's strictly increasing timestamps.
+        self.history_match = None
+        if (self.enabled and getattr(self, 'robot_calibration', None) and
+                lane_masks and image_match is None):
+            pose = self._corner_pose_for_frame(now.nanoseconds/1e9)
+            match = self.lane_history.match(
+                lane_masks, self.robot_calibration, self.corner_capture_stamp, pose,
+                self._float_parameter('metric_path_min_m'),
+                self._float_parameter('metric_path_max_m'),
+                self._float_parameter('projection_max_forward_m'),
+                self._int_parameter('path_polynomial_degree'))
+            if match:
+                self.history_match = match
+                self.image_match = match
+                self.image_side_hint = match[1] if len(lane_masks)==1 else None
+                image_match = match
         boundary_count = self._update_lane_command(lane_masks, width, now)
         self.boundary_count = boundary_count
+        self.debug_boundary_labels = {}
         if self.enabled and getattr(self, 'robot_calibration', None):
+            if boundary_count:
+                self.lane_history.remember(self.corner_capture_stamp,
+                    self._corner_pose_for_frame(now.nanoseconds/1e9),
+                    getattr(self.metric_tracker, 'last_observation', None))
             roles = self._image_roles_from_target(lane_masks, self.metric_target)
+            self.debug_boundary_labels = {i: (side, 'USED') for i, side in roles.items()}
             if not roles and image_match:
                 roles = {image_match[0]: image_match[1]}
+                self.debug_boundary_labels = {i: (side, 'HINT') for i, side in roles.items()}
+            obs = getattr(self.metric_tracker, 'last_observation', None)
+            if not self.debug_boundary_labels and len(lane_masks) == 1 and obs:
+                self.debug_boundary_labels = {0: (obs['side'], 'OBSERVED; NO TARGET')}
             self.image_identity.commit(now.nanoseconds/1e9, roles)
+            for index in getattr(self.metric_tracker, 'context_only_indices', []):
+                self.debug_boundary_labels[index] = ('context', 'FAR; NOT STEERING')
             self._update_turn_observation(lane_masks, now)
+        # Independent display history. It never supplies planner observations,
+        # enables motors or alters the tracking/recovery state.
+        self.local_map_pose = self._corner_pose_for_frame(now.nanoseconds/1e9)
+        self.local_map_history.remember(self.corner_capture_stamp, self.local_map_pose,
+                                       getattr(getattr(self, 'metric_tracker', None), 'last_observation', None))
+        self.local_map_archive.remember(self.corner_capture_stamp, self.local_map_pose,
+                                       getattr(getattr(self, 'metric_tracker', None), 'last_observation', None))
         self.last_geometry_seconds = time.monotonic()-geometry_started
         self.last_debug_seconds = 0.
         if self._bool_parameter('publish_debug_image'):
             debug_started = time.monotonic()
-            self._publish_debug(
+            self._queue_debug(
                 frame, polygons_by_class, boundary_count, source_header)
             self.last_debug_seconds = time.monotonic()-debug_started
 
@@ -881,11 +1007,138 @@ class LaneAutonomy(Node):
         if self.turn_started_at is not None:
             self.turn_seen_at = now
 
+    def _metric_command(self, target):
+        """Lightweight local pursuit and speed limits; no geometry fitting."""
+        speed = min(self._float_parameter('maximum_linear_speed'), max(0., self._metric_speed()))
+        distance = np.hypot(target['x_m'], target['y_m'])
+        speed *= max(.5, min(1., distance/self._metric_lookahead()))
+        speed *= max(.3, 1.-.75*abs(target['y_m'])/max(distance, .01))
+        corner_active = 'corner_speed_cap' in target
+        angular_limit = self._float_parameter(
+            'corner_max_angular_speed' if corner_active else 'maximum_angular_speed')
+        if target.get('inferred'):
+            cap = target['corner_speed_cap'] if corner_active else self._float_parameter('single_line_max_speed')
+            speed = min(cap, speed*self._float_parameter('single_line_speed_scale'))
+        if corner_active:
+            speed = min(speed, target['corner_speed_cap'])
+        k = abs(2*target['y_m']/max(target['x_m']**2+target['y_m']**2, 1e-8))
+        speed = min(speed, angular_limit/max(k, 1e-6))
+        if target.get('corner_stationary'):
+            speed, angular = 0., 0.
+        else:
+            angular = pursuit(target, speed, angular_limit)
+        return speed, angular
+
+    def _apply_metric_target(self, target, now):
+        speed, angular = self._metric_command(target)
+        self.metric_target = target
+        self.metric_error = target.get('center_path_warning') or target.get('virtual_boundary_warning')
+        if self.metric_error:
+            self.get_logger().warn('Lane geometry: '+self.metric_error, throttle_duration_sec=2.)
+        self.latest_linear, self.latest_angular, self.filtered_angular = speed, angular, angular
+        self.last_lane_time, self.metric_missing_since = now, None
+        self.metric_last_good_target = target.copy()
+        self.metric_last_good_linear, self.metric_last_good_angular = speed, angular
+        self.near_center = self.far_center = None
+        return target['boundary_count']
+
+    def _process_planned_result(self, plan, now):
+        """Accept a fresh PC plan; never run projection, fitting or history here."""
+        from .lane_planning_remote import restore_stage, TIMES, VALUES
+        from rclpy.time import Time
+        for key in TIMES:
+            value = plan['times'][key]
+            if value is not None and (type(value) is not int or value > self.remote_plan_context['now_ns']):
+                raise ValueError('PC attempted to renew robot timestamp')
+        incoming = restore_stage(plan['staged'])
+        current = self.corner_policy.staged
+        if current is not None and incoming is not None:
+            if not np.allclose(current['pivot'], incoming['pivot'], atol=1e-9):
+                raise ValueError('PC attempted to move committed corner pivot')
+            if any(incoming[k] != current[k] for k in ('started', 'entry_yaw', 'exit_yaw', 'side')):
+                raise ValueError('PC attempted to change committed corner identity')
+            if current['brake_at'] is not None:
+                incoming['brake_at'] = current['brake_at']
+            if current.get('heading_reached'):
+                incoming['heading_reached'] = True
+            if current.get('fault'):
+                incoming['fault'] = current['fault']
+            if incoming.get('blind_entry') is not None and current.get('blind_entry') is not None:
+                incoming['blind_entry'] = current['blind_entry']
+        if current is not None and incoming is None:
+            if (self.corner_odom is None or
+                    not 0 <= now.nanoseconds/1e9-self.corner_odom[0] <= self._float_parameter('corner_odom_timeout') or
+                    abs(wrap(current['exit_yaw']-self.corner_odom[1][2])) > np.deg2rad(12)):
+                raise ValueError('PC exit before local heading arrival')
+        target = deepcopy(plan['target'])
+        if incoming is not None and incoming.get('fault'):
+            target = None
+        if target is not None and target.get('corner_staged'):
+            cfg = self.corner_policy.config
+            target['corner_speed_cap'] = min(target['corner_speed_cap'], cfg.entry_speed_mps)
+            target['corner_entry_deadline'] = incoming['started']+20.
+            if target['boundary_count'] == 0:
+                target['corner_speed_cap'] = min(target['corner_speed_cap'], .015)
+                target['corner_angular_cap'] = .15
+                if not target.get('corner_stationary'):
+                    target['corner_blind_deadline'] = incoming['matched_at']+2.
+            if target.get('corner_stationary'):
+                if incoming['brake_at'] is None:
+                    raise ValueError('stationary target without arrival')
+                target['corner_spin_yaw'] = incoming['exit_yaw']
+                target['corner_brake_until'] = incoming['brake_at']+cfg.brake_seconds
+                target['corner_spin_deadline'] = target['corner_brake_until']+cfg.spin_timeout_s
+                target['corner_heading_reached'] = bool(incoming.get('heading_reached'))
+            if target.get('corner_blind_entry') is not None:
+                target['corner_blind_entry'] = incoming['blind_entry']
+        if target is not None and not target.get('corner_staged'):
+            pose = self.remote_plan_context['pose']
+            if pose is None:
+                raise ValueError('camera-time odometry unavailable for PC target')
+            if not target.get('held'):
+                c, s = np.cos(pose[2]), np.sin(pose[2])
+                target['remote_world_target'] = (np.array([[c, -s], [s, c]])@
+                    np.array([target['x_m'], target['y_m']])+pose[:2]).tolist()
+            if np.asarray(target.get('remote_world_target')).shape != (2,):
+                raise ValueError('held PC target lacks fixed odom position')
+        self.corner_policy.staged = incoming
+        self.corner_policy.debug = plan['debug']
+        self.corner_policy.block_recovery = plan['block_recovery']
+        self.metric_tracker.last_observation = plan.get('observation')
+        self.debug_boundary_labels = {int(k): tuple(v) for k, v in plan.get('labels', {}).items()}
+        if target is None:
+            self._invalidate_lane()
+            self.metric_error = plan.get('error')
+        else:
+            self.boundary_count = self._apply_metric_target(target, now)
+        for key in TIMES:
+            value = plan['times'][key]
+            setattr(self, key, None if value is None else Time(nanoseconds=value, clock_type=ClockType.STEADY_TIME))
+        for key in VALUES:
+            setattr(self, key, plan['values'][key])
+
     def _update_lane_command(self, lane_masks, image_width, now):
         if getattr(self, 'robot_calibration', None):
             try:
+                stage = getattr(getattr(self, 'corner_policy', None), 'staged', None)
+                if stage is not None and stage.get('heading_reached') and not stage.get('exit_tracking_reset'):
+                    # Reacquire in the NEW heading, not against the pre-turn
+                    # left/right lock. Preserve measured width, reset once.
+                    estimator = getattr(self.metric_tracker, 'width_estimator', None)
+                    self.metric_tracker = MetricLaneTracker(
+                        tracking_gap_s=self._float_parameter('lane_tracking_gap_seconds'),
+                        minimum_lane_width_m=2*(self._float_parameter('corner_robot_half_width_m')+
+                                               self._float_parameter('corner_clearance_m')))
+                    if estimator is not None:
+                        self.metric_tracker.width_estimator = estimator
+                    self.image_identity = LaneImageIdentity(self._float_parameter('lane_tracking_gap_seconds'))
+                    self.lane_history.clear()
+                    self.image_side_hint = self.image_match = self.history_match = None
+                    self.metric_last_good_target = None
+                    stage['exit_tracking_reset'] = True
                 if not hasattr(self, 'metric_tracker'):
                     self.metric_tracker = MetricLaneTracker(
+                        tracking_gap_s=self._float_parameter('lane_tracking_gap_seconds'),
                         minimum_lane_width_m=2*(self._float_parameter('corner_robot_half_width_m')+
                                                 self._float_parameter('corner_clearance_m')))
                 ordinary_error = None
@@ -906,16 +1159,38 @@ class LaneAutonomy(Node):
                 except ValueError as exc:
                     target = None
                     ordinary_error = exc
+                active_mask_count = len(lane_masks)-len(
+                    getattr(self.metric_tracker, 'context_only_indices', []))
                 if self._bool_parameter('corner_enabled'):
                     observation = getattr(self.metric_tracker, 'last_observation', None)
-                    # Only offset failure is eligible for a different path builder.
-                    # Identity, target jumps and malformed fits must not be bypassed.
-                    if ordinary_error and ('center_path curve folds back' not in str(ordinary_error)
-                                           or len(lane_masks) != 1):
+                    # A confirmed staged turn uses its fixed odom pivot, not
+                    # the ordinary inferred centre target. That target's jump
+                    # must not discard the freshly measured boundary. The
+                    # staged policy still checks side, fragment match, odom,
+                    # drift and deadlines. Other geometry/identity failures
+                    # and unconfirmed candidates keep the original rejection.
+                    staged_target_jump = (
+                        getattr(self.corner_policy, 'staged', None) is not None
+                        and str(ordinary_error) in ('inferred target discontinuity',
+                                                   'no forward centre path'))
+                    s_route_target_jump = (
+                        getattr(self.corner_policy, 's_route', None) is not None
+                        and str(ordinary_error) == 'inferred target discontinuity')
+                    if ordinary_error and (active_mask_count != 1 or
+                            ('center_path curve folds back' not in str(ordinary_error)
+                             and not staged_target_jump and not s_route_target_jump)):
                         observation = None
                     pose = self._corner_pose_for_frame(now.nanoseconds/1e9)
+                    self.corner_policy.floor_calibration = self.robot_calibration
                     target = self.corner_policy.update(observation, target, now.nanoseconds/1e9,
-                              pose, self._metric_lookahead(), self._float_parameter('corner_max_angular_speed'))
+                              pose, self._metric_lookahead(), self._float_parameter('corner_max_angular_speed'),
+                              no_boundaries=len(lane_masks) == 0)
+                    if ordinary_error:
+                        self.corner_policy.debug['ordinary_error'] = str(ordinary_error)
+                    if staged_target_jump:
+                        self.corner_policy.debug['ordinary_target_ignored'] = True
+                    if s_route_target_jump:
+                        self.corner_policy.debug['s_route_revalidated_target_jump'] = True
                 if target is None:
                     if self._bool_parameter('corner_enabled') and self.corner_policy.block_recovery:
                         info = self.corner_policy.debug
@@ -923,46 +1198,7 @@ class LaneAutonomy(Node):
                     if ordinary_error:
                         raise ordinary_error
                     raise ValueError('corner: '+self.corner_policy.debug.get('reason', 'awaiting confirmation'))
-                # Pure Pursuit speed and range are configurable; retain conservative
-                # Pinky defaults but do not hard-code the previous 3cm/s, 28cm caps.
-                speed = min(self._float_parameter('maximum_linear_speed'), max(0., self._metric_speed()))
-                distance = np.hypot(target['x_m'], target['y_m'])
-                speed *= max(.5, min(1., distance/self._metric_lookahead()))
-                speed *= max(.3, 1.-.75*abs(target['y_m'])/max(distance, .01))
-                corner_active = 'corner_speed_cap' in target
-                angular_limit = self._float_parameter(
-                    'corner_max_angular_speed' if corner_active else 'maximum_angular_speed')
-                if target.get('inferred'):
-                    single_cap = (target['corner_speed_cap'] if corner_active else
-                                  self._float_parameter('single_line_max_speed'))
-                    speed = min(single_cap,
-                                speed*self._float_parameter('single_line_speed_scale'))
-                if 'corner_speed_cap' in target:
-                    speed = min(speed, target['corner_speed_cap'])
-                    # Limit target curvature too, not just the planned curve.
-                    k = abs(2*target['y_m']/max(target['x_m']**2+target['y_m']**2, 1e-8))
-                    speed = min(speed, angular_limit/max(k, 1e-6))
-                if target.get('corner_stationary'):
-                    speed, angular = 0., 0.  # Command computed using current odometry below.
-                else:
-                    angular = pursuit(target, speed, angular_limit)
-                self.metric_target = target
-                self.metric_error = (target.get('center_path_warning') or
-                                     target.get('virtual_boundary_warning'))
-                if self.metric_error:
-                    self.get_logger().warn('Lane geometry: '+self.metric_error,
-                                           throttle_duration_sec=2.)
-                self.latest_linear = speed
-                self.latest_angular = angular
-                self.filtered_angular = angular
-                self.last_lane_time = now
-                self.metric_missing_since = None
-                self.metric_last_good_target = target.copy()
-                self.metric_last_good_linear = speed
-                self.metric_last_good_angular = angular
-                self.near_center = None
-                self.far_center = None
-                return target['boundary_count']
+                return self._apply_metric_target(target, now)
             except ValueError as exc:
                 self.metric_error = str(exc)
                 # Only genuinely EMPTY detections qualify for short dead reckoning.
@@ -1105,6 +1341,14 @@ class LaneAutonomy(Node):
         if self.enabled and deadline is not None and now.nanoseconds >= deadline:
             self._enable_callback(SetBool.Request(data=False), SetBool.Response())
             self.get_logger().warn('Configured duration expired: lane autonomy disabled.')
+        # Record arrival independently of image availability or metric_target.
+        # Do this BEFORE consuming an in-flight empty PC result, so its older
+        # entry snapshot cannot erase a locally observed arrival. This does NOT
+        # publish motion: all safety checks below still run before commands.
+        odom = getattr(self, 'corner_odom', None)
+        if (self.enabled and odom is not None and
+                0 <= now.nanoseconds/1e9-odom[0] <= self._float_parameter('corner_odom_timeout')):
+            self.corner_policy.observe_arrival(odom[1], now.nanoseconds/1e9)
         self._consume_inference(now)
         now = self.safety_clock.now()
         self._start_inference(now)
@@ -1129,6 +1373,14 @@ class LaneAutonomy(Node):
             self._publish_status(f'SAFETY_STOP: {safety_reason}')
             return
         if self.metric_target and self.metric_target.get('corner_staged'):
+            self.corner_policy.observe_arrival(
+                self.corner_odom[1] if self.corner_odom else None, now.nanoseconds/1e9)
+            stage = self.corner_policy.staged
+            if (stage is not None and self.metric_target.get('corner_stationary') and
+                    self.corner_odom is not None and abs(wrap(stage['exit_yaw']-self.corner_odom[1][2])) <= np.deg2rad(12)):
+                stage['heading_reached'] = True
+            if stage is not None and stage.get('heading_reached'):
+                self.metric_target['corner_heading_reached'] = True
             v, w, detail = staged_command(self.metric_target,
                 self.corner_odom[1] if self.corner_odom else None,
                 now.nanoseconds/1e9, self._float_parameter('corner_max_angular_speed'),
@@ -1139,6 +1391,17 @@ class LaneAutonomy(Node):
             self.state = DriveState.FOLLOWING if v or w else DriveState.WAITING_FOR_LANE
             self._publish_status(f'CORNER_STAGED: {detail}; v={v:.3f}, w={w:.3f}')
             return
+        if self.metric_target and 'remote_world_target' in self.metric_target:
+            pose = self.corner_odom[1]  # Freshness enforced by _safety_stop_reason.
+            c, s = np.cos(pose[2]), np.sin(pose[2])
+            point = np.array([[c, s], [-s, c]])@(np.asarray(self.metric_target['remote_world_target'])-pose[:2])
+            if point[0] <= .01:
+                self._publish_zero()
+                self._publish_status('WAITING_FOR_LANE: PC target reached or behind robot')
+                return
+            corrected = dict(self.metric_target, x_m=float(point[0]), y_m=float(point[1]))
+            self.latest_linear, self.latest_angular = self._metric_command(corrected)
+            self.filtered_angular = self.latest_angular
         if self.turn_started_at is not None:
             elapsed = (now-self.turn_started_at).nanoseconds/1e9
             if elapsed >= self._float_parameter('single_line_turn_seconds'):
@@ -1265,7 +1528,9 @@ class LaneAutonomy(Node):
                 self._int_parameter('path_polynomial_degree') not in (1, 2, 3) or
                 self._float_parameter('linear_velocity') < -1 or self._float_parameter('lookahead_distance') < -1 or
                 not np.isfinite(self._float_parameter('metric_single_line_timeout')) or
-                self._float_parameter('metric_single_line_timeout') < 0):
+                self._float_parameter('metric_single_line_timeout') < 0 or
+                not np.isfinite(self._float_parameter('lane_tracking_gap_seconds')) or
+                not 0 < self._float_parameter('lane_tracking_gap_seconds') <= 2.):
             return 'Metric control parameters invalid'
         return None
 
@@ -1280,8 +1545,9 @@ class LaneAutonomy(Node):
             return f'camera timeout ({image_age:.2f}s)'
         if self.inference_error is not None:
             return 'inference failed'
-        if (self._bool_parameter('corner_enabled') and self.metric_target and
-                self.metric_target.get('corner_speed_cap') is not None):
+        if (self.metric_target and (self._bool_parameter('remote_geometry') or
+                (self._bool_parameter('corner_enabled') and
+                 self.metric_target.get('corner_speed_cap') is not None))):
             odom = self.corner_odom
             if odom is None or not 0 <= now.nanoseconds/1e9-odom[0] <= self._float_parameter('corner_odom_timeout'):
                 return 'corner odometry timeout'
@@ -1343,8 +1609,60 @@ class LaneAutonomy(Node):
         message.encoding = 'bgr8'
         message.is_bigendian = 0
         message.step = message.width * 3
-        message.data = np.ascontiguousarray(frame).tobytes()
+        data = array('B')
+        data.frombytes(np.ascontiguousarray(frame).tobytes())
+        message.data = data
         return message
+
+    def _queue_debug(self, frame, polygons, boundary_count, header):
+        """Copy display state only; worker never reads changing controller state."""
+        now = time.monotonic()
+        debug_due = self.debug_publisher.get_subscription_count() > 0
+        map_publisher = getattr(self, 'local_map_publisher', None)
+        map_due = (map_publisher is not None and map_publisher.get_subscription_count() > 0
+                   and now-getattr(self, 'last_map_enqueued', 0.) >= .5)
+        if not debug_due and not map_due:
+            return  # No diagnostic subscribers: no copies, rendering or DDS writes.
+        frequency = max(.1, self._float_parameter('debug_image_frequency'))
+        if now-getattr(self, 'last_debug_enqueued', 0.) < 1./frequency:
+            return
+        self.last_debug_enqueued = now
+        transport = getattr(self, 'debug_transport', None)
+        if transport is None:
+            transport = self.debug_transport = IsolatedImageTransport(
+                self.context.get_domain_id(), dict(debug=self.debug_publisher.topic_name,
+                                                   map=map_publisher.topic_name))
+        worker = getattr(self, 'debug_worker', None)
+        if worker is None:
+            worker = self.debug_worker = LatestDebugWorker(
+                lambda job: LaneAutonomy._publish_debug(*job))
+        fields = ('lane_class_id', 'lane_instances', 'crossline_instances',
+                  'floor_calibration', 'robot_calibration', 'metric_target', 'metric_error',
+                  'active_near_y_ratio', 'near_center', 'far_center', 'near_candidate_count',
+                  'inference_seconds', 'turn_started_at', 'turn_exhausted', 'turn_side',
+                  'near_pair_streak')
+        fields += ('debug_boundary_labels',)
+        snapshot = SimpleNamespace(**{name: deepcopy(getattr(self, name, None)) for name in fields})
+        params = {name: self.get_parameter(name).value for name in
+                  ('far_y_ratio', 'single_line_turn_seconds', 'corner_enabled')}
+        snapshot._float_parameter = lambda name: float(params[name])
+        snapshot._bool_parameter = lambda name: bool(params[name])
+        snapshot.corner_policy = SimpleNamespace(debug=deepcopy(self.corner_policy.debug))
+        captured_now = self.safety_clock.now()
+        snapshot.safety_clock = SimpleNamespace(now=lambda: captured_now)
+        snapshot._bgr_to_message = self._bgr_to_message
+        snapshot.debug_publisher = (
+            DiagnosticPublisher(self.debug_publisher, transport, 'debug') if debug_due else None)
+        snapshot.local_map_publisher = (
+            DiagnosticPublisher(map_publisher, transport, 'map') if map_due else None)
+        if snapshot.local_map_publisher is not None:
+            self.last_map_enqueued = now
+        snapshot.local_map_frames = deepcopy(list(self.local_map_history.frames)) if map_due else []
+        snapshot.local_map_archive = self.local_map_archive.snapshot() if map_due else None
+        snapshot.local_map_pose = deepcopy(self.local_map_pose)
+        snapshot.local_map_stamp = self.corner_capture_stamp
+        worker.submit((snapshot, frame.copy(), [(c,p.copy()) for c,p in polygons],
+                       boundary_count, deepcopy(header)))
 
     def _publish_debug(self, frame, polygons, boundary_count, header):
         overlay = frame.copy()
@@ -1446,8 +1764,25 @@ class LaneAutonomy(Node):
                          f"confirm={info.get('confirmations',0)}")
                 cv2.putText(frame, label, (10, 152), cv2.FONT_HERSHEY_SIMPLEX,
                             .4, (0, 200, 255), 1)
+                if 'remaining_forward_m' in info:
+                    progress = (f"ENTRY left={info['remaining_forward_m']*100:.1f}cm "
+                                f"side={info['lateral_error_m']*100:.1f}cm "
+                                f"pivot(odom)={info.get('pivot_world')}")
+                    cv2.putText(frame, progress[:110], (10, 170), cv2.FONT_HERSHEY_SIMPLEX,
+                                .38, (0, 220, 255), 1)
+        draw_boundary_labels(frame, polygons, self.lane_class_id,
+                             getattr(self, 'debug_boundary_labels', None) or {},
+                             self.corner_policy.debug)
         debug_message = self._bgr_to_message(frame, header)
-        self.debug_publisher.publish(debug_message)
+        if self.debug_publisher is not None:
+            self.debug_publisher.publish(debug_message)
+        if getattr(self, 'local_map_publisher', None) is not None:
+            map_image = render_local_map(self.local_map_frames, self.local_map_stamp,
+                                         self.local_map_pose, getattr(self, 'metric_target', None),
+                                         self.corner_policy.debug, self.local_map_archive)
+            map_header = deepcopy(header)
+            map_header.frame_id = 'base_link'
+            self.local_map_publisher.publish(self._bgr_to_message(map_image, map_header))
 
     def _detection_summary(self):
         if getattr(self, 'robot_calibration', None):
@@ -1483,6 +1818,12 @@ class LaneAutonomy(Node):
         """Stop safely while the ROS context is still valid."""
         if rclpy.ok(context=self.context):
             self._publish_zero()
+        debug_worker = getattr(self, 'debug_worker', None)
+        if debug_worker is not None:
+            debug_worker.close()
+        debug_transport = getattr(self, 'debug_transport', None)
+        if debug_transport is not None:
+            debug_transport.close()
         remote_server = getattr(self, 'remote_server', None)
         if remote_server is not None:
             remote_server.close()

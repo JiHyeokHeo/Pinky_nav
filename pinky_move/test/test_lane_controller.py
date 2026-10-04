@@ -101,7 +101,8 @@ def controller():
     node.debug_images = []
     node.cmd_publisher = SimpleNamespace(publish=node.commands.append)
     node.status_publisher = SimpleNamespace(publish=node.statuses.append)
-    node.debug_publisher = SimpleNamespace(publish=node.debug_images.append)
+    node.debug_publisher = SimpleNamespace(publish=node.debug_images.append,
+                                          get_subscription_count=lambda: 1)
     node.get_logger = lambda: SimpleNamespace(
         info=lambda *a, **k: None, error=lambda *a, **k: None,
         warn=lambda *a, **k: None)
@@ -630,7 +631,17 @@ def test_blocked_worker_does_not_block_camera_stop_or_disable(controller):
 
 def test_debug_image_contains_separate_counts(controller):
     controller.parameters['publish_debug_image'] = True
-    deliver(controller, detection(second_bottom=59, crossline=True))
+    rendered = Event()
+    def publish(message):
+        controller.debug_images.append(message)
+        rendered.set()
+    controller.debug_publisher.publish = publish
+    controller.debug_transport = SimpleNamespace(submit=lambda key, msg: publish(msg))
+    try:
+        deliver(controller, detection(second_bottom=59, crossline=True))
+        assert rendered.wait(2.)
+    finally:
+        controller.debug_worker.close()
     assert controller.debug_images[-1].encoding == 'bgr8'
     assert controller.lane_instances == 2
     assert controller.boundary_count == 1
@@ -699,7 +710,7 @@ def test_corner_speed_limits_do_not_change_ordinary_single_line_limits(controlle
         target.update(corner_path=True, corner_speed_cap=.05)
     controller.metric_tracker = SimpleNamespace(
         update=lambda *a, **k: target, last_observation=None)
-    controller.corner_policy = SimpleNamespace(update=lambda *a: target)
+    controller.corner_policy = SimpleNamespace(update=lambda *a, **k: target)
     controller._corner_pose_for_frame = lambda now: None
     assert controller._update_lane_command([object()], 640, controller.safety_clock.now()) == 1
     if corner:

@@ -2,8 +2,9 @@
 
 Only the approved PC pulls JPEG requests through its authenticated SSH tunnel.
 There is no public camera endpoint and no motion/enable endpoint. Remote replies
-contain pixel polygons, never velocity commands. The robot owns all freshness
-and motion decisions; the PC's clock is not trusted.
+contain pixel polygons and, when requested, a metric plan; never velocity
+commands. The robot owns freshness, arrival and motion limits. The PC's clock
+is not trusted. Plan identity reuses the single-use frame token and epoch.
 """
 import base64
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer

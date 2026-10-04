@@ -23,6 +23,24 @@ def test_near_pixel_recovery_hint(column, expected):
     assert near_pixel_side(mask) is None
 
 
+@pytest.mark.parametrize('column,expected', [(15, 'left'), (85, 'right')])
+def test_near_pixel_expanded_band_uses_pixels_above_sparse_tip(column, expected):
+    mask = np.zeros((100, 100), np.uint8)
+    mask[80:89, column-2:column+3] = 1
+    mask[89:100, column] = 1
+    # The old 8% band contained only nine pixels: too few for a hint.
+    assert near_pixel_side(mask) == expected
+
+
+def test_near_pixel_expansion_preserves_far_cutoff_and_centre_deadband():
+    mask = np.zeros((100, 100), np.uint8)
+    mask[50:65, 10:20] = 1
+    assert near_pixel_side(mask) is None
+    mask[:] = 0
+    mask[80:100, 48:53] = 1
+    assert near_pixel_side(mask) is None
+
+
 def test_pixel_side_recovers_missing_lock_only_after_three_frames():
     c = calibration(); masks = masks_for_lines(); tracker = MetricLaneTracker()
     tracker.requires_pair = True  # Pair was lost before either side was locked.
@@ -32,6 +50,57 @@ def test_pixel_side_recovers_missing_lock_only_after_three_frames():
         assert tracker.confirmed is None
     target = tracker.update([masks[1]], c, 1.4, lane_width=.16, recovery_side_hint='right')
     assert target['visible_side'] == 'right' and target['inferred']
+
+
+@pytest.mark.parametrize('index,side', [(0,'left'), (1,'right')])
+def test_returning_pair_keeps_current_boundary_until_three_matches(index,side):
+    tracker=MetricLaneTracker()
+    masks=masks_for_lines(); c=calibration()
+    tracker.update([masks[index]],c,0.,lane_width=.16)
+    for now,count in [(.2,1),(.4,2)]:
+        result=tracker.update(masks,c,now,lane_width=.16)
+        assert result['boundary_count']==1
+        assert result['pair_transition_count']==count
+        assert tracker.last_observation['side']==side
+    result=tracker.update(masks,c,.6,lane_width=.16)
+    assert result['boundary_count']==2 and result['pair_transition_count']==3
+    assert tracker.last_observation['side']==side
+    tracker.update(masks,c,.8,lane_width=.16)
+    assert tracker.last_observation['side']==side
+
+
+def test_returning_pair_confirmation_resets_on_missing_opposite():
+    tracker=MetricLaneTracker(); masks=masks_for_lines(); c=calibration()
+    tracker.update([masks[1]],c,0.,lane_width=.16)
+    assert tracker.update(masks,c,.2,lane_width=.16)['pair_transition_count']==1
+    tracker.update([masks[1]],c,.4,lane_width=.16)
+    assert tracker.update(masks,c,.6,lane_width=.16)['pair_transition_count']==1
+
+
+def test_new_pair_cannot_bypass_width_stop_while_boundary_is_locked():
+    tracker=MetricLaneTracker(minimum_lane_width_m=.152)
+    masks=masks_for_lines(); c=calibration()
+    tracker.update([masks[1]],c,0.,lane_width=.16)
+    with pytest.raises(ValueError,match='implausibly narrow'):
+        tracker.update(masks_for_lines(half_width=.05),c,.2,lane_width=.16)
+
+
+def test_shifted_new_pair_does_not_replace_continuing_centre(monkeypatch):
+    import pinky_move.metric_lane as lane
+    tracker=MetricLaneTracker(); masks=masks_for_lines(); c=calibration()
+    original=lane.metric_target
+    first=tracker.update([masks[1]],c,0.,lane_width=.16)
+    def shifted(*args,**kwargs):
+        candidate=original(*args,**kwargs)
+        candidate['center_path']=(np.asarray(candidate['center_path'])+[0.,.08]).tolist()
+        candidate['y_m']+=.08
+        return candidate
+    monkeypatch.setattr(lane,'metric_target',shifted)
+    for now in (.2,.4,.6):
+        result=tracker.update(masks,c,now,lane_width=.16)
+        assert result['boundary_count']==1 and result['pair_transition_count']==0
+        assert result['y_m']==pytest.approx(first['y_m'])
+        assert tracker.last_observation['side']=='right'
 
 
 def test_pixel_recovery_side_change_restarts_confirmation():
@@ -663,6 +732,8 @@ def test_cold_start_single_with_configured_width(side):
     # A real pair is allowed to replace the configured prior, not vice versa.
     tracker.update(masks_for_lines(), calibration(), .3, lane_width=.16)
     tracker.update(masks_for_lines(), calibration(), .6, lane_width=.16)
+    # Returning opposite boundaries now require three continuous observations.
+    tracker.update(masks_for_lines(), calibration(), .9, lane_width=.16)
     assert tracker.confirmed['width_source'] == 'measured'
 
 
