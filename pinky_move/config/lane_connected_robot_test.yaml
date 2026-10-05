@@ -1,0 +1,12 @@
+lane_autonomy:
+  ros__parameters:
+    # 선택형 실험 프로파일. 기존 기본 실행 설정은 교체하지 않습니다.
+    enabled: false
+    connected_geometry: true
+    simulation_white_lane: false
+    remote_inference: true
+    remote_geometry: true
+    # 첫 실차 확인은 저속. 보정/차선폭/입력 만료 검사는 기존 값을 유지합니다.
+    linear_speed: 0.03
+    single_line_max_speed: 0.03
+    corner_entry_speed_mps: 0.02
