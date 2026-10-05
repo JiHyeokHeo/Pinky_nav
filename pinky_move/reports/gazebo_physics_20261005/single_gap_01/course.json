@@ -1,0 +1,48 @@
+{
+  "course": "single_gap",
+  "lane_width_m": 0.2,
+  "centre": [
+    [
+      -0.35,
+      0.0
+    ],
+    [
+      2.0,
+      0.0
+    ]
+  ],
+  "boundaries": {
+    "left": [
+      [
+        -0.35,
+        0.1
+      ],
+      [
+        2.0,
+        0.1
+      ],
+      [
+        2.5,
+        0.1
+      ]
+    ],
+    "right": [
+      [
+        -0.35,
+        -0.1
+      ],
+      [
+        2.0,
+        -0.1
+      ],
+      [
+        2.5,
+        -0.1
+      ]
+    ]
+  },
+  "ground_truth_topic": "/lane_sim/ground_truth",
+  "calibration": "/tmp/pinky-lane-physics-single-gap/simulation_calibration.json",
+  "description": "/home/tory/pinky_nav_publish_yWXwM0/repo/install/pinky_description/share/pinky_description",
+  "notes": "Physics model reused from URDF. Camera/paint/lighting are idealised, no physical success claim."
+}

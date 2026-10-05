@@ -1,0 +1,309 @@
+[
+  {
+    "course": "left90",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "error": null,
+    "raw_frames": 831,
+    "debug_frames": 137,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 183,
+    "status_counts": {
+      "DISABLED": 1,
+      "WAITING_FOR_LANE": 61,
+      "FOLLOWING": 30,
+      "LANE_LOSS_HOLD": 21
+    },
+    "travelled_m": 0.607085518322433,
+    "net_displacement_m": 0.6070849370533166,
+    "max_cross_track_m": 0.0009461923431757621,
+    "final_progress_m": 0.6070842156902106,
+    "final_pose": {
+      "t": 65.06646659800026,
+      "x": 0.6070842156871611,
+      "y": -0.0009358722301322793,
+      "z": -8.479645782308157e-09,
+      "yaw": 0.0018211925657187083,
+      "stamp": 55.76,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "run": "left90_01",
+    "ordinary_error_counts": {
+      "no common observed lane interval: normal_pairs=0, minimum=3, runs=0": 1,
+      "center_path curve folds back (offset=0.100m)": 4,
+      "no boundaries detected": 51
+    }
+  },
+  {
+    "course": "right90",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "error": null,
+    "raw_frames": 528,
+    "debug_frames": 87,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 170,
+    "status_counts": {
+      "WAITING_FOR_LANE": 36,
+      "FOLLOWING": 29,
+      "LANE_LOSS_HOLD": 9
+    },
+    "travelled_m": 0.5798094278504042,
+    "net_displacement_m": 0.5798026530877354,
+    "max_cross_track_m": 0.0009165759137729107,
+    "final_progress_m": 0.5798026428202274,
+    "final_pose": {
+      "t": 40.00687153400213,
+      "x": 0.5798026428171779,
+      "y": 0.00010911579430317109,
+      "z": -8.487153575760059e-09,
+      "yaw": -0.018599588114052018,
+      "stamp": 36.21,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "run": "right90_01",
+    "ordinary_error_counts": {
+      "no boundaries detected": 32
+    }
+  },
+  {
+    "course": "s_bend",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "error": null,
+    "raw_frames": 788,
+    "debug_frames": 107,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 0,
+    "status_counts": {
+      "WAITING_FOR_LANE": 58
+    },
+    "travelled_m": 0.0,
+    "net_displacement_m": 0.0,
+    "max_cross_track_m": 1.0094108999449727e-18,
+    "final_progress_m": 0.0,
+    "final_pose": {
+      "t": 60.148114657000406,
+      "x": -3.0495580880901173e-12,
+      "y": 3.3129205912286465e-19,
+      "z": -8.553342069747156e-07,
+      "yaw": -1.9663430266392625e-19,
+      "stamp": 52.836,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "run": "s_bend_01",
+    "ordinary_error_counts": {
+      "multiple ambiguous boundaries on same side": 54
+    }
+  },
+  {
+    "course": "single_gap",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "error": null,
+    "raw_frames": 414,
+    "debug_frames": 53,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 450,
+    "status_counts": {
+      "WAITING_FOR_LANE": 2,
+      "FOLLOWING": 53
+    },
+    "travelled_m": 1.9022102008275708,
+    "net_displacement_m": 1.902196527218941,
+    "max_cross_track_m": 0.0011525786538641933,
+    "final_progress_m": 1.9021965253805801,
+    "final_pose": {
+      "t": 33.160152993994416,
+      "x": 1.9021965253775304,
+      "y": 8.362922929127883e-05,
+      "z": -8.462343447739662e-09,
+      "yaw": -0.002852809257630346,
+      "stamp": 29.138,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "run": "single_gap_01",
+    "ordinary_error_counts": {}
+  },
+  {
+    "course": "two_lines",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "error": null,
+    "raw_frames": 408,
+    "debug_frames": 69,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 278,
+    "status_counts": {
+      "WAITING_FOR_LANE": 14,
+      "FOLLOWING": 50,
+      "LANE_LOSS_HOLD": 8
+    },
+    "travelled_m": 1.8101106550721722,
+    "net_displacement_m": 1.8101105456459528,
+    "max_cross_track_m": 0.00014032933122555476,
+    "final_progress_m": 1.810110544933819,
+    "final_pose": {
+      "t": 30.073519728990505,
+      "x": 1.81011054493077,
+      "y": -5.077479656360675e-05,
+      "z": -8.55129848832034e-09,
+      "yaw": -0.0005237612539673267,
+      "stamp": 41.65,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "run": "two_lines_01",
+    "ordinary_error_counts": {
+      "no boundaries detected": 12
+    }
+  },
+  {
+    "course": "two_lines",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "error": null,
+    "raw_frames": 321,
+    "debug_frames": 45,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 265,
+    "status_counts": {
+      "WAITING_FOR_LANE": 2,
+      "FOLLOWING": 50
+    },
+    "travelled_m": 1.9155978348786407,
+    "net_displacement_m": 1.9155977991550206,
+    "max_cross_track_m": 0.00012737561240655994,
+    "final_progress_m": 1.9155977961536743,
+    "final_pose": {
+      "t": 22.365311651010416,
+      "x": 1.9155977961506245,
+      "y": 0.00010723220413635882,
+      "z": -8.462160707379963e-09,
+      "yaw": 0.00024790938430520153,
+      "stamp": 23.392,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "run": "two_lines_02",
+    "ordinary_error_counts": {}
+  }
+]

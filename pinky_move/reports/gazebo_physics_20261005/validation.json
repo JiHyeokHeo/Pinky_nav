@@ -1,0 +1,25 @@
+{
+  "date_kst": "2026-10-05",
+  "kind": "Gazebo Harmonic physical URDF, rendered camera, actual YOLO model and existing lane_autonomy closed loop",
+  "ros_domain_id": 172,
+  "gazebo_partition": "pinky_lane_sim_172",
+  "hardware_connected": false,
+  "truth_masks_injected": false,
+  "tests": {"passed": 531, "seconds": 109.37, "excluded": ["copyright", "flake8", "pep257"]},
+  "build": {"packages": ["pinky_description", "pinky_move"], "passed": true, "seconds": 4.99},
+  "physics_runs": 6,
+  "scenarios": 5,
+  "passing_scenarios": ["two_lines", "single_gap"],
+  "failing_scenarios": ["left90", "right90", "s_bend"],
+  "notes": [
+    "Initial straight trial stopped at painted stripe end and is preserved as FAIL",
+    "Retest extended painted boundaries 0.50m beyond the unchanged physical checkpoint",
+    "PASS uses physical ground-truth robot centre within 0.10m of checkpoint and within half lane width; not swept-footprint safety",
+    "Single gap run includes 20 logged inferred single-boundary tracking status records",
+    "Left corner final camera re-inference detects no lanes at imgsz 320 or 640, confidence .55",
+    "S bend fails with three ambiguous segmentation boundaries before any nonzero velocity",
+    "Camera is idealised 640x480, K from CameraInfo verified, distortion zero, URDF camera extrinsics",
+    "Video fixed-fps playback duration is not trial wall-clock duration",
+    "Real robot lens calibration and deployment are unchanged"
+  ]
+}

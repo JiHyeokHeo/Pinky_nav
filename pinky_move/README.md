@@ -1,5 +1,8 @@
 # Pinky Pro 책상 위 좌우 왕복 주행
 
+카메라 차선 추종 Gazebo 물리 시험: [실행 방법과 검증 범위](docs/GAZEBO_LANE_PHYSICS.md).
+두 흰 선 직선, 좌/우 90도 코너, S자, 한쪽 선 소실 코스를 제공한다.
+
 > 웹 워크페이지: [docs/table_patrol_workpage.html](docs/table_patrol_workpage.html)
 
 pinky_move는 기존 모터 드라이버를 수정하지 않고 표준 ROS 2 속도 명령인

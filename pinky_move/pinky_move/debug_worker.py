@@ -37,9 +37,11 @@ def _publish_images(requests, timings, domain_id, topics):
                 timings.put_nowait(time.monotonic()-started)
             except Full:
                 pass
+    except KeyboardInterrupt:
+        pass  # Launch signals the process group, including this diagnostic child.
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()  # The installed ROS signal handler may have shut it down.
 
 
 class IsolatedImageTransport:
