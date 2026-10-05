@@ -1,0 +1,154 @@
+{
+  "summary": {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "yolo_enabled": false,
+    "perception": "YOLO + white pixel aid",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": "Gazebo camera intrinsics not received or differ from simulation calibration",
+    "raw_frames": 2,
+    "debug_frames": 0,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 0,
+    "status_counts": {},
+    "travelled_m": 0.0,
+    "net_displacement_m": 0.0,
+    "max_cross_track_m": 2.537668251097339e-18,
+    "final_progress_m": 0.0,
+    "final_pose": {
+      "t": 0.09947085198655259,
+      "x": -3.0495580880901173e-12,
+      "y": 3.3129205912286465e-19,
+      "z": -8.553342069747156e-07,
+      "yaw": -1.9663430266392625e-19,
+      "stamp": 1.02,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_aid_01/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_aid_01/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "2",
+          "duration": 0.133333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "2",
+          "duration": 0.133333
+        },
+        "full_decode_ok": true
+      }
+    ]
+  },
+  "observations": {
+    "raw_frames": 2,
+    "debug_frames": 0,
+    "status": [],
+    "cmd": [
+      {
+        "t": 0.10022587698767893,
+        "v": 0.0,
+        "w": 0.0
+      },
+      {
+        "t": 0.10126488699461333,
+        "v": 0.0,
+        "w": 0.0
+      }
+    ],
+    "odom": [
+      {
+        "t": 0.031603261988493614,
+        "x": 3.278403520134767e-19,
+        "y": -1.9421774936435944e-37,
+        "z": 0.0,
+        "yaw": -1.4039049812692774e-19,
+        "stamp": 0.952,
+        "frame": "odom",
+        "child": "base_link"
+      },
+      {
+        "t": 0.06636170099955052,
+        "x": 3.364493470883517e-19,
+        "y": -1.956145164526855e-37,
+        "z": 0.0,
+        "yaw": -1.8931116187825738e-19,
+        "stamp": 0.986,
+        "frame": "odom",
+        "child": "base_link"
+      },
+      {
+        "t": 0.1001478689868236,
+        "x": 3.512206511409471e-19,
+        "y": -1.9824926699892214e-37,
+        "z": 0.0,
+        "yaw": -2.0085131329530604e-19,
+        "stamp": 1.02,
+        "frame": "odom",
+        "child": "base_link"
+      }
+    ],
+    "ground_truth": [
+      {
+        "t": 0.032298575999448076,
+        "x": -3.0495580880901173e-12,
+        "y": 3.3129205912286465e-19,
+        "z": -8.553342069747156e-07,
+        "yaw": -1.9663430266392625e-19,
+        "stamp": 0.952,
+        "frame": "world",
+        "child": "base_link"
+      },
+      {
+        "t": 0.06565148699155543,
+        "x": -3.0495580880901173e-12,
+        "y": 3.3129205912286465e-19,
+        "z": -8.553342069747156e-07,
+        "yaw": -1.9663430266392625e-19,
+        "stamp": 0.986,
+        "frame": "world",
+        "child": "base_link"
+      },
+      {
+        "t": 0.09947085198655259,
+        "x": -3.0495580880901173e-12,
+        "y": 3.3129205912286465e-19,
+        "z": -8.553342069747156e-07,
+        "yaw": -1.9663430266392625e-19,
+        "stamp": 1.02,
+        "frame": "world",
+        "child": "base_link"
+      }
+    ]
+  }
+}

@@ -13,7 +13,7 @@ import numpy as np
 
 from .robot_projection import fixed_transform, validate_calibration
 
-COURSES = ('two_lines', 'left90', 'right90', 's_bend', 'single_gap')
+COURSES = ('two_lines', 'left90', 'right90', 's_bend', 's_sharp', 'single_gap')
 
 
 def course_points(course):
@@ -25,6 +25,12 @@ def course_points(course):
     if course in ('left90', 'right90'):
         sign = 1. if course == 'left90' else -1.
         return np.array([[-.35, 0.], [.75, 0.], [.75, sign*1.25]])
+    if course == 's_sharp':
+        # Deliberately not y=f(x): successive perpendicular legs expose
+        # the vertical/horizontal-line and tight reverse-turn failure cases.
+        # Dimensions are a test fixture, not a reconstruction from a photo.
+        return np.array([[-.35, 0.], [.65, 0.], [.65, .50],
+                         [1.25, .50], [1.25, 0.], [2., 0.]])
     x = np.linspace(-.35, 2.1, 125)
     # Smooth zero-slope entry/exit and alternating curvature inside the bend.
     u = np.clip((x-.45)/1.3, 0., 1.)
@@ -43,6 +49,25 @@ def offset_polyline(points, distance):
         offsets.append((a+b)*distance/max(1e-6, 1.+float(a@b)))
     offsets.append(normals[-1]*distance)
     return p+np.asarray(offsets)
+
+
+def road_boundaries(points, lane_width, lane_count=1, target_lane=0):
+    """N lanes need N+1 stripes; index lanes from right to left.
+
+    The robot always starts on the selected lane's centre at (0,0).
+    Existing left/right keys bound that selected lane, so controller and
+    finish/departure scoring remain unchanged. An extra stripe is real paint,
+    not a perfect segmentation label passed to the controller.
+    """
+    if lane_count not in (1, 2) or target_lane not in range(lane_count):
+        raise ValueError('lane_count must be 1/2 and target_lane within road')
+    boundaries = {}
+    for index in range(lane_count+1):
+        name = ('right' if index == target_lane else
+                'left' if index == target_lane+1 else f'outer_{index}')
+        boundaries[name] = offset_polyline(
+            points, (index-target_lane-.5)*lane_width)
+    return boundaries
 
 
 def element(parent, tag, text=None, **attrs):
@@ -75,7 +100,49 @@ def visual_box(parent, name, pose, size, color, collision=False):
     return model
 
 
-def prepare_simulation(description, output, course='two_lines', lane_width=.20):
+def stripe_mesh(points, path, width=.020):
+    """One continuous miter-joined painted ribbon, not overlapping boxes.
+
+    Adjacent triangles share the exact same two joint vertices. The inner
+    and outer edges meet at their miter intersection at 90-degree corners,
+    avoiding square end-cap gaps/overhangs and coplanar overlapping visuals.
+    Paint remains visual-only: it does not become a physical obstacle.
+    """
+    points = np.asarray(points, float)
+    if (points.ndim != 2 or points.shape[1] != 2 or len(points) < 2 or
+            not np.isfinite(points).all() or width <= 0 or
+            np.any(np.linalg.norm(np.diff(points, axis=0), axis=1) <= 1e-8)):
+        raise ValueError('invalid stripe geometry')
+    left = offset_polyline(points, width/2)
+    right = offset_polyline(points, -width/2)
+    vertices = np.stack([left, right], axis=1).reshape(-1, 2)
+    faces = []
+    for index in range(len(points)-1):
+        a = 2*index+1  # OBJ is one-based: left, right, next-left, next-right.
+        faces.extend([(a, a+1, a+2), (a+2, a+1, a+3)])
+    lines = ['# Continuous white paint ribbon', 'vn 0 0 1']
+    lines += [f'v {x:.9f} {y:.9f} 0.001200000' for x, y in vertices]
+    lines += ['f '+' '.join(f'{v}//1' for v in face) for face in faces]
+    Path(path).write_text('\n'.join(lines)+'\n')
+    return vertices, np.asarray(faces)-1
+
+
+def visual_stripe(parent, name, points, output):
+    mesh_path = Path(output)/(name+'.obj')
+    stripe_mesh(points, mesh_path)
+    model = element(parent, 'model', name=name)
+    element(model, 'static', 'true')
+    link = element(model, 'link', name='paint')
+    visual = element(link, 'visual', name='continuous_ribbon')
+    mesh = element(element(visual, 'geometry'), 'mesh')
+    element(mesh, 'uri', mesh_path.resolve().as_uri())
+    material = element(visual, 'material')
+    element(material, 'ambient', '.95 .95 .95 1')
+    element(material, 'diffuse', '.95 .95 .95 1')
+
+
+def prepare_simulation(description, output, course='two_lines', lane_width=.20,
+                       lane_count=1, target_lane=0):
     """Generate SDF + matched ideal-camera calibration + course metadata.
 
     Ideal zero distortion is deliberate: the real lens distortion coefficients
@@ -84,6 +151,8 @@ def prepare_simulation(description, output, course='two_lines', lane_width=.20):
     """
     if course not in COURSES or not .16 <= lane_width <= .60:
         raise ValueError('invalid course/lane width')
+    if lane_count not in (1, 2) or target_lane not in range(lane_count):
+        raise ValueError('invalid lane_count/target_lane')
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     import xacro
@@ -167,28 +236,29 @@ def prepare_simulation(description, output, course='two_lines', lane_width=.20):
     points = course_points(course)
     extension = points[-1]-points[-2]
     painted_points = np.vstack([points, points[-1]+.50*extension/np.linalg.norm(extension)])
-    boundaries = {}
-    for side, sign in [('left', 1.), ('right', -1.)]:
-        curve = offset_polyline(painted_points, sign*lane_width/2)
-        boundaries[side] = curve.tolist()
+    painted_boundaries = road_boundaries(painted_points, lane_width, lane_count, target_lane)
+    boundaries = {side: curve.tolist() for side, curve in painted_boundaries.items()}
+    for side, curve in painted_boundaries.items():
         # Split a straight stripe so an optional missing segment is real, not
         # a perfect simulator mask substituted for camera/YOLO perception.
         if course == 'single_gap' and side == 'left':
-            segments = [(curve[0], [.60, lane_width/2]), ([.95, lane_width/2], curve[-1])]
+            pieces = [np.array([curve[0], [.60, lane_width/2]]),
+                      np.array([[.95, lane_width/2], curve[-1]])]
         else:
-            segments = list(zip(curve, curve[1:]))
-        for index, (a, b) in enumerate(segments):
-            a, b = np.asarray(a), np.asarray(b)
-            delta = b-a
-            centre = (a+b)/2
-            visual_box(world, f'{side}_stripe_{index}', [*centre,.0007,0,0,math.atan2(delta[1],delta[0])],
-                       [np.linalg.norm(delta)+.002,.020,.001], '.95 .95 .95 1')
+            pieces = [curve]
+        for index, piece in enumerate(pieces):
+            visual_stripe(world, f'{side}_stripe_{index}', piece, output)
     world.append(model)
     world_file = output/'lane_course.sdf'
     ET.ElementTree(root).write(world_file, encoding='unicode', xml_declaration=True)
     calibration_file = output/'simulation_calibration.json'
     calibration_file.write_text(json.dumps(calibration, indent=2))
-    metadata = dict(course=course, lane_width_m=lane_width, centre=points.tolist(),
+    metadata = dict(course=course, lane_width_m=lane_width, lane_count=lane_count,
+                    stripe_count=lane_count+1, target_lane=target_lane,
+                    perception='YOLO only',
+                    stripe_geometry='continuous miter-joined triangle mesh', stripe_width_m=.020,
+                    target_lane_indexing='rightmost=0; increment towards left',
+                    centre=points.tolist(),
                     boundaries=boundaries, ground_truth_topic='/lane_sim/ground_truth',
                     calibration=str(calibration_file), description=str(description),
                     notes='Physics model reused from URDF. Camera/paint/lighting are idealised, no physical success claim.')

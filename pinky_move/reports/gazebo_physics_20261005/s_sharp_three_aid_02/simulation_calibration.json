@@ -1,0 +1,64 @@
+{
+  "method": "intrinsics_urdf_floor",
+  "frame_id": "base_link",
+  "ground_plane_z_m": -0.028,
+  "image_size": [
+    640,
+    480
+  ],
+  "rotation_degrees": 0,
+  "camera_matrix": [
+    [
+      566.0,
+      0.0,
+      320.0
+    ],
+    [
+      0.0,
+      566.0,
+      240.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "distortion_coefficients": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "base_from_upright_optical": [
+    [
+      0.0,
+      -0.13917310096006544,
+      0.9902680687415704,
+      0.03317002650950676
+    ],
+    [
+      -1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      -0.9902680687415704,
+      -0.13917310096006544,
+      0.03543015985382602
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "status": "simulation_only_ideal_camera",
+  "robot_frame_validated": true,
+  "steering_supported": true,
+  "provenance": "Expanded simulation URDF + specified ideal camera; NOT real-robot validation"
+}

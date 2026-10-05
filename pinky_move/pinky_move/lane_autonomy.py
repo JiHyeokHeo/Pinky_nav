@@ -518,20 +518,39 @@ class LaneAutonomy(Node):
                                     if stamp-item[0] <= 2_000_000_000][-200:]
 
     def _corner_pose_for_frame(self, now):
-        """Interpolate odometry at CAMERA time; never compare old local coordinates."""
+        """Use current steady time for freshness, CAMERA time for pose lookup.
+
+        `now` may be the inference worker's earlier completion time. A later
+        odometry callback is not a future sample: comparing it to completion
+        incorrectly rejected healthy odometry with a negative age.
+        """
+        current = self.safety_clock.now().nanoseconds/1e9
         odom = self.corner_odom
-        if odom is None or not 0 <= now-odom[0] <= self._float_parameter('corner_odom_timeout'):
+        self.corner_pose_diagnostic = dict(reason='odometry missing',
+            processing_lag_s=current-now)
+        if odom is None:
+            return None
+        age = current-odom[0]
+        self.corner_pose_diagnostic.update(odom_age_s=age)
+        if not 0 <= age <= self._float_parameter('corner_odom_timeout'):
+            self.corner_pose_diagnostic['reason'] = 'odometry stale or future reception'
             return None
         stamp = self.corner_capture_stamp
         history = self.corner_odom_history
         if stamp is None or not history:
+            self.corner_pose_diagnostic['reason'] = 'camera stamp or odometry history missing'
             return None
         for (ta,a),(tb,b) in zip(history,history[1:]):
             if ta <= stamp <= tb and tb-ta <= 300_000_000:
                 f = (stamp-ta)/(tb-ta)
+                self.corner_pose_diagnostic.update(reason='interpolated',
+                                                   bracket_gap_s=(tb-ta)/1e9)
                 return np.array([*(a[:2]*(1-f)+b[:2]*f), a[2]+f*wrap(b[2]-a[2])])
         closest = min(history,key=lambda item:abs(item[0]-stamp))
-        return closest[1].copy() if abs(closest[0]-stamp) <= 50_000_000 else None
+        gap = abs(closest[0]-stamp)
+        self.corner_pose_diagnostic.update(nearest_camera_gap_s=gap/1e9,
+            reason='nearest sample' if gap <= 50_000_000 else 'camera time not covered by odometry')
+        return closest[1].copy() if gap <= 50_000_000 else None
 
     def _scan_callback(self, message):
         self.last_scan_time = self.safety_clock.now()
@@ -750,6 +769,7 @@ class LaneAutonomy(Node):
         self.corner_capture_stamp = (source_header.stamp.sec*1_000_000_000+
                                      source_header.stamp.nanosec)
         height, width = frame.shape[:2]
+        self.perception_source = 'YOLO'
         lane_masks = []
         crossline_masks = []
         polygons_by_class = []
@@ -1185,6 +1205,7 @@ class LaneAutonomy(Node):
                     target = self.corner_policy.update(observation, target, now.nanoseconds/1e9,
                               pose, self._metric_lookahead(), self._float_parameter('corner_max_angular_speed'),
                               no_boundaries=len(lane_masks) == 0)
+                    self.corner_policy.debug['pose_timing'] = getattr(self, 'corner_pose_diagnostic', {})
                     if ordinary_error:
                         self.corner_policy.debug['ordinary_error'] = str(ordinary_error)
                     if staged_target_jump:
@@ -1637,6 +1658,7 @@ class LaneAutonomy(Node):
             worker = self.debug_worker = LatestDebugWorker(
                 lambda job: LaneAutonomy._publish_debug(*job))
         fields = ('lane_class_id', 'lane_instances', 'crossline_instances',
+                  'perception_source',
                   'floor_calibration', 'robot_calibration', 'metric_target', 'metric_error',
                   'active_near_y_ratio', 'near_center', 'far_center', 'near_candidate_count',
                   'inference_seconds', 'turn_started_at', 'turn_exhausted', 'turn_side',
@@ -1728,7 +1750,7 @@ class LaneAutonomy(Node):
             (255, 255, 255), 1)
         cv2.putText(
             frame,
-            f'Lane={self.lane_instances} Crossline={self.crossline_instances} '
+            f'{getattr(self, "perception_source", "YOLO")} Lane={self.lane_instances} Crossline={self.crossline_instances} '
             f'used_boundaries={boundary_count}',
             (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         summary = (f'METRIC target={getattr(self, "metric_target", None)}'
@@ -1790,6 +1812,7 @@ class LaneAutonomy(Node):
             brief = None if target is None else {k: target[k] for k in
                 ('x_m', 'y_m', 'width_m', 'boundary_count', 'inferred')}
             return (f'Lane={self.lane_instances}, used_boundaries={self.boundary_count}, '
+                    f'perception={getattr(self, "perception_source", "YOLO")}, '
                     f'metric_target={brief}, corner={self.corner_policy.debug}')
         return (
             f'Lane={self.lane_instances}, Crossline={self.crossline_instances}, '

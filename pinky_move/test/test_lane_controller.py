@@ -710,7 +710,7 @@ def test_corner_speed_limits_do_not_change_ordinary_single_line_limits(controlle
         target.update(corner_path=True, corner_speed_cap=.05)
     controller.metric_tracker = SimpleNamespace(
         update=lambda *a, **k: target, last_observation=None)
-    controller.corner_policy = SimpleNamespace(update=lambda *a, **k: target)
+    controller.corner_policy = SimpleNamespace(update=lambda *a, **k: target, debug={})
     controller._corner_pose_for_frame = lambda now: None
     assert controller._update_lane_command([object()], 640, controller.safety_clock.now()) == 1
     if corner:
@@ -762,6 +762,7 @@ def test_corner_odometry_interpolation_duplicates_reset_and_expiry(controller):
     controller.safety_clock.seconds+=.2
     controller._corner_odom_callback(msg)
     assert controller.corner_odom[0]==received
+    controller.safety_clock.seconds=10.6
     assert controller._corner_pose_for_frame(10.6) is None
     controller.corner_policy.count=3
     msg.header.stamp.nanosec=400_000_000
@@ -771,3 +772,29 @@ def test_corner_odometry_interpolation_duplicates_reset_and_expiry(controller):
     msg.child_frame_id='unknown'
     controller._corner_odom_callback(msg)
     assert controller.corner_odom is None
+
+
+def test_new_odom_after_inference_completion_is_not_future(controller):
+    controller.safety_clock.seconds = 10.2
+    controller.corner_odom = (10.18, np.array([.02, 0., 0.]))
+    controller.corner_capture_stamp = 1_100_000_000
+    controller.corner_odom_history = [(1_000_000_000, np.array([0., 0., 0.])),
+                                     (1_200_000_000, np.array([.02, 0., 0.]))]
+    # Worker completion precedes a healthy newer odometry callback.
+    np.testing.assert_allclose(controller._corner_pose_for_frame(10.15), [.01, 0., 0.])
+    assert controller.corner_pose_diagnostic['reason'] == 'interpolated'
+    assert controller.corner_pose_diagnostic['odom_age_s'] == pytest.approx(.02)
+    # Do not let that earlier completion timestamp hide a real later outage.
+    controller.safety_clock.seconds = 10.6
+    assert controller._corner_pose_for_frame(10.15) is None
+    assert controller.corner_pose_diagnostic['reason'] == 'odometry stale or future reception'
+
+
+def test_frame_without_time_coverage_is_still_rejected(controller):
+    controller.safety_clock.seconds = 10.2
+    controller.corner_odom = (10.18, np.zeros(3))
+    controller.corner_capture_stamp = 1_100_000_000
+    controller.corner_odom_history = [(1_000_000_000, np.zeros(3))]
+    assert controller._corner_pose_for_frame(10.15) is None
+    assert controller.corner_pose_diagnostic['reason'] == 'camera time not covered by odometry'
+    assert controller.corner_pose_diagnostic['nearest_camera_gap_s'] == pytest.approx(.1)

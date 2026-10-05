@@ -1,0 +1,131 @@
+{
+  "course": "s_sharp",
+  "lane_width_m": 0.2,
+  "lane_count": 2,
+  "stripe_count": 3,
+  "target_lane": 0,
+  "perception": "YOLO only",
+  "target_lane_indexing": "rightmost=0; increment towards left",
+  "centre": [
+    [
+      -0.35,
+      0.0
+    ],
+    [
+      0.65,
+      0.0
+    ],
+    [
+      0.65,
+      0.5
+    ],
+    [
+      1.25,
+      0.5
+    ],
+    [
+      1.25,
+      0.0
+    ],
+    [
+      2.0,
+      0.0
+    ]
+  ],
+  "boundaries": {
+    "right": [
+      [
+        -0.35,
+        -0.1
+      ],
+      [
+        0.75,
+        -0.1
+      ],
+      [
+        0.75,
+        0.4
+      ],
+      [
+        1.15,
+        0.4
+      ],
+      [
+        1.15,
+        -0.1
+      ],
+      [
+        2.0,
+        -0.1
+      ],
+      [
+        2.5,
+        -0.1
+      ]
+    ],
+    "left": [
+      [
+        -0.35,
+        0.1
+      ],
+      [
+        0.55,
+        0.1
+      ],
+      [
+        0.55,
+        0.6
+      ],
+      [
+        1.35,
+        0.6
+      ],
+      [
+        1.35,
+        0.1
+      ],
+      [
+        2.0,
+        0.1
+      ],
+      [
+        2.5,
+        0.1
+      ]
+    ],
+    "outer_2": [
+      [
+        -0.35,
+        0.30000000000000004
+      ],
+      [
+        0.35,
+        0.30000000000000004
+      ],
+      [
+        0.35,
+        0.8
+      ],
+      [
+        1.55,
+        0.8
+      ],
+      [
+        1.55,
+        0.30000000000000004
+      ],
+      [
+        2.0,
+        0.30000000000000004
+      ],
+      [
+        2.5,
+        0.30000000000000004
+      ]
+    ]
+  },
+  "ground_truth_topic": "/lane_sim/ground_truth",
+  "calibration": "/tmp/pinky-lane-sharp-yolo-only-20261005/simulation_calibration.json",
+  "description": "/home/tory/pinky_nav_publish_yWXwM0/repo/install/pinky_description/share/pinky_description",
+  "notes": "Physics model reused from URDF. Camera/paint/lighting are idealised, no physical success claim."
+}

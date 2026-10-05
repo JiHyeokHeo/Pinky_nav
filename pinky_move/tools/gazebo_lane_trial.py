@@ -104,7 +104,8 @@ def main():
     error = None
     try:
         deadline = time.monotonic()+30.
-        while time.monotonic()<deadline and (not observations['raw_frames'] or not observations['ground_truth'] or not client.service_is_ready()):
+        while time.monotonic()<deadline and (not observations['raw_frames'] or not observations['ground_truth'] or
+                                             camera_matrix is None or not client.service_is_ready()):
             rclpy.spin_once(node,timeout_sec=.1)
         if not observations['raw_frames'] or not observations['ground_truth'] or not client.service_is_ready():
             raise RuntimeError('simulation readiness timeout: camera/ground truth/enable service missing')
@@ -138,6 +139,9 @@ def main():
         rclpy.shutdown()
     points = np.array([[row['x'],row['y']] for row in observations['ground_truth']])
     summary = dict(course=metadata['course'],physics_trial=True,yolo_enabled=enabled,
+                   perception=metadata.get('perception', 'unspecified (see run notes)'),
+                   lane_count=metadata.get('lane_count', 1),
+                   stripe_count=metadata.get('stripe_count', 2),
                    error=error,raw_frames=observations['raw_frames'],debug_frames=observations['debug_frames'],
                    camera_intrinsics=None if camera_matrix is None else camera_matrix.tolist(),
                    nonzero_commands=sum(abs(r['v'])+abs(r['w'])>1e-6 for r in observations['cmd']),

@@ -48,10 +48,320 @@
     "lane_departure": false,
     "passed": false,
     "run": "left90_01",
+    "perception": "YOLO only",
     "ordinary_error_counts": {
       "no common observed lane interval: normal_pairs=0, minimum=3, runs=0": 1,
       "center_path curve folds back (offset=0.100m)": 4,
       "no boundaries detected": 51
+    }
+  },
+  {
+    "course": "left90",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "error": null,
+    "raw_frames": 522,
+    "debug_frames": 77,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 527,
+    "status_counts": {
+      "WAITING_FOR_LANE": 4,
+      "FOLLOWING": 96
+    },
+    "travelled_m": 1.8699610387634855,
+    "net_displacement_m": 1.3755398829709338,
+    "max_cross_track_m": 0.0398666846027107,
+    "final_progress_m": 1.9030837717827098,
+    "final_pose": {
+      "t": 37.80737681000028,
+      "x": 0.7500051899137153,
+      "y": 1.1530837717796603,
+      "z": -8.465433059789994e-09,
+      "yaw": 1.6005149502525484,
+      "stamp": 46.07,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/left90_aid_01/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/left90_aid_01/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "522",
+          "duration": 34.8
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "522",
+          "duration": 34.8
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/left90_aid_01/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/left90_aid_01/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "77",
+          "duration": 5.133333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "77",
+          "duration": 5.133333
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "left90_aid_01",
+    "perception": "YOLO + white pixel aid (launch white_lane_aid:=true)",
+    "ordinary_error_counts": {
+      "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)": 1,
+      "center_path curve folds back (offset=0.101m)": 1,
+      "inferred target discontinuity": 1
+    }
+  },
+  {
+    "course": "left90",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "perception": "YOLO + white pixel aid",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 938,
+    "debug_frames": 129,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 468,
+    "status_counts": {
+      "DISABLED": 1,
+      "WAITING_FOR_LANE": 5,
+      "FOLLOWING": 24,
+      "SAFETY_STOP": 143,
+      "CORNER_STAGED": 156
+    },
+    "travelled_m": 0.7315949689243265,
+    "net_displacement_m": 0.731591924883178,
+    "max_cross_track_m": 0.0006429653575003924,
+    "final_progress_m": 0.7315918955630462,
+    "final_pose": {
+      "t": 75.04752282900154,
+      "x": 0.7315918955599966,
+      "y": 0.00020712494433502288,
+      "z": -7.576745654534217e-09,
+      "yaw": 1.3570051407889234,
+      "stamp": 62.696,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/left90_odomfix_01/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/left90_odomfix_01/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "938",
+          "duration": 62.533333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "938",
+          "duration": 62.533333
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/left90_odomfix_01/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/left90_odomfix_01/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "129",
+          "duration": 8.6
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "129",
+          "duration": 8.6
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "left90_odomfix_01",
+    "ordinary_error_counts": {
+      "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)": 1,
+      "center_path curve folds back (offset=0.101m)": 1
+    }
+  },
+  {
+    "course": "left90",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "perception": "YOLO only",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 556,
+    "debug_frames": 80,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 139,
+    "status_counts": {
+      "DISABLED": 2,
+      "WAITING_FOR_LANE": 111,
+      "SAFETY_STOP": 3,
+      "FOLLOWING": 19,
+      "CORNER_STAGED": 23
+    },
+    "travelled_m": 0.5765214955449687,
+    "net_displacement_m": 0.5765205393175754,
+    "max_cross_track_m": 0.0009004832824121109,
+    "final_progress_m": 0.5765201488464615,
+    "final_pose": {
+      "t": 47.31988169599208,
+      "x": 0.5765201488453384,
+      "y": -0.0006709911190584425,
+      "z": -8.699325112614569e-09,
+      "yaw": 0.003937385676575663,
+      "stamp": 36.686,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/left90_yolo_only_01/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/left90_yolo_only_01/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "556",
+          "duration": 37.066667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "556",
+          "duration": 37.066667
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/left90_yolo_only_01/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/left90_yolo_only_01/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "80",
+          "duration": 5.333333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "80",
+          "duration": 5.333333
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "left90_yolo_only_01",
+    "ordinary_error_counts": {
+      "no common observed lane interval: normal_pairs=0, minimum=3, runs=0": 1,
+      "center_path curve folds back (offset=0.100m)": 2,
+      "no boundaries detected": 103
     }
   },
   {
@@ -102,8 +412,215 @@
     "lane_departure": false,
     "passed": false,
     "run": "right90_01",
+    "perception": "YOLO only",
     "ordinary_error_counts": {
       "no boundaries detected": 32
+    }
+  },
+  {
+    "course": "right90",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "perception": "YOLO + white pixel aid",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 525,
+    "debug_frames": 81,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 638,
+    "status_counts": {
+      "WAITING_FOR_LANE": 5,
+      "FOLLOWING": 89
+    },
+    "travelled_m": 1.886542659662549,
+    "net_displacement_m": 1.3852811873651414,
+    "max_cross_track_m": 0.04105698787780154,
+    "final_progress_m": 1.915211166702219,
+    "final_pose": {
+      "t": 42.28140321299725,
+      "x": 0.7491908335416064,
+      "y": -1.1652111666991694,
+      "z": -8.461940721457301e-09,
+      "yaw": -1.6208082339690482,
+      "stamp": 50.116,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/right90_aid_01/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/right90_aid_01/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "525",
+          "duration": 35.0
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "525",
+          "duration": 35.0
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/right90_aid_01/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/right90_aid_01/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "81",
+          "duration": 5.4
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "81",
+          "duration": 5.4
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "right90_aid_01",
+    "ordinary_error_counts": {
+      "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)": 1,
+      "inferred target discontinuity": 2,
+      "no forward centre path": 1
+    }
+  },
+  {
+    "course": "right90",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "perception": "YOLO only",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 528,
+    "debug_frames": 85,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 185,
+    "status_counts": {
+      "WAITING_FOR_LANE": 136,
+      "FOLLOWING": 28,
+      "LANE_LOSS_HOLD": 26,
+      "DISABLED": 1
+    },
+    "travelled_m": 0.6098414752906961,
+    "net_displacement_m": 0.60983805564116,
+    "max_cross_track_m": 0.0009397229738444575,
+    "final_progress_m": 0.6098379862875849,
+    "final_pose": {
+      "t": 40.09933107899269,
+      "x": 0.6098379862845354,
+      "y": 0.0002908416987878969,
+      "z": -8.485165308246078e-09,
+      "yaw": -0.011523201420098241,
+      "stamp": 35.972,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/right90_yolo_only_01/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/right90_yolo_only_01/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "528",
+          "duration": 35.2
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "528",
+          "duration": 35.2
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/right90_yolo_only_01/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/right90_yolo_only_01/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "85",
+          "duration": 5.666667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "85",
+          "duration": 5.666667
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "right90_yolo_only_01",
+    "ordinary_error_counts": {
+      "no reliable visible boundary": 1,
+      "center_path curve folds back (offset=-0.100m)": 1,
+      "no boundaries detected": 130
     }
   },
   {
@@ -152,8 +669,285 @@
     "lane_departure": false,
     "passed": false,
     "run": "s_bend_01",
+    "perception": "YOLO only",
     "ordinary_error_counts": {
       "multiple ambiguous boundaries on same side": 54
+    }
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "yolo_enabled": false,
+    "perception": "YOLO + white pixel aid",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": "Gazebo camera intrinsics not received or differ from simulation calibration",
+    "raw_frames": 2,
+    "debug_frames": 0,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 0,
+    "status_counts": {},
+    "travelled_m": 0.0,
+    "net_displacement_m": 0.0,
+    "max_cross_track_m": 2.537668251097339e-18,
+    "final_progress_m": 0.0,
+    "final_pose": {
+      "t": 0.09947085198655259,
+      "x": -3.0495580880901173e-12,
+      "y": 3.3129205912286465e-19,
+      "z": -8.553342069747156e-07,
+      "yaw": -1.9663430266392625e-19,
+      "stamp": 1.02,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_aid_01/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_aid_01/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "2",
+          "duration": 0.133333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "2",
+          "duration": 0.133333
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "s_sharp_three_aid_01",
+    "ordinary_error_counts": {}
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "perception": "YOLO + white pixel aid",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 874,
+    "debug_frames": 131,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 67,
+    "status_counts": {
+      "DISABLED": 1,
+      "WAITING_FOR_LANE": 63,
+      "FOLLOWING": 12
+    },
+    "travelled_m": 0.3927154163142928,
+    "net_displacement_m": 0.3927151521054083,
+    "max_cross_track_m": 0.0006348489512696076,
+    "final_progress_m": 0.3927146389682755,
+    "final_pose": {
+      "t": 65.17275966500165,
+      "x": 0.392714638965226,
+      "y": -0.0006348489512696076,
+      "z": -9.17220316588602e-09,
+      "yaw": -0.0015877739662136876,
+      "stamp": 242.624,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_aid_02/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_aid_02/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "874",
+          "duration": 58.266667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "874",
+          "duration": 58.266667
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_aid_02/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_aid_02/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "131",
+          "duration": 8.733333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "131",
+          "duration": 8.733333
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "s_sharp_three_aid_02",
+    "ordinary_error_counts": {
+      "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)": 62
+    }
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "perception": "YOLO only",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 402,
+    "debug_frames": 62,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 163,
+    "status_counts": {
+      "WAITING_FOR_LANE": 92,
+      "FOLLOWING": 29,
+      "LANE_LOSS_HOLD": 4
+    },
+    "travelled_m": 0.4932975245746751,
+    "net_displacement_m": 0.4932937707197285,
+    "max_cross_track_m": 0.0005307424659756058,
+    "final_progress_m": 0.49329365760166544,
+    "final_pose": {
+      "t": 30.064606826010277,
+      "x": 0.49329365759861593,
+      "y": 0.0003340671473197318,
+      "z": -8.50373176021878e-09,
+      "yaw": 0.010851172770693782,
+      "stamp": 27.676,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_yolo_only_01/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_yolo_only_01/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "402",
+          "duration": 26.8
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "402",
+          "duration": 26.8
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_yolo_only_01/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_yolo_only_01/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "62",
+          "duration": 4.133333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "62",
+          "duration": 4.133333
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "s_sharp_three_yolo_only_01",
+    "ordinary_error_counts": {
+      "center_path curve folds back (offset=0.100m)": 4,
+      "no boundaries detected": 85
     }
   },
   {
@@ -203,6 +997,7 @@
     "lane_departure": false,
     "passed": true,
     "run": "single_gap_01",
+    "perception": "YOLO only",
     "ordinary_error_counts": {}
   },
   {
@@ -253,6 +1048,7 @@
     "lane_departure": false,
     "passed": false,
     "run": "two_lines_01",
+    "perception": "YOLO only",
     "ordinary_error_counts": {
       "no boundaries detected": 12
     }
@@ -304,6 +1100,7 @@
     "lane_departure": false,
     "passed": true,
     "run": "two_lines_02",
+    "perception": "YOLO only",
     "ordinary_error_counts": {}
   }
 ]

@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-05",
+  "white_pixel_aid_removed": true,
+  "production_workspace": "/home/tory/ws/pinky_pro",
+  "production_workspace_odom_fix_installed": true,
+  "production_workspace_white_aid_present": false,
+  "production_targeted_tests": {"passed": 51, "seconds": 4.65},
+  "publish_repository_tests": {"passed": 555, "seconds": 105.51, "excluded": ["test_copyright.py", "test_flake8.py", "test_pep257.py"]},
+  "publish_build": {"packages": ["pinky_description", "pinky_move"], "success": true},
+  "production_build": {"packages": ["pinky_move"], "success": true},
+  "physical_robot_driven": false,
+  "past_aid_successes_are_not_current_yolo_only_successes": true
+}

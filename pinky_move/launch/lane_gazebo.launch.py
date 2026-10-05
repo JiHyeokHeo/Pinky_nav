@@ -18,7 +18,8 @@ def start(context):
         raise ValueError('Use a separate simulation domain, not robot/control domains 20/22/52')
     directory = value('output') or tempfile.mkdtemp(prefix='pinky-lane-gazebo-')
     world, calibration = prepare_simulation(get_package_share_directory('pinky_description'),
-        directory, value('course'), float(value('lane_width')))
+        directory, value('course'), float(value('lane_width')),
+        int(value('lane_count')), int(value('target_lane')))
     share = get_package_share_directory('pinky_move')
     env = {'ROS_DOMAIN_ID': str(domain), 'CYCLONEDDS_URI':
         '<CycloneDDS><Domain><General><Interfaces><NetworkInterface name="lo"/></Interfaces><AllowMulticast>false</AllowMulticast></General><Discovery><Peers><Peer Address="127.0.0.1"/></Peers></Discovery></Domain></CycloneDDS>',
@@ -47,7 +48,8 @@ def start(context):
 
 
 def generate_launch_description():
-    defaults = dict(course='two_lines', lane_width='.20', domain='172', gui='true', output='',
+    defaults = dict(course='two_lines', lane_width='.20', lane_count='1', target_lane='0',
+        domain='172', gui='true', output='',
         python_executable='/home/tory/venv/omx/bin/python',
         model_path='/home/tory/Downloads/yolo_runs/segment/train/weights/best.pt')
     return LaunchDescription([*(DeclareLaunchArgument(k, default_value=v) for k,v in defaults.items()), OpaqueFunction(function=start)])
