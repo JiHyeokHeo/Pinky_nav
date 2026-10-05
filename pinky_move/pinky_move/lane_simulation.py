@@ -30,11 +30,14 @@ def course_points(course):
         # the vertical/horizontal-line and tight reverse-turn failure cases.
         # Dimensions are a test fixture, not a reconstruction from a photo.
         return np.array([[-.35, 0.], [.65, 0.], [.65, .50],
-                         [1.25, .50], [1.25, 0.], [2., 0.]])
-    x = np.linspace(-.35, 2.1, 125)
+                         [1.35, .50], [1.35, 0.], [2.10, 0.]])
+    x = np.linspace(-.35, 3.0, 125)
     # Smooth zero-slope entry/exit and alternating curvature inside the bend.
-    u = np.clip((x-.45)/1.3, 0., 1.)
-    y = .24*np.sin(2*np.pi*u)*np.sin(np.pi*u)**2
+    # The comparison course must also accommodate the third stripe: its
+    # minimum curvature radius stays above the outer 30cm offset. The
+    # deliberately sharp fixture is s_sharp, not this smooth S comparison.
+    u = np.clip((x-.45)/1.9, 0., 1.)
+    y = .16*np.sin(2*np.pi*u)*np.sin(np.pi*u)**2
     return np.column_stack([x, y])
 
 
@@ -65,8 +68,12 @@ def road_boundaries(points, lane_width, lane_count=1, target_lane=0):
     for index in range(lane_count+1):
         name = ('right' if index == target_lane else
                 'left' if index == target_lane+1 else f'outer_{index}')
-        boundaries[name] = offset_polyline(
-            points, (index-target_lane-.5)*lane_width)
+        stripe = offset_polyline(points, (index-target_lane-.5)*lane_width)
+        delta, reference = np.diff(stripe, axis=0), np.diff(points, axis=0)
+        if (np.any(np.linalg.norm(delta, axis=1) <= 1e-8) or
+                np.any(np.sum(delta*reference, axis=1) <= 0.)):
+            raise ValueError('course too tight for lane width/count: stripe collapses or reverses')
+        boundaries[name] = stripe
     return boundaries
 
 
@@ -142,7 +149,7 @@ def visual_stripe(parent, name, points, output):
 
 
 def prepare_simulation(description, output, course='two_lines', lane_width=.20,
-                       lane_count=1, target_lane=0):
+                       lane_count=1, target_lane=0, perception='yolo'):
     """Generate SDF + matched ideal-camera calibration + course metadata.
 
     Ideal zero distortion is deliberate: the real lens distortion coefficients
@@ -153,6 +160,8 @@ def prepare_simulation(description, output, course='two_lines', lane_width=.20,
         raise ValueError('invalid course/lane width')
     if lane_count not in (1, 2) or target_lane not in range(lane_count):
         raise ValueError('invalid lane_count/target_lane')
+    if perception not in ('yolo', 'opencv'):
+        raise ValueError('perception must be yolo or opencv')
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     import xacro
@@ -255,7 +264,7 @@ def prepare_simulation(description, output, course='two_lines', lane_width=.20,
     calibration_file.write_text(json.dumps(calibration, indent=2))
     metadata = dict(course=course, lane_width_m=lane_width, lane_count=lane_count,
                     stripe_count=lane_count+1, target_lane=target_lane,
-                    perception='YOLO only',
+                    perception='OpenCV white pixels' if perception == 'opencv' else 'YOLO only',
                     stripe_geometry='continuous miter-joined triangle mesh', stripe_width_m=.020,
                     target_lane_indexing='rightmost=0; increment towards left',
                     centre=points.tolist(),

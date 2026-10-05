@@ -41,12 +41,13 @@ from .floor_projection import forward_cm
 from .robot_projection import robot_floor_point, draw_metric_target, validate_calibration
 from .metric_lane import (MetricLaneTracker, LaneImageIdentity, pursuit, near_pixel_side,
                           loss_speed_scale, floor_curves, curve_match_error,
-                          supported_chain, arc_stations)
+                          supported_chain, arc_stations, connected_floor_curve)
 from . import lane_wire
 from .debug_worker import LatestDebugWorker, IsolatedImageTransport, DiagnosticPublisher
 from .lane_history import LaneHistory, SpatialLaneArchive
 from .local_map_view import render_local_map
 from .lane_corner import CornerConfig, CornerPolicy, wrap, staged_command
+from .white_lane import white_floor_masks, white_center_path, white_target
 
 
 def draw_boundary_labels(frame, polygons, lane_class_id, labels, corner):
@@ -138,6 +139,15 @@ class LaneAutonomy(Node):
         self._initialize_control(model_path)
 
     def _load_model(self, model_path):
+        if self._bool_parameter('simulation_white_lane'):
+            if (self.context.get_domain_id() in (20, 22, 52) or
+                    not self._string_parameter('image_topic').startswith('/lane_sim/') or
+                    not self.robot_calibration or
+                    self.robot_calibration.get('status') != 'simulation_only_ideal_camera'):
+                raise ValueError('OpenCV experiment requires isolated simulation domain/camera/calibration')
+            self.model = None
+            self.lane_class_id, self.crossline_class_id = 1, 0
+            return
         if not os.path.isfile(model_path):
             raise FileNotFoundError(f'YOLO model not found: {model_path}')
         try:
@@ -229,7 +239,9 @@ class LaneAutonomy(Node):
             1.0 / frequency, self._control_loop, clock=self.safety_clock)
         self.get_logger().info(
             f'Lane autonomy ready and {"enabled" if self.enabled else "disabled"}. '
-            f'model={model_path}, image={image_topic}, output={cmd_vel_topic}')
+            f'perception={"OpenCV white pixels (simulation only)" if self._bool_parameter("simulation_white_lane") else "YOLO"}, '
+            f'model={"not loaded" if self._bool_parameter("simulation_white_lane") else model_path}, '
+            f'image={image_topic}, output={cmd_vel_topic}')
         if not self.enabled:
             self.get_logger().info(
                 'Enable after placing the robot safely: '
@@ -241,6 +253,7 @@ class LaneAutonomy(Node):
             '/home/tory/Downloads/yolo_runs/segment/train/weights/best.pt')
         parameters = (
             ('enabled', False),
+            ('simulation_white_lane', False),
             ('remote_inference', False),
             ('remote_geometry', False),
             ('remote_port', 18765),
@@ -611,8 +624,24 @@ class LaneAutonomy(Node):
             # happen on this thread, including after node shutdown.
             try:
                 frame = self._image_to_bgr(message).copy()
-                result = self.model.predict(
-                    source=frame, **predict_arguments)[0]
+                result = (SimpleNamespace(masks=None, boxes=None) if self.model is None else
+                          self.model.predict(source=frame, **predict_arguments)[0])
+                if self.model is None:
+                    # CPU-heavy thinning belongs to the perception worker,
+                    # never the executor thread receiving odometry/control.
+                    result.white_candidates = []
+                    for binary in white_floor_masks(frame, self.robot_calibration):
+                        curves = floor_curves([binary], self.robot_calibration, 1.2,
+                                              self._float_parameter('metric_path_min_m'),
+                                              self._float_parameter('metric_path_max_m'))
+                        if len(curves) == 1:
+                            connected = connected_floor_curve(binary, self.robot_calibration, 1.2, pixel_step=4)
+                            result.white_candidates.append((binary, curves[0], connected))
+                    try:
+                        result.white_path, result.white_selected, result.white_side = white_center_path(
+                            result.white_candidates, self._float_parameter('lane_width'))
+                    except ValueError:
+                        result.white_path, result.white_selected, result.white_side = None, {}, None
                 future.set_result((
                     frame, result, self.safety_clock.now(), message.header))
             except Exception as exc:
@@ -791,6 +820,30 @@ class LaneAutonomy(Node):
                     lane_masks.append(binary_mask)
                 elif class_id == self.crossline_class_id:
                     crossline_masks.append(binary_mask)
+
+        if self._bool_parameter('simulation_white_lane'):
+            if not self._string_parameter('image_topic').startswith('/lane_sim/'):
+                raise ValueError('white-pixel experiment requires isolated /lane_sim camera')
+            # Camera-only centreline pursuit intentionally bypasses the
+            # hardware staged-corner identity gates in this isolated profile.
+            lane_masks = [item[1] for item in result.white_selected.values()]
+            self.perception_source = 'OPENCV_WHITE_SIM'
+            self.lane_instances = len(lane_masks)
+            self.corner_policy.debug = {'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}
+            self.corner_policy.staged = None
+            self.sim_white_path = result.white_path
+            self.sim_white_side = result.white_side
+            count = self._update_lane_command(lane_masks, width, now)
+            self.boundary_count = count
+            self.debug_boundary_labels = {i: (side, 'USED') for i, side in enumerate(result.white_selected)}
+            polygons_by_class = []
+            for binary in lane_masks:
+                contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                polygons_by_class.append((self.lane_class_id, max(contours, key=cv2.contourArea).reshape(-1, 2)))
+            self.last_geometry_seconds = time.monotonic()-geometry_started
+            if self._bool_parameter('publish_debug_image'):
+                self._queue_debug(frame, polygons_by_class, count, source_header)
+            return
 
         if self.enabled:
             self._update_crossline(crossline_masks, self.safety_clock.now())
@@ -1029,6 +1082,9 @@ class LaneAutonomy(Node):
 
     def _metric_command(self, target):
         """Lightweight local pursuit and speed limits; no geometry fitting."""
+        if target.get('white_path') and target['x_m'] < .04:
+            limit = self._float_parameter('maximum_angular_speed')
+            return 0., float(np.clip(np.arctan2(target['y_m'], target['x_m']), -limit, limit))
         speed = min(self._float_parameter('maximum_linear_speed'), max(0., self._metric_speed()))
         distance = np.hypot(target['x_m'], target['y_m'])
         speed *= max(.5, min(1., distance/self._metric_lookahead()))
@@ -1138,6 +1194,19 @@ class LaneAutonomy(Node):
             setattr(self, key, plan['values'][key])
 
     def _update_lane_command(self, lane_masks, image_width, now):
+        if self._bool_parameter('simulation_white_lane'):
+            try:
+                if self.sim_white_path is None:
+                    raise ValueError('white centre path unavailable')
+                target = white_target(self.sim_white_path, self._metric_lookahead(),
+                                      len(lane_masks), self.sim_white_side)
+                target['width_m'] = self._float_parameter('lane_width')
+                return self._apply_metric_target(target, now)
+            except ValueError as exc:
+                self.metric_error = str(exc)
+                self.metric_target = None
+                self._invalidate_lane()
+                return 0
         if getattr(self, 'robot_calibration', None):
             try:
                 stage = getattr(getattr(self, 'corner_policy', None), 'staged', None)

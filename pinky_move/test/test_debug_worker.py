@@ -75,7 +75,7 @@ def test_blocked_dds_process_drops_images_without_blocking_producer():
         transport.close()
 
 
-def test_isolated_publisher_preserves_image_and_header_on_ros_topic():
+def test_isolated_publisher_preserves_image_and_header_on_ros_topic(monkeypatch):
     """Dedicated test domain, diagnostic Image only; never a motor topic."""
     import os
     import rclpy
@@ -84,6 +84,13 @@ def test_isolated_publisher_preserves_image_and_header_on_ros_topic():
     from rclpy.executors import SingleThreadedExecutor
     from rclpy.qos import QoSProfile, ReliabilityPolicy
     from sensor_msgs.msg import Image
+    # This is a LOCAL two-process transport test. The developer's hardware
+    # CycloneDDS profile may list robot peers only and disable multicast;
+    # inheriting it makes an unrelated network profile decide this test.
+    monkeypatch.setenv('CYCLONEDDS_URI', '<CycloneDDS><Domain><General>'
+        '<Interfaces><NetworkInterface name="lo"/></Interfaces>'
+        '<AllowMulticast>false</AllowMulticast></General><Discovery><Peers>'
+        '<Peer Address="127.0.0.1"/></Peers></Discovery></Domain></CycloneDDS>')
     context = Context()
     rclpy.init(args=[], domain_id=211, context=context)
     node = Node('lane_image_transport_test', context=context, enable_rosout=False)

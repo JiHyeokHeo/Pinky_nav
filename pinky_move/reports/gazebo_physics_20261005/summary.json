@@ -48,6 +48,7 @@
     "lane_departure": false,
     "passed": false,
     "run": "left90_01",
+    "controller_enabled": true,
     "stripe_geometry": "legacy segmented boxes",
     "perception": "YOLO only",
     "ordinary_error_counts": {
@@ -150,6 +151,7 @@
       }
     ],
     "run": "left90_aid_01",
+    "controller_enabled": true,
     "stripe_geometry": "legacy segmented boxes",
     "perception": "YOLO + white pixel aid (launch white_lane_aid:=true)",
     "ordinary_error_counts": {
@@ -256,6 +258,7 @@
       }
     ],
     "run": "left90_mesh_yolo_only_01",
+    "controller_enabled": true,
     "stripe_geometry": "continuous miter-joined triangle mesh",
     "ordinary_error_counts": {
       "center_path curve folds back (offset=0.100m)": 3,
@@ -363,12 +366,121 @@
       }
     ],
     "run": "left90_odomfix_01",
+    "controller_enabled": true,
     "stripe_geometry": "legacy segmented boxes",
     "ordinary_error_counts": {
       "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)": 1,
       "center_path curve folds back (offset=0.101m)": 1
     },
     "final_status": "CORNER_STAGED: turn complete; waiting for exit lane; v=0.000, w=0.000"
+  },
+  {
+    "course": "left90",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "perception": "OpenCV white pixels",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 592,
+    "debug_frames": 76,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 526,
+    "status_counts": {
+      "DISABLED": 2,
+      "WAITING_FOR_LANE": 11,
+      "FOLLOWING": 99
+    },
+    "travelled_m": 1.8791727437531718,
+    "net_displacement_m": 1.3827116686377003,
+    "max_cross_track_m": 0.03999058342821571,
+    "final_progress_m": 1.911878230216006,
+    "final_pose": {
+      "t": 44.96295941800054,
+      "x": 0.7496202616911458,
+      "y": 1.1618782302148827,
+      "z": -8.462041079635756e-09,
+      "yaw": 1.616209737072913,
+      "stamp": 39.134,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/left90_opencv_v1/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/left90_opencv_v1/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "592",
+          "duration": 39.466667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "592",
+          "duration": 39.466667
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/left90_opencv_v1/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/left90_opencv_v1/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "76",
+          "duration": 5.066667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "76",
+          "duration": 5.066667
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "provenance_correction": "Recorder started before perception metadata patch; OPENCV_WHITE_SIM present in captured status confirms source.",
+    "run": "left90_opencv_v1",
+    "controller_enabled": true,
+    "perception_note": "v1 모델 추론도 실행했지만 차선은 흰 픽셀로 대체",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {
+      "no unambiguous left/right boundary pair (projected=2, fitted=2; side association ambiguous)": 1,
+      "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)": 1,
+      "inferred target discontinuity": 4
+    },
+    "final_status": "FOLLOWING: v=0.099, w=-0.014; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.21997313952113284, 'y_m': -0.003437715697410444, 'width_m': 0.20240772421405087, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'NORMAL', 'angle_deg': -3.021526947390341e-14, 'reason': 'smooth boundary', 'history_votes': 0, 'history_frames': 4, 'local_map_frames': 21, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'interpolated', 'processing_lag_s': 0.2644724510028027, 'odom_age_s': 0.2587032500014175, 'bracket_gap_s': 0.034}}"
   },
   {
     "course": "left90",
@@ -469,6 +581,7 @@
       }
     ],
     "run": "left90_yolo_only_01",
+    "controller_enabled": true,
     "stripe_geometry": "legacy segmented boxes",
     "ordinary_error_counts": {
       "no common observed lane interval: normal_pairs=0, minimum=3, runs=0": 1,
@@ -476,6 +589,1448 @@
       "no boundaries detected": 103
     },
     "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=0, used_boundaries=0, perception=YOLO, metric_target=None, corner={'mode': 'ENTRY_WAIT', 'reason': 'fresh same-side boundary and odometry required', 'pivot_world': [0.7585914151299389, -0.00016065674085288947], 'pivot_base': [0.23223182044016316, 4.8006795502173426e-05], 'pivot_original_travel_m': 0.03385491758234108, 'pivot_shift_m': 0.0, 'pivot_lateral_shift_m': 0.0, 'pivot_measured_entry_start_m': 0.0, 'pivot_rotation_margin_m': None, 'arrival_latched': False, 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'interpolated', 'processing_lag_s': 0.04691540500789415, 'odom_age_s': 0.01717997201194521, 'bracket_gap_s': 0.034}, 'ordinary_error': 'no boundaries detected'}"
+  },
+  {
+    "course": "left90",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 361,
+    "debug_frames": 45,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 464,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 55
+    },
+    "travelled_m": 1.830949590039113,
+    "net_displacement_m": 1.3746476979120619,
+    "max_cross_track_m": 0.0518588490726799,
+    "final_progress_m": 1.9026276835559366,
+    "final_pose": {
+      "t": 26.93820132300607,
+      "x": 0.7490699009280198,
+      "y": 1.1526276835548135,
+      "z": -8.459624391323705e-09,
+      "yaw": 1.5611501853192542,
+      "stamp": 23.834,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r1/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r1/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "361",
+          "duration": 24.066667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "361",
+          "duration": 24.066667
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r1/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r1/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "45",
+          "duration": 3.0
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "45",
+          "duration": 3.0
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "opencv_final_suite/left90_opencv_lane0_r1",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.100, w=0.003; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.3617703923409397, 'y_m': 0.0018988892683259445, 'width_m': None, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "left90",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 365,
+    "debug_frames": 49,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 470,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 61
+    },
+    "travelled_m": 1.8258991563133078,
+    "net_displacement_m": 1.374512142714634,
+    "max_cross_track_m": 0.05537329923731005,
+    "final_progress_m": 1.9023332219001805,
+    "final_pose": {
+      "t": 27.116472444002284,
+      "x": 0.7492741662275759,
+      "y": 1.1523332218990576,
+      "z": -8.462698042518497e-09,
+      "yaw": 1.5637896718247928,
+      "stamp": 24.038,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r2/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r2/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "365",
+          "duration": 24.333333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "365",
+          "duration": 24.333333
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r2/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r2/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "49",
+          "duration": 3.266667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "49",
+          "duration": 3.266667
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "opencv_final_suite/left90_opencv_lane0_r2",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.099, w=-0.006; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.36145704006569757, 'y_m': -0.0036370814044023848, 'width_m': None, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "right90",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 363,
+    "debug_frames": 46,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 471,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 56
+    },
+    "travelled_m": 1.8547290475258535,
+    "net_displacement_m": 1.3738118653894895,
+    "max_cross_track_m": 0.0377444452550465,
+    "final_progress_m": 1.902426615946606,
+    "final_pose": {
+      "t": 27.009051449989784,
+      "x": 0.747844861146823,
+      "y": -1.152426615945483,
+      "z": -8.462029510538226e-09,
+      "yaw": -1.5602632435935992,
+      "stamp": 23.936,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r1/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r1/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "363",
+          "duration": 24.2
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "363",
+          "duration": 24.2
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r1/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r1/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "46",
+          "duration": 3.066667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "46",
+          "duration": 3.066667
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "opencv_final_suite/right90_opencv_lane0_r1",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.100, w=-0.000; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.36275231671415115, 'y_m': -0.00026922875021632785, 'width_m': None, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "right90",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 361,
+    "debug_frames": 45,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 468,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 54
+    },
+    "travelled_m": 1.8269385661065694,
+    "net_displacement_m": 1.372665163457462,
+    "max_cross_track_m": 0.05441705081427228,
+    "final_progress_m": 1.9022332240435564,
+    "final_pose": {
+      "t": 26.919731025001965,
+      "x": 0.7460350182000879,
+      "y": -1.1522332240424331,
+      "z": -8.46114464037493e-09,
+      "yaw": -1.5601526568131945,
+      "stamp": 23.8,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r2/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r2/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "361",
+          "duration": 24.066667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "361",
+          "duration": 24.066667
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r2/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r2/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "45",
+          "duration": 3.0
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "45",
+          "duration": 3.0
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "opencv_final_suite/right90_opencv_lane0_r2",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.100, w=0.002; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.36623969086555824, 'y_m': 0.0016580980504356734, 'width_m': None, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 707,
+    "debug_frames": 91,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 933,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 107
+    },
+    "travelled_m": 2.6494322200250435,
+    "net_displacement_m": 1.901631373889756,
+    "max_cross_track_m": 0.054715130065382034,
+    "final_progress_m": 2.901630018200465,
+    "final_pose": {
+      "t": 50.057431212000665,
+      "x": 1.9016300181993417,
+      "y": -0.002270691687583581,
+      "z": -8.462063043527963e-09,
+      "yaw": 0.058575115184101405,
+      "stamp": 46.648,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r1/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r1/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "707",
+          "duration": 47.133333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "707",
+          "duration": 47.133333
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r1/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r1/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "91",
+          "duration": 6.066667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "91",
+          "duration": 6.066667
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "opencv_final_suite/s_sharp_opencv_lane0_r1",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.096, w=-0.028; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.3464457552706804, 'y_m': -0.017416601317461426, 'width_m': None, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 690,
+    "debug_frames": 90,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 913,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 106
+    },
+    "travelled_m": 2.6040393064535,
+    "net_displacement_m": 1.9032247342068476,
+    "max_cross_track_m": 0.06878046055186315,
+    "final_progress_m": 2.9032238795868275,
+    "final_pose": {
+      "t": 48.81933685699187,
+      "x": 1.9032238795857044,
+      "y": -0.0018036261227744191,
+      "z": -8.462309329305045e-09,
+      "yaw": 0.05039602411960265,
+      "stamp": 45.526,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r2/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r2/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "690",
+          "duration": 46.0
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "690",
+          "duration": 46.0
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r2/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r2/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "90",
+          "duration": 6.0
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "90",
+          "duration": 6.0
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "opencv_final_suite/s_sharp_opencv_lane0_r2",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.096, w=-0.027; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.35010930639027593, 'y_m': -0.017442179014896263, 'width_m': None, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "left90",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 357,
+    "debug_frames": 46,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 469,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 56
+    },
+    "travelled_m": 1.838340645409581,
+    "net_displacement_m": 1.3739628587290853,
+    "max_cross_track_m": 0.04705526157933314,
+    "final_progress_m": 1.901720821590433,
+    "final_pose": {
+      "t": 26.75215747700713,
+      "x": 0.7492083063360694,
+      "y": 1.1517208215893102,
+      "z": -8.463683739522528e-09,
+      "yaw": 1.5578831421460873,
+      "stamp": 23.562,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/left90_opencv_lane0_r1/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/left90_opencv_lane0_r1/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "357",
+          "duration": 23.8
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "357",
+          "duration": 23.8
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/left90_opencv_lane0_r1/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/left90_opencv_lane0_r1/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "46",
+          "duration": 3.066667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "46",
+          "duration": 3.066667
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "opencv_final_suite_v2/left90_opencv_lane0_r1",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.100, w=0.003; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.36171824956103443, 'y_m': 0.001984398597276366, 'width_m': 0.2, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "left90",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 362,
+    "debug_frames": 44,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 468,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 56
+    },
+    "travelled_m": 1.8245189469378131,
+    "net_displacement_m": 1.3737081295202844,
+    "max_cross_track_m": 0.05645973580193042,
+    "final_progress_m": 1.9025716729652626,
+    "final_pose": {
+      "t": 26.89499583900033,
+      "x": 0.747430641457175,
+      "y": 1.1525716729641395,
+      "z": -8.462301507223608e-09,
+      "yaw": 1.5620535517234218,
+      "stamp": 23.868,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/left90_opencv_lane0_r2/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/left90_opencv_lane0_r2/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "362",
+          "duration": 24.133333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "362",
+          "duration": 24.133333
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/left90_opencv_lane0_r2/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/left90_opencv_lane0_r2/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "44",
+          "duration": 2.933333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "44",
+          "duration": 2.933333
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "opencv_final_suite_v2/left90_opencv_lane0_r2",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.100, w=0.001; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.35954567925461345, 'y_m': 0.0006623171930663874, 'width_m': 0.2, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "right90",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 355,
+    "debug_frames": 46,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 466,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 56
+    },
+    "travelled_m": 1.8275862431066459,
+    "net_displacement_m": 1.373533182654243,
+    "max_cross_track_m": 0.05437874177782389,
+    "final_progress_m": 1.9031598503693101,
+    "final_pose": {
+      "t": 26.410575294998125,
+      "x": 0.7462008867251758,
+      "y": -1.153159850368187,
+      "z": -8.462148306917228e-09,
+      "yaw": -1.568284165463192,
+      "stamp": 23.392,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/right90_opencv_lane0_r1/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/right90_opencv_lane0_r1/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "355",
+          "duration": 23.666667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "355",
+          "duration": 23.666667
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/right90_opencv_lane0_r1/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/right90_opencv_lane0_r1/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "46",
+          "duration": 3.066667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "46",
+          "duration": 3.066667
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "opencv_final_suite_v2/right90_opencv_lane0_r1",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.100, w=0.001; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.3649925964838931, 'y_m': 0.0008523947851367987, 'width_m': 0.2, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "right90",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 363,
+    "debug_frames": 44,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 469,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 56
+    },
+    "travelled_m": 1.8423787149354025,
+    "net_displacement_m": 1.374897833762735,
+    "max_cross_track_m": 0.04492641948729037,
+    "final_progress_m": 1.902730246463169,
+    "final_pose": {
+      "t": 27.000294940007734,
+      "x": 0.7493710910992826,
+      "y": -1.152730246462046,
+      "z": -8.46153094580342e-09,
+      "yaw": -1.565410523030484,
+      "stamp": 23.902,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/right90_opencv_lane0_r2/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/right90_opencv_lane0_r2/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "363",
+          "duration": 24.2
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "363",
+          "duration": 24.2
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/right90_opencv_lane0_r2/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/right90_opencv_lane0_r2/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "44",
+          "duration": 2.933333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "44",
+          "duration": 2.933333
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "opencv_final_suite_v2/right90_opencv_lane0_r2",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.100, w=-0.001; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.35954567925461345, 'y_m': -0.0006623171930663874, 'width_m': 0.2, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 719,
+    "debug_frames": 94,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 926,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 3,
+      "FOLLOWING": 107
+    },
+    "travelled_m": 2.657400404677955,
+    "net_displacement_m": 2.0022912200535936,
+    "max_cross_track_m": 0.07526749380194242,
+    "final_progress_m": 3.002288442898588,
+    "final_pose": {
+      "t": 50.7232749100076,
+      "x": 2.002288442897465,
+      "y": -0.0033348670822760957,
+      "z": -8.4624537079258e-09,
+      "yaw": 0.07059238838513773,
+      "stamp": 47.396,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane0_r1/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane0_r1/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "719",
+          "duration": 47.933333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "719",
+          "duration": 47.933333
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane0_r1/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane0_r1/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "94",
+          "duration": 6.266667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "94",
+          "duration": 6.266667
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "opencv_final_suite_v2/s_sharp_opencv_lane0_r1",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.096, w=-0.029; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.3451420825958549, 'y_m': -0.017801423851579627, 'width_m': 0.2, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 714,
+    "debug_frames": 90,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 932,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 2,
+      "FOLLOWING": 107
+    },
+    "travelled_m": 2.7018168961867124,
+    "net_displacement_m": 2.001164894635982,
+    "max_cross_track_m": 0.0661995653240206,
+    "final_progress_m": 3.0011592730597565,
+    "final_pose": {
+      "t": 50.357454999000765,
+      "x": 2.0011592730586334,
+      "y": -0.00474335012280305,
+      "z": -8.462968546554895e-09,
+      "yaw": 0.05713605042542399,
+      "stamp": 47.056,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane0_r2/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane0_r2/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "714",
+          "duration": 47.6
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "714",
+          "duration": 47.6
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane0_r2/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane0_r2/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "90",
+          "duration": 6.0
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "90",
+          "duration": 6.0
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "opencv_final_suite_v2/s_sharp_opencv_lane0_r2",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.096, w=-0.026; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.3480998008366209, 'y_m': -0.016305742591960364, 'width_m': 0.2, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 720,
+    "debug_frames": 91,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 945,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 108
+    },
+    "travelled_m": 2.7493480071348833,
+    "net_displacement_m": 2.0028874601072526,
+    "max_cross_track_m": 0.05580846624111757,
+    "final_progress_m": 3.0028873172325814,
+    "final_pose": {
+      "t": 50.832699614999,
+      "x": 2.0028873172314583,
+      "y": 0.0007565208216408873,
+      "z": -8.461792115729077e-09,
+      "yaw": 0.032570336765123525,
+      "stamp": 47.464,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane1_r1/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane1_r1/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "720",
+          "duration": 48.0
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "720",
+          "duration": 48.0
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane1_r1/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane1_r1/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "91",
+          "duration": 6.066667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "91",
+          "duration": 6.066667
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "opencv_final_suite_v2/s_sharp_opencv_lane1_r1",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.096, w=-0.027; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.3423890036896004, 'y_m': -0.016458322708324275, 'width_m': 0.2, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 725,
+    "debug_frames": 98,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 941,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 2,
+      "FOLLOWING": 116
+    },
+    "travelled_m": 2.678506611776086,
+    "net_displacement_m": 2.001557620649651,
+    "max_cross_track_m": 0.06000468582188323,
+    "final_progress_m": 3.001557594783826,
+    "final_pose": {
+      "t": 51.05797635599447,
+      "x": 2.001557594782703,
+      "y": -0.00032178234310550354,
+      "z": -8.46258594391049e-09,
+      "yaw": 0.045730657733793936,
+      "stamp": 47.838,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane1_r2/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane1_r2/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "725",
+          "duration": 48.333333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "725",
+          "duration": 48.333333
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane1_r2/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/s_sharp_opencv_lane1_r2/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "98",
+          "duration": 6.533333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "98",
+          "duration": 6.533333
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "opencv_final_suite_v2/s_sharp_opencv_lane1_r2",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.097, w=-0.025; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.3493782883309886, 'y_m': -0.015665720010932128, 'width_m': 0.2, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
   },
   {
     "course": "right90",
@@ -525,6 +2080,7 @@
     "lane_departure": false,
     "passed": false,
     "run": "right90_01",
+    "controller_enabled": true,
     "stripe_geometry": "legacy segmented boxes",
     "perception": "YOLO only",
     "ordinary_error_counts": {
@@ -628,6 +2184,7 @@
       }
     ],
     "run": "right90_aid_01",
+    "controller_enabled": true,
     "stripe_geometry": "legacy segmented boxes",
     "ordinary_error_counts": {
       "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)": 1,
@@ -733,6 +2290,7 @@
       }
     ],
     "run": "right90_mesh_yolo_only_01",
+    "controller_enabled": true,
     "stripe_geometry": "continuous miter-joined triangle mesh",
     "ordinary_error_counts": {
       "no boundaries detected": 253
@@ -837,6 +2395,7 @@
       }
     ],
     "run": "right90_yolo_only_01",
+    "controller_enabled": true,
     "stripe_geometry": "legacy segmented boxes",
     "ordinary_error_counts": {
       "no reliable visible boundary": 1,
@@ -891,6 +2450,7 @@
     "lane_departure": false,
     "passed": false,
     "run": "s_bend_01",
+    "controller_enabled": true,
     "stripe_geometry": "legacy segmented boxes",
     "perception": "YOLO only",
     "ordinary_error_counts": {
@@ -969,6 +2529,7 @@
       }
     ],
     "run": "s_sharp_three_aid_01",
+    "controller_enabled": false,
     "stripe_geometry": "legacy segmented boxes",
     "ordinary_error_counts": {},
     "final_status": ""
@@ -1070,6 +2631,7 @@
       }
     ],
     "run": "s_sharp_three_aid_02",
+    "controller_enabled": true,
     "stripe_geometry": "legacy segmented boxes",
     "ordinary_error_counts": {
       "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)": 62
@@ -1173,6 +2735,7 @@
       }
     ],
     "run": "s_sharp_three_mesh_yolo_only_01",
+    "controller_enabled": true,
     "stripe_geometry": "continuous miter-joined triangle mesh",
     "ordinary_error_counts": {
       "center_path curve folds back (offset=0.101m)": 2,
@@ -1182,6 +2745,627 @@
       "reacquisition requires the locked boundary side": 176
     },
     "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=1, used_boundaries=0, perception=YOLO, metric_target=None, corner={'mode': 'ENTRY_WAIT', 'reason': 'fresh same-side boundary and odometry required', 'pivot_world': [0.652466544527987, 0.0002091844368337331], 'pivot_base': [0.2307572844473295, -0.00013450269737268368], 'pivot_original_travel_m': 0.05223067397189949, 'pivot_shift_m': 0.0, 'pivot_lateral_shift_m': 0.0, 'pivot_measured_entry_start_m': 0.0, 'pivot_rotation_margin_m': None, 'arrival_latched': False, 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'interpolated', 'processing_lag_s': 0.09843810800521169, 'odom_age_s': 0.08587266699760221, 'bracket_gap_s': 0.034}, 'ordinary_error': 'reacquisition requires the locked boundary side'}"
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 1623,
+    "debug_frames": 234,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 61,
+    "status_counts": {
+      "WAITING_FOR_LANE": 423,
+      "FOLLOWING": 10
+    },
+    "travelled_m": 0.3816866596281276,
+    "net_displacement_m": 0.38168619096360995,
+    "max_cross_track_m": 0.0006629566963677977,
+    "final_progress_m": 0.3816856152132643,
+    "final_pose": {
+      "t": 120.08483177400194,
+      "x": 0.3816856152102147,
+      "y": -0.0006629566963677977,
+      "z": -9.172133287343866e-09,
+      "yaw": -0.0019235111656774424,
+      "stamp": 108.324,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v1/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v1/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "1623",
+          "duration": 108.2
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "1623",
+          "duration": 108.2
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v1/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v1/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "234",
+          "duration": 15.6
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "234",
+          "duration": 15.6
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "s_sharp_three_opencv_v1",
+    "controller_enabled": true,
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {
+      "no unambiguous left/right boundary pair (projected=2, fitted=2; side association ambiguous)": 1,
+      "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)": 419
+    },
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=3, used_boundaries=0, perception=OPENCV_WHITE_SIM, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'interpolated', 'processing_lag_s': 0.07161275000544265, 'odom_age_s': 0.06475539100938477, 'bracket_gap_s': 0.034}, 'ordinary_error': 'no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)'}"
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 1821,
+    "debug_frames": 328,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 7,
+    "status_counts": {
+      "WAITING_FOR_LANE": 334,
+      "FOLLOWING": 5,
+      "SAFETY_STOP": 1
+    },
+    "travelled_m": 0.12324510563608689,
+    "net_displacement_m": 0.12324508592578318,
+    "max_cross_track_m": 0.00012998837171329517,
+    "final_progress_m": 0.12324501737545784,
+    "final_pose": {
+      "t": 120.55074539300404,
+      "x": 0.12324501737252952,
+      "y": -0.00012998837171329517,
+      "z": -9.172907076103797e-09,
+      "yaw": -0.0019616779241996857,
+      "stamp": 120.292,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v2/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v2/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "1821",
+          "duration": 121.4
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "1821",
+          "duration": 121.4
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v2/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v2/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "328",
+          "duration": 21.866667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "328",
+          "duration": 21.866667
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "s_sharp_three_opencv_v2",
+    "controller_enabled": true,
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=2, used_boundaries=0, perception=OPENCV_WHITE_SIM, metric_target=None, corner={'mode': 'CORNER_CANDIDATE', 'angle_deg': 90.06463848331869, 'reason': 'fresh odometry required', 'history_votes': 0, 'history_frames': 6, 'direction': 'LEFT', 'corner_distance_m': 0.6469622058185015, 'boundary_side': 'right', 'lane_width_m': 0.2, 'width_source': 'configured simulation lane prior', 'local_map_frames': 1, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'odometry stale or future reception', 'processing_lag_s': 0.29057519500202034, 'odom_age_s': 0.6532842450105818}}"
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 2115,
+    "debug_frames": 280,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 65,
+    "status_counts": {
+      "WAITING_FOR_LANE": 278,
+      "FOLLOWING": 5,
+      "SAFETY_STOP": 15,
+      "CORNER_STAGED": 33
+    },
+    "travelled_m": 0.2710156381705381,
+    "net_displacement_m": 0.27101548884268906,
+    "max_cross_track_m": 0.00040133854882476824,
+    "final_progress_m": 0.271015220939654,
+    "final_pose": {
+      "t": 140.2825109169935,
+      "x": 0.2710152209366044,
+      "y": -0.00038106649321618746,
+      "z": -8.701713837709226e-09,
+      "yaw": 0.0017672926006814815,
+      "stamp": 141.576,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v3/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v3/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "2115",
+          "duration": 141.0
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "2115",
+          "duration": 141.0
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v3/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v3/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "280",
+          "duration": 18.666667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "280",
+          "duration": 18.666667
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "s_sharp_three_opencv_v3",
+    "controller_enabled": true,
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=2, used_boundaries=0, perception=OPENCV_WHITE_SIM, metric_target=None, corner={'mode': 'ENTRY_WAIT', 'reason': 'boundary no longer matches stored corner', 'pivot_world': [0.6670945501480019, 0.006538734666777801], 'pivot_base': [0.5191035736285421, 0.007962121670910606], 'pivot_original_travel_m': 0.32814000861418297, 'pivot_shift_m': 0.0, 'pivot_lateral_shift_m': 0.0, 'pivot_measured_entry_start_m': 0.0, 'pivot_rotation_margin_m': -0.0010357480859333147, 'arrival_latched': False, 'remaining_forward_m': 0.39606543245902737, 'lateral_error_m': 0.007673957255962714, 'robot_world': [0.27101529395720303, -0.00038508106345397743], 'fragment_ok': False, 'fragment_reason': 'partial overlap lacks precise correspondence', 'fragment_fraction': 0.5, 'fragment_error_m': 0.00048002347354048346, 'fragment_span_m': 0.2966559381384221, 'fragment_reversed': False, 'local_map_frames': 21, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'interpolated', 'processing_lag_s': 0.16853172099217772, 'odom_age_s': 0.16772314500121865, 'bracket_gap_s': 0.034}}"
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 2106,
+    "debug_frames": 198,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 206,
+    "status_counts": {
+      "WAITING_FOR_LANE": 127,
+      "FOLLOWING": 16,
+      "SAFETY_STOP": 2
+    },
+    "travelled_m": 0.6252135821586252,
+    "net_displacement_m": 0.6195977515519049,
+    "max_cross_track_m": 0.0354893449216888,
+    "final_progress_m": 0.6886845278656838,
+    "final_pose": {
+      "t": 140.05932620199746,
+      "x": 0.6183889399305663,
+      "y": 0.038684527862634155,
+      "z": -8.428837300525266e-09,
+      "yaw": 0.684029364701403,
+      "stamp": 141.61,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v4/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v4/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "2106",
+          "duration": 140.4
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "2106",
+          "duration": 140.4
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v4/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v4/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "198",
+          "duration": 13.2
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "198",
+          "duration": 13.2
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "s_sharp_three_opencv_v4",
+    "controller_enabled": true,
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=1, used_boundaries=0, perception=OPENCV_WHITE_SIM, metric_target=None, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 704,
+    "debug_frames": 89,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 928,
+    "status_counts": {
+      "DISABLED": 1,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 110
+    },
+    "travelled_m": 2.5987435612505303,
+    "net_displacement_m": 1.901336251049194,
+    "max_cross_track_m": 0.06124103342610154,
+    "final_progress_m": 2.901335676346789,
+    "final_pose": {
+      "t": 47.41433963899908,
+      "x": 1.901335676345666,
+      "y": -0.0014783114361672227,
+      "z": -8.461446967284506e-09,
+      "yaw": 0.05217133104788701,
+      "stamp": 46.444,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v5/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v5/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "704",
+          "duration": 46.933333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "704",
+          "duration": 46.933333
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v5/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v5/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "89",
+          "duration": 5.933333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "89",
+          "duration": 5.933333
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "s_sharp_three_opencv_v5",
+    "controller_enabled": true,
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.096, w=-0.027; Lane=2, used_boundaries=2, perception=OPENCV_WHITE_SIM, metric_target={'x_m': 0.3683824424932685, 'y_m': -0.01896609429084003, 'width_m': None, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 1789,
+    "debug_frames": 249,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 1496,
+    "status_counts": {
+      "DISABLED": 1,
+      "WAITING_FOR_LANE": 48,
+      "FOLLOWING": 201
+    },
+    "travelled_m": 4.101514978617064,
+    "net_displacement_m": 0.24096219934934263,
+    "max_cross_track_m": 0.2690275382433268,
+    "final_progress_m": -0.13906298052766797,
+    "final_pose": {
+      "t": 120.75017545999435,
+      "x": -0.13906298052879107,
+      "y": 0.196784829095217,
+      "z": -9.1471054926102e-09,
+      "yaw": 3.1244684784727648,
+      "stamp": 118.014,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": true,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v6/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v6/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "1789",
+          "duration": 119.266667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "1789",
+          "duration": 119.266667
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v6/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_opencv_v6/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "249",
+          "duration": 16.6
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "249",
+          "duration": 16.6
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "s_sharp_three_opencv_v6",
+    "perception_note": "YOLO 모델 추론 없이 카메라 흰 픽셀 사용",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {},
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=0, used_boundaries=0, perception=OPENCV_WHITE_SIM, metric_target=None, corner={'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}"
   },
   {
     "course": "s_sharp",
@@ -1280,6 +3464,7 @@
       }
     ],
     "run": "s_sharp_three_yolo_only_01",
+    "controller_enabled": true,
     "stripe_geometry": "legacy segmented boxes",
     "ordinary_error_counts": {
       "center_path curve folds back (offset=0.100m)": 4,
@@ -1334,6 +3519,7 @@
     "lane_departure": false,
     "passed": true,
     "run": "single_gap_01",
+    "controller_enabled": true,
     "stripe_geometry": "legacy segmented boxes",
     "perception": "YOLO only",
     "ordinary_error_counts": {},
@@ -1387,6 +3573,7 @@
     "lane_departure": false,
     "passed": false,
     "run": "two_lines_01",
+    "controller_enabled": true,
     "stripe_geometry": "legacy segmented boxes",
     "perception": "YOLO only",
     "ordinary_error_counts": {
@@ -1441,6 +3628,7 @@
     "lane_departure": false,
     "passed": true,
     "run": "two_lines_02",
+    "controller_enabled": true,
     "stripe_geometry": "legacy segmented boxes",
     "perception": "YOLO only",
     "ordinary_error_counts": {},

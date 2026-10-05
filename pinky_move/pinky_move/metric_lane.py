@@ -407,7 +407,7 @@ def _axis_floor_curves(masks, calibration, max_forward_m, by_column):
     return curves
 
 
-def connected_floor_curve(mask, calibration, max_forward_m=2.):
+def connected_floor_curve(mask, calibration, max_forward_m=2., pixel_step=2):
     """Failure-only centreline extraction, preserving image connectivity.
 
     Zhang-Suen thinning needs no extra runtime dependency. Follow from the
@@ -417,8 +417,11 @@ def connected_floor_curve(mask, calibration, max_forward_m=2.):
     if not isinstance(mask, np.ndarray) or mask.ndim != 2:
         return []
     height, width = mask.shape
+    if pixel_step not in (2, 4):
+        raise ValueError('unsupported skeleton pixel step')
     small = cv2.resize((mask > 0).astype(np.uint8),
-                       ((width+1)//2, (height+1)//2), interpolation=cv2.INTER_NEAREST)
+                       ((width+pixel_step-1)//pixel_step, (height+pixel_step-1)//pixel_step),
+                       interpolation=cv2.INTER_NEAREST)
     _, _, stats, _ = cv2.connectedComponentsWithStats(small, 8)
     areas = stats[1:, cv2.CC_STAT_AREA]
     if not len(areas) or np.count_nonzero(areas >= max(12, .05*max(areas))) != 1:
@@ -471,7 +474,7 @@ def connected_floor_curve(mask, calibration, max_forward_m=2.):
         seen.add(onward[0])
     if len(chain) < 12:
         return []
-    pixels = np.array([(col*2., row*2.) for row, col in chain])
+    pixels = np.array([(col*pixel_step, row*pixel_step) for row, col in chain])
     projected = robot_floor_points(pixels, calibration, (width, height), max_forward_m)
     indices = np.flatnonzero(np.isfinite(projected).all(axis=1))
     if not len(indices):

@@ -5,6 +5,77 @@ Nav2 없이 **가상 카메라 → 실제 기존 YOLO segmentation 모델 → �
 저장 사진 반복이나 목표점 숫자 시뮬레이션이 아니라 URDF 물리 모델이 실제로 움직인다.
 실제 로봇에 SSH/서비스/속도 명령을 보내지 않는다.
 
+## 새 OpenCV 전용 시험 (2026-10-05)
+
+요청에 따라 **여기 Gazebo에서만** `perception:=opencv`를 추가했다.
+기본값 `perception:=yolo`와 실제 로봇 설정은 변경하지 않았다.
+OpenCV 모드에서는 모델을 로드하지 않고 가상 카메라의 HSV 흰 픽셀을 검출한다.
+카메라 intrinsic + URDF extrinsic으로 바닥에 투영하고, 연결된 선의 법선 방향
+offset / 직각 miter 교점으로 중앙 경로를 생성해 기존 Pure Pursuit로 제어한다.
+3라인에서 현재 차로에 가까운 좌·우 경계를 선택한다. 코스 좌표나 ground truth는
+제어에 쓰지 않고 시험 완주·이탈 측정에만 사용한다.
+
+```bash
+ros2 launch pinky_move lane_gazebo.launch.py \
+  course:=s_sharp lane_count:=2 target_lane:=0 perception:=opencv gui:=true domain:=172
+# 좌/우 직각: course:=left90 / course:=right90 (lane_count:=1)
+# 반대 차로에서도 시험: target_lane:=1
+```
+
+자동 반복 시험 (다른 Gazebo launch를 먼저 종료하고, 새 출력 폴더 지정):
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source /home/tory/ws/pinky_pro/install/setup.bash
+source /home/tory/pinky_nav_publish_yWXwM0/repo/install/setup.bash
+cd /home/tory/pinky_nav_publish_yWXwM0/repo
+/usr/bin/python3 pinky_move/tools/run_opencv_physics_suite.py \
+  --output pinky_move/reports/my_new_opencv_suite --repeats 2 --seconds 100
+```
+
+좌90·우90·급 S자 오른쪽 차로·급 S자 왼쪽 차로를 각 2회씩 **순차** 실행한다.
+자동 시험은 가상 로봇만 출발시키고 매 회 종료 시 disable한다. 실패도 보존한다.
+회귀 검사·Gazebo 완주는 실제 조명, 카메라 지연, 마운트 오차가 있는 실차 완주
+보증이 아니다. 기존 staged-corner 정체성 제한을 우회하는 것은 격리된 OpenCV
+시뮬 프로파일만이며 `/home/tory/ws/pinky_pro`에 복사하지 않았다.
+
+개선 과정: 초기 S자 v1~v4는 경계 정체성/코너 진입/전방 경로 제한으로 정지했다.
+v5는 47초·2.60m 이동·최대 중심 이탈 6.12cm로 처음 완주했다.
+목표점을 더 가깝게 잡은 v6는 반대 방향 도로로 전환해 이탈했으므로 채택하지 않았다.
+각 영상과 원문 JSON은 `reports/gazebo_physics_20261005/`에 실패까지 남긴다.
+첫 반복 suite는 6회 완주했지만 반대 차로 2회가 코스 생성 전에 실패했다.
+기존 60cm 구간에서 세 번째 경계의 두 miter 꼭짓점이 겹쳐 길이가 0이 됐다.
+급 S자 직각 네 번은 유지하면서 가운데 구간을 70cm로 바꿔 두 차로 모두
+물리적으로 생성되게 수정했다. 폭에 비해 지나치게 좁아 경계가 붕괴/역전되는
+코스는 이제 생성 단계에서 명확하게 거부한다. 과거 50/60cm 시험과 새 50/70cm
+반복 시험은 `course.json`의 좌표 및 폴더 이름으로 구분한다.
+
+### 최종 반복 검증 결과
+
+`opencv_final_suite_v2/suite.json` 및 각 `trial.json`에 원문을 보존했다.
+
+| 조건 | 완주 | 최대 중심 이탈 |
+|---|---:|---:|
+| 좌90 / 경계선 2개 | 2/2 | 5.65cm |
+| 우90 / 경계선 2개 | 2/2 | 5.44cm |
+| 급 S자 / 3라인 / 오른쪽 차로 | 2/2 | 7.53cm |
+| 급 S자 / 3라인 / 왼쪽 차로 | 2/2 | 6.00cm |
+
+총 **8/8 완주**, 기록 벽시계 26.4~51.1초, SAFETY_STOP 0회.
+일부 시작/재관측 프레임에는 짧은 WAITING_FOR_LANE이 있으므로 무정지 운전을
+보증하는 수치가 아니다. 기준은 중심점 + 목표 반경 10cm이며 footprint 전체
+포함이나 실제 환경의 안전성은 보증하지 않는다.
+전체 기능 회귀 **581 passed / 70.42초** (copyright/flake8/pep257 3종 제외),
+pinky_description·pinky_move 빌드 2개 성공(2.31초).
+Firefox headless에서 새 시험의 HTML 재생기 **16/16 실제 play() 성공**,
+원본·디버그 영상 모두 H.264 / yuv420p / 전체 스트림 decode 검사를 통과했다.
+`opencv_regression.xml`, `opencv_browser_validation.json`에도 검증 결과가 있다.
+
+테스트 중 발견한 두 추가 문제도 보완했다. 완만한 `s_bend`는 곡률 반경이
+3번째 경계 offset보다 작아 뒤집히므로 비교용 완만한 형상을 조정했다.
+디버그 이미지 로컬 전송 테스트는 로봇용 DDS 설정을 상속해 localhost peer를
+못 찾았으므로 **테스트만** loopback으로 격리했다. 운영 DDS 파일은 변경하지 않았다.
+
 ## 코스
 
 | course | 내용 |
@@ -12,7 +83,8 @@ Nav2 없이 **가상 카메라 → 실제 기존 YOLO segmentation 모델 → �
 | `two_lines` | 평행한 흰 선 두 개, 2m 직선, 두 경계 중앙 추종 |
 | `left90` | 0.75m 앞 좌측 직각, 이후 1.25m 직선 |
 | `right90` | 좌측 코스의 좌우 반전 |
-| `s_bend` | 양쪽 흰 선이 있는 연속 S자, x=2.1m까지 |
+| `s_bend` | 비교용 완만한 연속 S자, x=3.0m까지, 3번째 선이 접히지 않는 곡률 |
+| `s_sharp` | 좌→우→우→좌 직각 네 번, 코너 사이 50/70cm |
 | `single_gap` | 두 선 직선에서 왼쪽 선의 x=0.60–0.95m 부분 소실 |
 
 차선 중심선 간 폭은 기본 **20cm**이며 `lane_width:=0.24` 등으로 바꿀 수 있다.
@@ -137,7 +209,7 @@ odom 시간 연결 실패와는 구분된다. `mesh_trials_summary.json` 및 HTM
 다른 차로로 변경하거나 3개 선의 전체 평균을 따라가는 기능은 아니다.
 
 ```bash
-# 연속 직각 굴절: 좌→우→우→좌, 코너 사이 50/60cm
+# 연속 직각 굴절: 좌→우→우→좌, 코너 사이 50/70cm
 ros2 launch pinky_move lane_gazebo.launch.py course:=s_sharp lane_count:=2 target_lane:=0 gui:=true
 ```
 
@@ -153,7 +225,8 @@ ros2 launch pinky_move lane_gazebo.launch.py course:=s_sharp lane_count:=2 targe
 따라서 confidence 완화만으로 좌우 모두 해결됐다고 할 수 없다.
 
 흰 픽셀 보조 검출 코드·ROS 파라미터·launch 옵션·전용 테스트는 사용자 요청으로
-제거했다. 현재 실차와 Gazebo 모두 YOLO segmentation만 입력으로 사용한다.
+먼저 제거했다. 이후 새 요청으로 Gazebo에만 별도의 `perception:=opencv` 프로파일을
+추가했다. 실제 로봇과 Gazebo 기본 `perception:=yolo`는 YOLO 입력을 유지한다.
 과거 `WHITE_PIXEL_AID` 시험 영상/로그는 비교 자료로 남겼으며 현재 버전의
 완주 결과로 취급하지 않는다. 그 기능은 흰 픽셀을 HSV로 검출해 기존 기하/제어에
 입력했으므로 **YOLO 단독 성공이 아니었다**. 밝은 물체 오검출 우려도 있었다.
@@ -229,10 +302,13 @@ YOLO 단독 재시험 좌측은 약 .577m, 우측은 약 .610m 이동 후 정지
 현재 HTML 상단의 `_yolo_only_` 영상이 보조 제거 후 결과이며,
 과거 aid 성공 영상은 참고용이다.
 
-둘 다 동일한 `lane_autonomy.py` → `metric_lane.py` / `lane_corner.py`를 사용한다.
-별도의 정답 경로 추종 컨트롤러를 Gazebo용으로 만든 것이 아니다.
+기본 `perception:=yolo`에서는 실차와 동일한 `lane_autonomy.py` →
+`metric_lane.py` / `lane_corner.py`를 사용한다.
+새 OpenCV 시뮬 프로파일은 `white_lane.py`의 연결 골격/법선/miter 경로와 기존
+`_metric_command` Pure Pursuit를 사용하고 기존 staged-corner 거부 조건은 사용하지 않는다.
+이 프로파일을 실제 로봇에 배포한 것은 아니다. 정답 경로 추종 컨트롤러도 아니다.
 차이는 카메라/보정/odom/토픽, 차선폭(.20m vs 실차 사전값 .154m)이다.
-현재 보조 검출 기능은 없고 YOLO만 사용한다. 과거 aid 완주 결과를 현재 버전이나
+기본 YOLO 모드에는 흰 픽셀 보조 검출이 없다. 새 OpenCV 및 과거 aid 완주를
 실차 YOLO 단독 성능으로 취급하면 안 된다. 실제 보정 오차와 지연은 별도 검증해야 한다.
 
 장기적인 YOLO 해결은 가로로 보이는 직각 입구·내측/외측 선·3라인·급 S자
@@ -241,8 +317,9 @@ S자의 3조각 모호성은 segmentation만이 아니라 odometry로 옮긴 최
 관측된 인접 두 선을 매칭하여 선택한 차로의 정체성을 유지해야 한다.
 검출 0개인데 방향을 새로 추정하거나 3개 선을 전부 평균내는 방식으로 해결하지 않는다.
 
-실제 이 PC에서 실행한 원문은 `reports/gazebo_physics_20261005/*/trial.json`에 있다.
-보고서 HTML의 성공/실패 표를 확인한다. 첫 직선 시험은 코스 끝에서 1.81m에 정지했고,
+실제 이 PC에서 실행한 원문은 `reports/gazebo_physics_20261005/**/trial.json`에 있다.
+보고서 HTML의 성공/실패 표를 확인한다. 아래는 초기 YOLO 시험의 과거 기록이다.
+첫 직선 시험은 코스 끝에서 1.81m에 정지했고,
 끝점 뒤 차선을 연장한 재시험은 약 1.916m에서 목표 도달, 차선 중심 이탈 없이 통과했다.
 좌측 직각 시험은 약 0.607m에서 YOLO Lane=0으로 멈춰 **실패**다.
 우측 직각 시험은 약 0.580m에서 멈춰 **실패**다. 정지 화면 재추론에서 좌측 코너는

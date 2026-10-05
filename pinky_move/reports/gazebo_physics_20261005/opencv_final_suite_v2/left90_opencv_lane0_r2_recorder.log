@@ -1,0 +1,98 @@
+{
+  "course": "left90",
+  "physics_trial": true,
+  "controller_enabled": true,
+  "yolo_enabled": false,
+  "perception": "OpenCV white pixels",
+  "lane_count": 1,
+  "stripe_count": 2,
+  "error": null,
+  "raw_frames": 362,
+  "debug_frames": 44,
+  "camera_intrinsics": [
+    [
+      566.0,
+      0.0,
+      320.0
+    ],
+    [
+      0.0,
+      566.0,
+      240.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "nonzero_commands": 468,
+  "status_counts": {
+    "DISABLED": 3,
+    "WAITING_FOR_LANE": 1,
+    "FOLLOWING": 56
+  },
+  "travelled_m": 1.8245189469378131,
+  "net_displacement_m": 1.3737081295202844,
+  "max_cross_track_m": 0.05645973580193042,
+  "final_progress_m": 1.9025716729652626,
+  "final_pose": {
+    "t": 26.89499583900033,
+    "x": 0.747430641457175,
+    "y": 1.1525716729641395,
+    "z": -8.462301507223608e-09,
+    "yaw": 1.5620535517234218,
+    "stamp": 23.868,
+    "frame": "world",
+    "child": "base_link"
+  },
+  "reached_finish": true,
+  "lane_departure": false,
+  "passed": true,
+  "video_exports": [
+    {
+      "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/left90_opencv_lane0_r2/raw_frames.mp4",
+      "changed": true,
+      "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/left90_opencv_lane0_r2/original_mp4v/raw_frames.mp4",
+      "before": {
+        "codec_name": "mpeg4",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "362",
+        "duration": 24.133333
+      },
+      "after": {
+        "codec_name": "h264",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "362",
+        "duration": 24.133333
+      },
+      "full_decode_ok": true
+    },
+    {
+      "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/left90_opencv_lane0_r2/debug_frames.mp4",
+      "changed": true,
+      "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite_v2/left90_opencv_lane0_r2/original_mp4v/debug_frames.mp4",
+      "before": {
+        "codec_name": "mpeg4",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "44",
+        "duration": 2.933333
+      },
+      "after": {
+        "codec_name": "h264",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "44",
+        "duration": 2.933333
+      },
+      "full_decode_ok": true
+    }
+  ]
+}

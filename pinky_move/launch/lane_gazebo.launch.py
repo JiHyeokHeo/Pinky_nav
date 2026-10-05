@@ -19,7 +19,7 @@ def start(context):
     directory = value('output') or tempfile.mkdtemp(prefix='pinky-lane-gazebo-')
     world, calibration = prepare_simulation(get_package_share_directory('pinky_description'),
         directory, value('course'), float(value('lane_width')),
-        int(value('lane_count')), int(value('target_lane')))
+        int(value('lane_count')), int(value('target_lane')), value('perception'))
     share = get_package_share_directory('pinky_move')
     env = {'ROS_DOMAIN_ID': str(domain), 'CYCLONEDDS_URI':
         '<CycloneDDS><Domain><General><Interfaces><NetworkInterface name="lo"/></Interfaces><AllowMulticast>false</AllowMulticast></General><Discovery><Peers><Peer Address="127.0.0.1"/></Peers></Discovery></Domain></CycloneDDS>',
@@ -40,15 +40,21 @@ def start(context):
                  os.path.join(share,'config','lane_autonomy.yaml'), dict(use_sim_time=True,
                     model_path=value('model_path'), calibration_path=calibration,
                     remote_inference=False, remote_geometry=False, enabled=False,
+                    simulation_white_lane=value('perception') == 'opencv',
+                    metric_path_min_m=.08 if value('perception') == 'opencv' else .14,
+                    metric_path_max_m=.70 if value('perception') == 'opencv' else .48,
+                    metric_lookahead_m=.16 if value('perception') == 'opencv' else .22,
+                    maximum_angular_speed=.6 if value('perception') == 'opencv' else .15,
                     image_topic='/lane_sim/camera/image_raw', image_compressed=False,
                     cmd_vel_topic='/lane_sim/cmd_vel', corner_odom_topic='/lane_sim/odom',
                     scan_topic='/lane_sim/scan', use_lidar_guard=False,
                     debug_image_topic='/lane_sim/debug_image', lane_width=float(value('lane_width')),
-                    publish_debug_image=True, linear_speed=.10, single_line_max_speed=.03)])]
+                    publish_debug_image=True, linear_speed=.10,
+                    single_line_max_speed=.06 if value('perception') == 'opencv' else .03)])]
 
 
 def generate_launch_description():
-    defaults = dict(course='two_lines', lane_width='.20', lane_count='1', target_lane='0',
+    defaults = dict(course='two_lines', lane_width='.20', lane_count='1', target_lane='0', perception='yolo',
         domain='172', gui='true', output='',
         python_executable='/home/tory/venv/omx/bin/python',
         model_path='/home/tory/Downloads/yolo_runs/segment/train/weights/best.pt')

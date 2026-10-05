@@ -1,0 +1,606 @@
+[
+  {
+    "run": "left90_opencv_lane0_r1",
+    "course": "left90",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 361,
+    "debug_frames": 45,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 464,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 55
+    },
+    "travelled_m": 1.830949590039113,
+    "net_displacement_m": 1.3746476979120619,
+    "max_cross_track_m": 0.0518588490726799,
+    "final_progress_m": 1.9026276835559366,
+    "final_pose": {
+      "t": 26.93820132300607,
+      "x": 0.7490699009280198,
+      "y": 1.1526276835548135,
+      "z": -8.459624391323705e-09,
+      "yaw": 1.5611501853192542,
+      "stamp": 23.834,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r1/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r1/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "361",
+          "duration": 24.066667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "361",
+          "duration": 24.066667
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r1/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r1/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "45",
+          "duration": 3.0
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "45",
+          "duration": 3.0
+        },
+        "full_decode_ok": true
+      }
+    ]
+  },
+  {
+    "run": "left90_opencv_lane0_r2",
+    "course": "left90",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 365,
+    "debug_frames": 49,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 470,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 61
+    },
+    "travelled_m": 1.8258991563133078,
+    "net_displacement_m": 1.374512142714634,
+    "max_cross_track_m": 0.05537329923731005,
+    "final_progress_m": 1.9023332219001805,
+    "final_pose": {
+      "t": 27.116472444002284,
+      "x": 0.7492741662275759,
+      "y": 1.1523332218990576,
+      "z": -8.462698042518497e-09,
+      "yaw": 1.5637896718247928,
+      "stamp": 24.038,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r2/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r2/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "365",
+          "duration": 24.333333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "365",
+          "duration": 24.333333
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r2/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/left90_opencv_lane0_r2/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "49",
+          "duration": 3.266667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "49",
+          "duration": 3.266667
+        },
+        "full_decode_ok": true
+      }
+    ]
+  },
+  {
+    "run": "right90_opencv_lane0_r1",
+    "course": "right90",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 363,
+    "debug_frames": 46,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 471,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 56
+    },
+    "travelled_m": 1.8547290475258535,
+    "net_displacement_m": 1.3738118653894895,
+    "max_cross_track_m": 0.0377444452550465,
+    "final_progress_m": 1.902426615946606,
+    "final_pose": {
+      "t": 27.009051449989784,
+      "x": 0.747844861146823,
+      "y": -1.152426615945483,
+      "z": -8.462029510538226e-09,
+      "yaw": -1.5602632435935992,
+      "stamp": 23.936,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r1/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r1/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "363",
+          "duration": 24.2
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "363",
+          "duration": 24.2
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r1/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r1/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "46",
+          "duration": 3.066667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "46",
+          "duration": 3.066667
+        },
+        "full_decode_ok": true
+      }
+    ]
+  },
+  {
+    "run": "right90_opencv_lane0_r2",
+    "course": "right90",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 361,
+    "debug_frames": 45,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 468,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 54
+    },
+    "travelled_m": 1.8269385661065694,
+    "net_displacement_m": 1.372665163457462,
+    "max_cross_track_m": 0.05441705081427228,
+    "final_progress_m": 1.9022332240435564,
+    "final_pose": {
+      "t": 26.919731025001965,
+      "x": 0.7460350182000879,
+      "y": -1.1522332240424331,
+      "z": -8.46114464037493e-09,
+      "yaw": -1.5601526568131945,
+      "stamp": 23.8,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r2/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r2/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "361",
+          "duration": 24.066667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "361",
+          "duration": 24.066667
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r2/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/right90_opencv_lane0_r2/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "45",
+          "duration": 3.0
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "45",
+          "duration": 3.0
+        },
+        "full_decode_ok": true
+      }
+    ]
+  },
+  {
+    "run": "s_sharp_opencv_lane0_r1",
+    "course": "s_sharp",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 707,
+    "debug_frames": 91,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 933,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 107
+    },
+    "travelled_m": 2.6494322200250435,
+    "net_displacement_m": 1.901631373889756,
+    "max_cross_track_m": 0.054715130065382034,
+    "final_progress_m": 2.901630018200465,
+    "final_pose": {
+      "t": 50.057431212000665,
+      "x": 1.9016300181993417,
+      "y": -0.002270691687583581,
+      "z": -8.462063043527963e-09,
+      "yaw": 0.058575115184101405,
+      "stamp": 46.648,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r1/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r1/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "707",
+          "duration": 47.133333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "707",
+          "duration": 47.133333
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r1/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r1/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "91",
+          "duration": 6.066667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "91",
+          "duration": 6.066667
+        },
+        "full_decode_ok": true
+      }
+    ]
+  },
+  {
+    "run": "s_sharp_opencv_lane0_r2",
+    "course": "s_sharp",
+    "physics_trial": true,
+    "controller_enabled": true,
+    "yolo_enabled": false,
+    "perception": "OpenCV white pixels",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 690,
+    "debug_frames": 90,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 913,
+    "status_counts": {
+      "DISABLED": 3,
+      "WAITING_FOR_LANE": 1,
+      "FOLLOWING": 106
+    },
+    "travelled_m": 2.6040393064535,
+    "net_displacement_m": 1.9032247342068476,
+    "max_cross_track_m": 0.06878046055186315,
+    "final_progress_m": 2.9032238795868275,
+    "final_pose": {
+      "t": 48.81933685699187,
+      "x": 1.9032238795857044,
+      "y": -0.0018036261227744191,
+      "z": -8.462309329305045e-09,
+      "yaw": 0.05039602411960265,
+      "stamp": 45.526,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": true,
+    "lane_departure": false,
+    "passed": true,
+    "video_exports": [
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r2/raw_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r2/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "690",
+          "duration": 46.0
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "690",
+          "duration": 46.0
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r2/debug_frames.mp4",
+        "changed": true,
+        "original": "pinky_move/reports/gazebo_physics_20261005/opencv_final_suite/s_sharp_opencv_lane0_r2/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "90",
+          "duration": 6.0
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "90",
+          "duration": 6.0
+        },
+        "full_decode_ok": true
+      }
+    ]
+  },
+  {
+    "run": "s_sharp_opencv_lane1_r1",
+    "passed": false,
+    "error": "Traceback (most recent call last):\n  File \"/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/tools/gazebo_lane_trial.py\", line 179, in <module>\n    sys.exit(main())\n             ^^^^^^\n  File \"/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/tools/gazebo_lane_trial.py\", line 47, in main\n    metadata = json.loads((args.course_dir/'course.json').read_text())\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/pathlib.py\", line 1029, in read_text\n    with self.open(mode='r', encoding=encoding, errors=errors) as f:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/pathlib.py\", line 1015, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nFileNotFoundError: [Errno 2] No such file or directory: '/tmp/pinky-opencv-suite-alul18rl/course.json'\n"
+  },
+  {
+    "run": "s_sharp_opencv_lane1_r2",
+    "passed": false,
+    "error": "Traceback (most recent call last):\n  File \"/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/tools/gazebo_lane_trial.py\", line 179, in <module>\n    sys.exit(main())\n             ^^^^^^\n  File \"/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/tools/gazebo_lane_trial.py\", line 47, in main\n    metadata = json.loads((args.course_dir/'course.json').read_text())\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/pathlib.py\", line 1029, in read_text\n    with self.open(mode='r', encoding=encoding, errors=errors) as f:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/pathlib.py\", line 1015, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nFileNotFoundError: [Errno 2] No such file or directory: '/tmp/pinky-opencv-suite-ffg9y8ib/course.json'\n"
+  }
+]

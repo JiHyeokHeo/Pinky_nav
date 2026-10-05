@@ -1,6 +1,10 @@
 # Pinky Pro 책상 위 좌우 왕복 주행
 
 카메라 차선 추종 Gazebo 물리 시험: [실행 방법과 검증 범위](docs/GAZEBO_LANE_PHYSICS.md).
+
+2026-10-05: 격리된 `perception:=opencv` 흰 픽셀 모드로 좌90·우90·급 S자/3라인
+양쪽 차로 반복 물리 시험 **8/8 완주**. 실차 기본 YOLO 설정은 변경하지 않았습니다.
+[성공/실패 영상·이동 궤적 HTML](reports/gazebo_physics_20261005/gazebo_physics_report.html).
 두 흰 선 직선, 좌/우 90도 코너, S자, 한쪽 선 소실 코스를 제공한다.
 
 > 웹 워크페이지: [docs/table_patrol_workpage.html](docs/table_patrol_workpage.html)

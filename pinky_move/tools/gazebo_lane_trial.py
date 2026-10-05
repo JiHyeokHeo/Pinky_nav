@@ -138,8 +138,10 @@ def main():
         node.destroy_node()
         rclpy.shutdown()
     points = np.array([[row['x'],row['y']] for row in observations['ground_truth']])
-    summary = dict(course=metadata['course'],physics_trial=True,yolo_enabled=enabled,
-                   perception=metadata.get('perception', 'unspecified (see run notes)'),
+    summary = dict(course=metadata['course'],physics_trial=True,controller_enabled=enabled,
+                   yolo_enabled=enabled and metadata.get('perception') != 'OpenCV white pixels',
+                   perception=('OpenCV white pixels' if any('OPENCV_WHITE_SIM' in r['text']
+                       for r in observations['status']) else metadata.get('perception', 'unspecified (see run notes)')),
                    lane_count=metadata.get('lane_count', 1),
                    stripe_count=metadata.get('stripe_count', 2),
                    error=error,raw_frames=observations['raw_frames'],debug_frames=observations['debug_frames'],

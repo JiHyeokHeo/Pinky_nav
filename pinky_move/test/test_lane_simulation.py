@@ -78,3 +78,17 @@ def test_paint_triangles_share_joint_vertices_without_gaps(course, tmp_path):
 def test_right_angle_ribbon_has_exact_miter_not_square_caps(tmp_path):
     vertices, _ = stripe_mesh([[0., 0.], [1., 0.], [1., 1.]], tmp_path/'corner.obj')
     np.testing.assert_allclose(vertices[2:4], [[.99, .01], [1.01, -.01]])
+
+
+@pytest.mark.parametrize('lane', [0, 1])
+def test_sharp_three_stripe_road_can_actually_generate_all_meshes(lane, tmp_path):
+    points = course_points('s_sharp')
+    for name, stripe in road_boundaries(points, .20, 2, lane).items():
+        assert np.linalg.norm(np.diff(stripe, axis=0), axis=1).min() > .020
+        assert np.all(np.sum(np.diff(stripe, axis=0)*np.diff(points, axis=0), axis=1) > 0.)
+        stripe_mesh(stripe, tmp_path/(name+'.obj'))
+
+
+def test_too_wide_road_rejects_folded_stripe_before_launch():
+    with pytest.raises(ValueError, match='too tight'):
+        road_boundaries(course_points('s_sharp'), .4, 2, 1)
