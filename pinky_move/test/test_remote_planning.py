@@ -30,6 +30,17 @@ def scene(node, seq=1):
     return request, result, frame
 
 
+def test_connected_geometry_parameter_reaches_pc_without_new_transport(controller):
+    controller.parameters['connected_geometry'] = True
+    request, result, frame = scene(controller)
+    planner = PCPlanner()
+    plan = planner.process(request, result, frame)
+    assert planner.node.metric_tracker.connected_geometry
+    assert not planner.node._bool_parameter('simulation_white_lane')
+    assert plan['target'] is not None
+    assert not hasattr(planner.node, 'cmd_publisher')
+
+
 def test_pc_geometry_matches_legacy_target_and_robot_does_not_fit(controller):
     planner = PCPlanner()
     for seq in (1, 2, 3):

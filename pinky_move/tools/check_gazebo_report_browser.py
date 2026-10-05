@@ -10,6 +10,7 @@ def main():
     parser.add_argument('report', type=Path)
     parser.add_argument('--driver', default='http://127.0.0.1:4445')
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--all-videos', action='store_true')
     args = parser.parse_args()
     def call(method, endpoint, body=None):
         request = urllib.request.Request(args.driver+endpoint,
@@ -24,11 +25,13 @@ def main():
     try:
         call('POST', base+'/timeouts', {'script': 100000, 'pageLoad': 60000})
         call('POST', base+'/url', {'url': args.report.resolve().as_uri()})
-        result = call('POST', base+'/execute/async', {'args': [], 'script': '''
+        result = call('POST', base+'/execute/async', {'args': [args.all_videos], 'script': '''
+            const allVideos = arguments[0];
             const done = arguments[arguments.length-1];
             (async () => {
               const sections = [...document.querySelectorAll('section')].filter(s =>
-                s.querySelector('h2')?.textContent.includes('opencv_final_suite_v2/'));
+                allVideos ? s.querySelector('video') :
+                  s.querySelector('h2')?.textContent.includes('opencv_final_suite_v2/'));
               const results = [];
               for (const section of sections) for (const video of section.querySelectorAll('video')) {
                 video.muted = true;

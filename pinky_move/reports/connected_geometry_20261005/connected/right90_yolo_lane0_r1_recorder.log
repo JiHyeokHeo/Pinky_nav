@@ -1,0 +1,100 @@
+{
+  "course": "right90",
+  "physics_trial": true,
+  "controller_enabled": true,
+  "yolo_enabled": true,
+  "perception": "YOLO only",
+  "lane_count": 1,
+  "stripe_count": 2,
+  "error": null,
+  "raw_frames": 846,
+  "debug_frames": 149,
+  "camera_intrinsics": [
+    [
+      566.0,
+      0.0,
+      320.0
+    ],
+    [
+      0.0,
+      566.0,
+      240.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "nonzero_commands": 109,
+  "status_counts": {
+    "DISABLED": 2,
+    "WAITING_FOR_LANE": 273,
+    "FOLLOWING": 17,
+    "SAFETY_STOP": 2,
+    "CORNER_STAGED": 13
+  },
+  "travelled_m": 0.605774468643445,
+  "net_displacement_m": 0.605768890027191,
+  "max_cross_track_m": 0.0008059622404928038,
+  "final_progress_m": 0.6057688790755162,
+  "final_pose": {
+    "t": 67.7816399630101,
+    "x": 0.605768879074393,
+    "y": -0.00011518840151504881,
+    "z": -8.698385406753478e-09,
+    "yaw": -0.01703403473015657,
+    "stamp": 55.828,
+    "frame": "world",
+    "child": "base_link"
+  },
+  "reached_finish": false,
+  "lane_departure": false,
+  "passed": false,
+  "video_exports": [
+    {
+      "path": "pinky_move/reports/connected_geometry_20261005/connected/right90_yolo_lane0_r1/raw_frames.mp4",
+      "changed": true,
+      "original": "pinky_move/reports/connected_geometry_20261005/connected/right90_yolo_lane0_r1/original_mp4v/raw_frames.mp4",
+      "before": {
+        "codec_name": "mpeg4",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "846",
+        "duration": 56.4
+      },
+      "after": {
+        "codec_name": "h264",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "846",
+        "duration": 56.4
+      },
+      "full_decode_ok": true
+    },
+    {
+      "path": "pinky_move/reports/connected_geometry_20261005/connected/right90_yolo_lane0_r1/debug_frames.mp4",
+      "changed": true,
+      "original": "pinky_move/reports/connected_geometry_20261005/connected/right90_yolo_lane0_r1/original_mp4v/debug_frames.mp4",
+      "before": {
+        "codec_name": "mpeg4",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "149",
+        "duration": 9.933333
+      },
+      "after": {
+        "codec_name": "h264",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "149",
+        "duration": 9.933333
+      },
+      "full_decode_ok": true
+    }
+  ]
+}

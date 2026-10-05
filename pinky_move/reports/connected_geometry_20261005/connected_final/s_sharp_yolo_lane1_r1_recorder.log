@@ -1,0 +1,99 @@
+{
+  "course": "s_sharp",
+  "physics_trial": true,
+  "controller_enabled": true,
+  "yolo_enabled": true,
+  "perception": "YOLO only",
+  "lane_count": 2,
+  "stripe_count": 3,
+  "error": null,
+  "raw_frames": 815,
+  "debug_frames": 140,
+  "camera_intrinsics": [
+    [
+      566.0,
+      0.0,
+      320.0
+    ],
+    [
+      0.0,
+      566.0,
+      240.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "nonzero_commands": 233,
+  "status_counts": {
+    "DISABLED": 1,
+    "WAITING_FOR_LANE": 245,
+    "FOLLOWING": 25,
+    "LANE_LOSS_HOLD": 16
+  },
+  "travelled_m": 0.5089440039086864,
+  "net_displacement_m": 0.5089387883781054,
+  "max_cross_track_m": 0.0007037718004844484,
+  "final_progress_m": 0.5089386968679493,
+  "final_pose": {
+    "t": 67.80245560999901,
+    "x": 0.5089386968668262,
+    "y": 0.0003051985051721725,
+    "z": -8.489891947360284e-09,
+    "yaw": 0.012847543711252922,
+    "stamp": 53.754,
+    "frame": "world",
+    "child": "base_link"
+  },
+  "reached_finish": false,
+  "lane_departure": false,
+  "passed": false,
+  "video_exports": [
+    {
+      "path": "pinky_move/reports/connected_geometry_20261005/connected_final/s_sharp_yolo_lane1_r1/raw_frames.mp4",
+      "changed": true,
+      "original": "pinky_move/reports/connected_geometry_20261005/connected_final/s_sharp_yolo_lane1_r1/original_mp4v/raw_frames.mp4",
+      "before": {
+        "codec_name": "mpeg4",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "815",
+        "duration": 54.333333
+      },
+      "after": {
+        "codec_name": "h264",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "815",
+        "duration": 54.333333
+      },
+      "full_decode_ok": true
+    },
+    {
+      "path": "pinky_move/reports/connected_geometry_20261005/connected_final/s_sharp_yolo_lane1_r1/debug_frames.mp4",
+      "changed": true,
+      "original": "pinky_move/reports/connected_geometry_20261005/connected_final/s_sharp_yolo_lane1_r1/original_mp4v/debug_frames.mp4",
+      "before": {
+        "codec_name": "mpeg4",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "140",
+        "duration": 9.333333
+      },
+      "after": {
+        "codec_name": "h264",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "140",
+        "duration": 9.333333
+      },
+      "full_decode_ok": true
+    }
+  ]
+}

@@ -41,6 +41,7 @@ def start(context):
                     model_path=value('model_path'), calibration_path=calibration,
                     remote_inference=False, remote_geometry=False, enabled=False,
                     simulation_white_lane=value('perception') == 'opencv',
+                    connected_geometry=value('connected_geometry').lower() == 'true',
                     metric_path_min_m=.08 if value('perception') == 'opencv' else .14,
                     metric_path_max_m=.70 if value('perception') == 'opencv' else .48,
                     metric_lookahead_m=.16 if value('perception') == 'opencv' else .22,
@@ -55,7 +56,7 @@ def start(context):
 
 def generate_launch_description():
     defaults = dict(course='two_lines', lane_width='.20', lane_count='1', target_lane='0', perception='yolo',
-        domain='172', gui='true', output='',
+        domain='172', gui='true', output='', connected_geometry='false',
         python_executable='/home/tory/venv/omx/bin/python',
         model_path='/home/tory/Downloads/yolo_runs/segment/train/weights/best.pt')
     return LaunchDescription([*(DeclareLaunchArgument(k, default_value=v) for k,v in defaults.items()), OpaqueFunction(function=start)])

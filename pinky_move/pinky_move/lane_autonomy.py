@@ -254,6 +254,7 @@ class LaneAutonomy(Node):
         parameters = (
             ('enabled', False),
             ('simulation_white_lane', False),
+            ('connected_geometry', False),
             ('remote_inference', False),
             ('remote_geometry', False),
             ('remote_port', 18765),
@@ -434,6 +435,7 @@ class LaneAutonomy(Node):
         self.crossline_streak = 0
         self.metric_target = None
         self.metric_tracker = MetricLaneTracker(
+            connected_geometry=self._bool_parameter('connected_geometry'),
             tracking_gap_s=self._float_parameter('lane_tracking_gap_seconds'),
             minimum_lane_width_m=2*(self._float_parameter('corner_robot_half_width_m')+
                                     self._float_parameter('corner_clearance_m')))
@@ -1215,6 +1217,7 @@ class LaneAutonomy(Node):
                     # left/right lock. Preserve measured width, reset once.
                     estimator = getattr(self.metric_tracker, 'width_estimator', None)
                     self.metric_tracker = MetricLaneTracker(
+                        connected_geometry=self._bool_parameter('connected_geometry'),
                         tracking_gap_s=self._float_parameter('lane_tracking_gap_seconds'),
                         minimum_lane_width_m=2*(self._float_parameter('corner_robot_half_width_m')+
                                                self._float_parameter('corner_clearance_m')))
@@ -1227,6 +1230,7 @@ class LaneAutonomy(Node):
                     stage['exit_tracking_reset'] = True
                 if not hasattr(self, 'metric_tracker'):
                     self.metric_tracker = MetricLaneTracker(
+                        connected_geometry=self._bool_parameter('connected_geometry'),
                         tracking_gap_s=self._float_parameter('lane_tracking_gap_seconds'),
                         minimum_lane_width_m=2*(self._float_parameter('corner_robot_half_width_m')+
                                                 self._float_parameter('corner_clearance_m')))

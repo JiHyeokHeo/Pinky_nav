@@ -1,0 +1,77 @@
+[
+  {
+    "key": "45ac22233aa8fafa",
+    "image": "train/images/rec_20260912_165725_001672_jpg.rf.c697ff806fb609382293321186581c35.jpg",
+    "before": {
+      "ok": false,
+      "reason": "center_path curve folds back (offset=0.077m)"
+    },
+    "after": {
+      "ok": true,
+      "x_m": 0.2198343446379539,
+      "y_m": -0.00853586068310098,
+      "side": "right",
+      "warning": "connected miter fallback on observed boundary"
+    }
+  },
+  {
+    "key": "6d25c6f46a0bca2c",
+    "image": "train/images/rec_20260912_165456_000904_jpg.rf.93d68d7342893e99d740800faa01bfcc.jpg",
+    "before": {
+      "ok": false,
+      "reason": "center_path curve folds back (offset=-0.077m)"
+    },
+    "after": {
+      "ok": true,
+      "x_m": 0.19281551934828425,
+      "y_m": -0.10593477001651257,
+      "side": "left",
+      "warning": "connected miter fallback on observed boundary"
+    }
+  },
+  {
+    "key": "802d3555c734b0e1",
+    "image": "train/images/rec_20260912_165725_001688_jpg.rf.c7df5757152ed24862433c3191f6b4e3.jpg",
+    "before": {
+      "ok": false,
+      "reason": "center_path curve folds back (offset=0.077m)"
+    },
+    "after": {
+      "ok": true,
+      "x_m": 0.18666441966875635,
+      "y_m": 0.11643193045606694,
+      "side": "right",
+      "warning": "connected miter fallback on observed boundary"
+    }
+  },
+  {
+    "key": "8867606cef0c1698",
+    "image": "train/images/rec_20260912_165456_000912_jpg.rf.265849f0e1c2b01433afca8ac15970d6.jpg",
+    "before": {
+      "ok": false,
+      "reason": "center_path curve folds back (offset=-0.077m)"
+    },
+    "after": {
+      "ok": true,
+      "x_m": 0.1939611064502696,
+      "y_m": -0.10382239250078563,
+      "side": "left",
+      "warning": "connected miter fallback on observed boundary"
+    }
+  },
+  {
+    "key": "a15d9daefdb3aa3b",
+    "image": "train/images/rec_20260912_165456_000920_jpg.rf.d143efe7df013c807be0f2436df5e05e.jpg",
+    "before": {
+      "ok": false,
+      "reason": "center_path curve folds back (offset=-0.077m)"
+    },
+    "after": {
+      "ok": true,
+      "x_m": 0.18265214990247605,
+      "y_m": -0.1226303067598031,
+      "side": "left",
+      "warning": "connected miter fallback on observed boundary"
+    }
+  }
+]

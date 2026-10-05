@@ -15,6 +15,8 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--repeats', type=int, default=2)
     parser.add_argument('--seconds', type=float, default=100.)
+    parser.add_argument('--perception', choices=('opencv', 'yolo'), default='opencv')
+    parser.add_argument('--connected-geometry', action='store_true')
     args = parser.parse_args()
     if not 1 <= args.repeats <= 5 or not 1 <= args.seconds <= 300:
         parser.error('repeats: 1..5, seconds: 1..300')
@@ -26,14 +28,15 @@ def main():
     for course, lanes, lane in [('left90', 1, 0), ('right90', 1, 0),
                                ('s_sharp', 2, 0), ('s_sharp', 2, 1)]:
         for repeat in range(1, args.repeats+1):
-            name = f'{course}_opencv_lane{lane}_r{repeat}'
+            name = f'{course}_{args.perception}_lane{lane}_r{repeat}'
             output = args.output/name
             directory = tempfile.mkdtemp(prefix='pinky-opencv-suite-')
             print(f'START {name}', flush=True)
             with (args.output/(name+'_launch.log')).open('w') as log:
                 launch = subprocess.Popen(['ros2', 'launch', 'pinky_move', 'lane_gazebo.launch.py',
                     f'course:={course}', f'lane_count:={lanes}', f'target_lane:={lane}',
-                    'domain:=172', 'perception:=opencv', 'gui:=false', f'output:={directory}'],
+                    'domain:=172', f'perception:={args.perception}', 'gui:=false', f'output:={directory}',
+                    f'connected_geometry:={str(args.connected_geometry).lower()}'],
                     stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
                 try:
                     trial = subprocess.run([sys.executable, str(Path(__file__).with_name('gazebo_lane_trial.py')),

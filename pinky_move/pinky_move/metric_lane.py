@@ -218,7 +218,7 @@ def fit_connected_approach(points, degree=3):
 
 def floor_curves(masks, calibration, max_forward_m=2.0,
                  path_min_m=.05, path_max_m=None, degree=3, recover_short_hook=False,
-                 component_recovery=True):
+                 component_recovery=True, connected_geometry=False):
     """Compare row/column extraction instead of committing to one image axis.
 
     Perspective can make a legitimate near stripe too thick for column scans,
@@ -244,8 +244,25 @@ def floor_curves(masks, calibration, max_forward_m=2.0,
         if len(candidates) == 2:
             a, b = candidates[0][1], candidates[1][1]
             error = min(curve_match_error(a, b), curve_match_error(b, a))
-            if np.isfinite(error) and error > .035:
+            if np.isfinite(error) and error > .035 and not connected_geometry:
                 continue
+            if np.isfinite(error) and error > .035:
+                candidates = []  # Ambiguous axes may use a single connected observation.
+        if connected_geometry and not candidates:
+            hi = max_forward_m if path_max_m is None else path_max_m
+            for chain in connected_floor_curve(mask, calibration, max_forward_m):
+                near = supported_chain(chain, path_min_m, hi)
+                try:
+                    fit = fit_boundary(near, degree)
+                    q, _, _ = nearest_on_chain(near, fit)
+                    rms = float(np.sqrt(np.mean(np.sum((near-q)**2, axis=1))))
+                    # Successful axis extraction is never replaced, including
+                    # already drivable S prefixes. Only failed/ambiguous axes
+                    # can be recovered from this ONE observed skeleton.
+                    if rms <= .008:
+                        candidates = [(chain, fit, rms, float(arc_stations(near)[-1]))]
+                except ValueError:
+                    continue
         if candidates:
             best_rms = min(candidate[2] for candidate in candidates)
             accurate = [candidate for candidate in candidates if candidate[2] <= best_rms+.002]
@@ -306,7 +323,8 @@ def floor_curves(masks, calibration, max_forward_m=2.0,
         if component is not None:
             curves = floor_curves([component], calibration, max_forward_m,
                                   path_min_m, path_max_m, degree,
-                                  recover_short_hook, component_recovery=False)
+                                  recover_short_hook, component_recovery=False,
+                                  connected_geometry=connected_geometry)
     return curves
 
 
@@ -573,11 +591,12 @@ def center_path_from_boundary(curve, distance):
         return p, 'center_path truncated before distant fold'
 
 
-def fit_drivable_boundary(near, distance, degree=3, fitted=None):
+def fit_drivable_boundary(near, distance, degree=3, fitted=None, connected_geometry=False):
     """Refit a shorter OBSERVED S-bend prefix only after full offset fails.
 
-    Never apply to a sharp corner or straighten it into an artificial road.
-    Bound deviation from observations to 8 mm; retain cusp/intersection checks.
+    Default recovery never straightens a sharp corner into an artificial road.
+    Opt-in connected miter runs only after existing recoveries fail, and keeps
+    observed entry/exit legs. Bound simplification to 8 mm; reject intersections.
     """
     fitted = fit_boundary(near, degree) if fitted is None else fitted
     try:
@@ -587,10 +606,10 @@ def fit_drivable_boundary(near, distance, degree=3, fitted=None):
         # Local import avoids a module cycle: corner classification uses the
         # geometry primitives above, but does not invoke this path builder.
         from .lane_corner import classify_boundary, CornerConfig
-        if classify_boundary(near, CornerConfig())['kind'] != 'S_BEND':
-            raise
+        kind = classify_boundary(near, CornerConfig())['kind']
         stations = arc_stations(near)
-        for length in (.26, .22, .18, .15, .12):
+        lengths = (.26, .22, .18, .15, .12) if kind == 'S_BEND' else ()
+        for length in lengths:
             if length >= stations[-1]-.02:
                 continue
             prefix = near[stations <= length]
@@ -606,6 +625,16 @@ def fit_drivable_boundary(near, distance, degree=3, fitted=None):
                 return candidate, centre, 'S-bend observed prefix refit'
             except ValueError:
                 continue
+        # Run only after ALL existing recovery paths have failed. Previously
+        # successful S prefixes keep their exact target/observed coordinates.
+        if connected_geometry and kind in ('CORNER', 'S_BEND'):
+            try:
+                from .connected_path import connected_miter_center
+                actual, centre = connected_miter_center(near, distance)
+                select_lookahead(centre, .22)
+                return actual, centre, 'connected miter fallback on observed boundary'
+            except ValueError:
+                pass
         raise original
 
 
@@ -1028,10 +1057,13 @@ class MetricLaneTracker:
     two consecutive measured pairs replace that width. Never renew the width
     confirmation timestamp using inferred geometry.
     """
-    def __init__(self, minimum_lane_width_m=0., width_measure_interval_s=.5, tracking_gap_s=.8):
+    def __init__(self, minimum_lane_width_m=0., width_measure_interval_s=.5, tracking_gap_s=.8,
+                 connected_geometry=False):
         if not np.isfinite(tracking_gap_s) or tracking_gap_s <= 0:
             raise ValueError('invalid tracking gap')
         self.tracking_gap_s = tracking_gap_s
+        self.connected_geometry = bool(connected_geometry)
+        self._curve_cache = {}
         self.confirmed = None
         self.confirmed_at = None
         self.streak = 0
@@ -1059,6 +1091,24 @@ class MetricLaneTracker:
         return (curve_match_error(a, b, .15, .45) <= .035 or
                 equivalent_boundary(a, b))
 
+    def _floor_curves(self, masks, calibration, *args, **kwargs):
+        """Cache expensive skeleton extraction only within this camera result.
+
+        No previous-frame geometry is reused here; timestamp/identity/history
+        decisions stay in the existing tracker. Remote planning receives the
+        same parameter from the robot's planning request.
+        """
+        if not self.connected_geometry:
+            return floor_curves(masks, calibration, *args, **kwargs)
+        key = (tuple(id(mask) for mask in masks), id(calibration), args,
+               tuple(sorted(kwargs.items())))
+        if key not in self._curve_cache:
+            # Retain masks too: a temporary array's recycled id must not hit
+            # a different mask's cached geometry later in the same update.
+            self._curve_cache[key] = (tuple(masks), floor_curves(
+                masks, calibration, *args, **kwargs, connected_geometry=True))
+        return self._curve_cache[key][1]
+
     def update(self, masks, calibration, now_s, lookahead=.28, timeout_s=0.,
                lane_width=0., degree=3, max_forward_m=2.,
                path_min_m=.05, path_max_m=None, image_side_hint=None, image_match=None,
@@ -1066,6 +1116,7 @@ class MetricLaneTracker:
         # Bootstrap/recovery is a transaction: no confirmed geometry or role
         # transition survives failed fitting, offset, target or continuity checks.
         self.last_observation = None  # Fresh measured boundary, never a virtual curve.
+        self._curve_cache.clear()
         self.context_only_indices = []
         bootstrap = self.confirmed is None
         fields = ('confirmed', 'confirmed_at', 'previous', 'observed_curve',
@@ -1124,7 +1175,7 @@ class MetricLaneTracker:
                 0 <= now_s-self.observed_at <= self.tracking_gap_s):
             # An isolated upper stripe must not replace a CURRENT near lock.
             # Keep connected far parts of that lock intact for turn prediction.
-            projected = [floor_curves([mask],calibration,max_forward_m,
+            projected = [self._floor_curves([mask],calibration,max_forward_m,
                           path_min_m,path_max_m,degree) for mask in masks]
             anchors=[]
             for index,curves in enumerate(projected):
@@ -1177,14 +1228,14 @@ class MetricLaneTracker:
                 if self.observed_side and self.observed_curve is not None:
                     candidates = []
                     for index, mask in enumerate(masks):
-                        curves = floor_curves([mask], calibration, max_forward_m,
+                        curves = self._floor_curves([mask], calibration, max_forward_m,
                                               path_min_m, path_max_m, degree)
                         flow_match = image_match == (index, self.observed_side)
                         if len(curves) == 1 and (flow_match or
                                 self._same_curve(curves[0], self.observed_curve)):
                             candidates.append((index, mask, flow_match))
                     if len(candidates) > 1:
-                        candidate_curves = [floor_curves([item[1]], calibration, max_forward_m,
+                        candidate_curves = [self._floor_curves([item[1]], calibration, max_forward_m,
                             path_min_m, path_max_m, degree)[0] for item in candidates]
                         if all(equivalent_boundary(candidate_curves[0], other)
                                for other in candidate_curves[1:]):
@@ -1244,7 +1295,7 @@ class MetricLaneTracker:
                 if (self.observed_at is not None and
                         0 <= now_s-self.observed_at <= self.tracking_gap_s):
                     for index, mask in enumerate(masks):
-                        curves = floor_curves([mask], calibration, max_forward_m,
+                        curves = self._floor_curves([mask], calibration, max_forward_m,
                                               path_min_m, path_max_m, degree)
                         flow = image_match == (index, side)
                         if len(curves) == 1 and (flow or self._same_curve(curves[0], self.observed_curve)):
@@ -1312,7 +1363,7 @@ class MetricLaneTracker:
             # timestamps, but allow the SAME boundary to return before gap expiry.
             raise ValueError('no boundaries detected')
         if len(masks) == 1 and self.confirmed is None:
-            curves = floor_curves(masks, calibration, max_forward_m,
+            curves = self._floor_curves(masks, calibration, max_forward_m,
                                   path_min_m, path_max_m, degree)
             self.initial_side = None
             if len(curves) == 1:
@@ -1385,11 +1436,12 @@ class MetricLaneTracker:
                                          width=lane_width, width_source='configured')
             direction = -1 if self.initial_side == 'left' else 1
             try:
-                actual, _, _ = fit_drivable_boundary(near, direction*lane_width*.5, degree, actual)
+                actual, _, _ = fit_drivable_boundary(near, direction*lane_width*.5, degree, actual,
+                                                     self.connected_geometry)
             except OffsetCurveError:
                 # Retry ONLY a failed short-hook bootstrap. Successful normal
                 # paths and existing tracking are never replaced by this rule.
-                alternative = floor_curves(
+                alternative = self._floor_curves(
                     masks, calibration, max_forward_m, path_min_m, path_max_m,
                     degree, recover_short_hook=True)
                 if (len(alternative) != 1 or
@@ -1415,7 +1467,7 @@ class MetricLaneTracker:
         if len(masks) != 1 or self.confirmed is None:
             raise ValueError('single line requires recent confirmed pair')
         if curves is None:
-            curves = floor_curves(masks, calibration, max_forward_m,
+            curves = self._floor_curves(masks, calibration, max_forward_m,
                                   path_min_m, path_max_m, degree)
         if len(curves) != 1:
             raise ValueError('no reliable visible boundary')
@@ -1423,7 +1475,7 @@ class MetricLaneTracker:
             # Bootstrap may have rejected a tiny endpoint hook and selected
             # the long stripe. Keep using it when the SAME long observation
             # matches history, instead of reverting to the hook next frame.
-            alternatives = floor_curves(masks, calibration, max_forward_m,
+            alternatives = self._floor_curves(masks, calibration, max_forward_m,
                                         path_min_m, path_max_m, degree, recover_short_hook=True)
             if len(alternatives) == 1 and self._same_curve(alternatives[0], self.observed_curve):
                 curves = alternatives
@@ -1486,7 +1538,8 @@ class MetricLaneTracker:
         self.last_observation = dict(curve=near.copy(), side=side, width=width,
                                      width_source=self.confirmed.get('width_source', 'measured'))
         direction = -1 if side == 'left' else 1
-        real, centres, center_warning = fit_drivable_boundary(near, direction*width*.5, degree, real)
+        real, centres, center_warning = fit_drivable_boundary(near, direction*width*.5, degree, real,
+                                                             self.connected_geometry)
         virtual, virtual_warning = optional_virtual_boundary(real, direction*width)
         point, adaptive = select_lookahead(centres, lookahead)
         x, y = map(float, point)

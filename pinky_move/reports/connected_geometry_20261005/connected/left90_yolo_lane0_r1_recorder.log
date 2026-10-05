@@ -1,0 +1,100 @@
+{
+  "course": "left90",
+  "physics_trial": true,
+  "controller_enabled": true,
+  "yolo_enabled": true,
+  "perception": "YOLO only",
+  "lane_count": 1,
+  "stripe_count": 2,
+  "error": null,
+  "raw_frames": 737,
+  "debug_frames": 91,
+  "camera_intrinsics": [
+    [
+      566.0,
+      0.0,
+      320.0
+    ],
+    [
+      0.0,
+      566.0,
+      240.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "nonzero_commands": 201,
+  "status_counts": {
+    "DISABLED": 2,
+    "WAITING_FOR_LANE": 141,
+    "SAFETY_STOP": 207,
+    "FOLLOWING": 22,
+    "LANE_LOSS_HOLD": 10
+  },
+  "travelled_m": 0.6059244304323945,
+  "net_displacement_m": 0.6059222053476827,
+  "max_cross_track_m": 0.0008500702386375275,
+  "final_progress_m": 0.6059220810268751,
+  "final_pose": {
+    "t": 67.84768767500645,
+    "x": 0.6059220810257521,
+    "y": -0.0003881461841487944,
+    "z": -8.503793777530985e-09,
+    "yaw": 0.009705469755455762,
+    "stamp": 48.654,
+    "frame": "world",
+    "child": "base_link"
+  },
+  "reached_finish": false,
+  "lane_departure": false,
+  "passed": false,
+  "video_exports": [
+    {
+      "path": "pinky_move/reports/connected_geometry_20261005/connected/left90_yolo_lane0_r1/raw_frames.mp4",
+      "changed": true,
+      "original": "pinky_move/reports/connected_geometry_20261005/connected/left90_yolo_lane0_r1/original_mp4v/raw_frames.mp4",
+      "before": {
+        "codec_name": "mpeg4",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "737",
+        "duration": 49.133333
+      },
+      "after": {
+        "codec_name": "h264",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "737",
+        "duration": 49.133333
+      },
+      "full_decode_ok": true
+    },
+    {
+      "path": "pinky_move/reports/connected_geometry_20261005/connected/left90_yolo_lane0_r1/debug_frames.mp4",
+      "changed": true,
+      "original": "pinky_move/reports/connected_geometry_20261005/connected/left90_yolo_lane0_r1/original_mp4v/debug_frames.mp4",
+      "before": {
+        "codec_name": "mpeg4",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "91",
+        "duration": 6.066667
+      },
+      "after": {
+        "codec_name": "h264",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "91",
+        "duration": 6.066667
+      },
+      "full_decode_ok": true
+    }
+  ]
+}
