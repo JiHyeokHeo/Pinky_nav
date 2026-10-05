@@ -1,0 +1,10 @@
+{
+  "date": "2026-10-05",
+  "browser": "Firefox 157.0 headless via geckodriver 0.37.1",
+  "report": "gazebo_physics_report.html",
+  "opened_using": "file:// local HTML",
+  "players_tested": 8,
+  "players_passed": 8,
+  "checks": ["play() resolved", "currentTime advanced above 0.36 seconds", "videoWidth=640", "videoHeight=480", "MediaError is null"],
+  "scope": "Brief playback of each embedded video; full-stream decode checked separately with ffmpeg. No physical or simulated driving performed for this repair."
+}

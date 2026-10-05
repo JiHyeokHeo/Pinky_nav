@@ -19,6 +19,18 @@ def figure(path, title):
     return f'<figure><img src="data:image/jpeg;base64,{data}"><figcaption>{html.escape(title)}</figcaption></figure>'
 
 
+def video_player(path):
+    """Inline media keeps playback working if the HTML alone is downloaded."""
+    data = base64.b64encode(path.read_bytes()).decode()
+    relative = html.escape(path.parent.name+'/'+path.name,quote=True)
+    label = '가상 카메라 영상' if path.name == 'raw_frames.mp4' else 'YOLO/제어 디버그 영상'
+    return (f'<div class="clip"><h3>{label}</h3>'
+            f'<video controls playsinline preload="none" aria-label="{label}">'
+            f'<source src="data:video/mp4;base64,{data}" type="video/mp4">'
+            '이 뷰어가 영상을 지원하지 않으면 HTML을 다운로드해 브라우저에서 여세요.'
+            f'</video><p><a href="{relative}" download>MP4 다운로드</a></p></div>')
+
+
 def main():
     summaries, panels = [], []
     for file in sorted(ROOT.glob('*/trial.json')):
@@ -35,10 +47,10 @@ def main():
         images = figure(file.parent/'first_camera.jpg', '시작: 실제 Gazebo 카메라')
         images += figure(file.parent/'latest_debug.jpg', '최근: 기존 YOLO + 제어 debug')
         images += figure(file.parent/'final_camera.jpg', '시험 종료 카메라')
-        videos = ''.join(f'<p><a href="{file.parent.name}/{name}">{name} 다운로드/재생</a></p>'
+        videos = ''.join(video_player(file.parent/name)
                         for name in ('raw_frames.mp4','debug_frames.mp4') if (file.parent/name).exists())
         panels.append(f'<section><h2>{html.escape(file.parent.name)} — {"PASS" if summary["passed"] else "FAIL"}</h2>'
-            f'<div class="pictures">{images}</div>{videos}<details><summary>원문 수치와 오류</summary>'
+            f'<div class="pictures">{images}</div><div class="pictures">{videos}</div><details><summary>원문 수치와 오류</summary>'
             f'<pre>{html.escape(json.dumps(summary,ensure_ascii=False,indent=2))}</pre></details>'
             f'<p><a href="{file.parent.name}/trial.json">전체 시간 이력 JSON</a></p></section>')
     ROOT.mkdir(parents=True,exist_ok=True)
@@ -49,7 +61,7 @@ def main():
     document = f'''<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Pinky Gazebo 물리 주행 시험</title>
 <style>body{{background:#eef2f7;color:#172332;font:16px/1.7 system-ui;margin:0}}main{{max-width:1200px;margin:auto;padding:24px}}section,header{{background:white;padding:24px;border-radius:14px;margin-bottom:20px}}.pictures{{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}}figure{{margin:0}}img{{width:100%;border-radius:8px}}figcaption{{font-size:13px}}table{{width:100%;border-collapse:collapse;font-size:14px}}td,th{{text-align:left;border-bottom:1px solid #ddd;padding:8px}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f5fa;padding:16px}}.notice{{background:#fff2d5;padding:14px}}@media(max-width:760px){{.pictures{{grid-template-columns:1fr}}table{{font-size:11px}}}}@media print{{section{{break-inside:avoid}}body{{background:white}}}}</style>
-</head><body><main><header><h1>실제 Gazebo 물리 모델 · 카메라 · YOLO 주행 시험</h1>
+</head><body><main><header><style>video{{display:block;width:100%;background:#111;max-height:480px}}</style><h1>실제 Gazebo 물리 모델 · 카메라 · YOLO 주행 시험</h1>
 <p>2026-10-05 KST / debug/lane-edge-cases-20261005</p>
 <div class="notice">실제 Pinky 로봇 주행이 아닙니다. Gazebo 물리 엔진 안에서 기존 URDF 바퀴 모델이 이동한 시험입니다.
 YOLO는 가상 카메라 영상을 직접 처리했고 정답 마스크를 주입하지 않았습니다. 성공뿐 아니라 실패 기록도 보존했습니다.</div></header>

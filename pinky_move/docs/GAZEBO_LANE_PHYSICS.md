@@ -128,6 +128,31 @@ copyright/flake8/pep257 제외. 빌드는 pinky_description와 pinky_move 2개 �
 HTML: [물리 시험 결과·사진·영상](../reports/gazebo_physics_20261005/gazebo_physics_report.html).
 영상과 사진은 렌더링된 가상 카메라이며 실제 Pinky 촬영이 아니다.
 
+### MP4 재생 문제 해결
+
+기존 OpenCV 녹화는 MPEG-4 Part 2(`mp4v`)였다. 현재 8개 영상은
+H.264 baseline / yuv420p / faststart MP4로 변환했고, 해상도·프레임 수·길이
+유지와 전체 프레임 디코딩을 확인했다(`video_validation.json`). 기존 원본은
+각 시험 폴더의 `original_mp4v/`에 보존한다.
+Firefox 157 headless에서도 HTML을 직접 열어 8개 재생기의 `play()` 성공,
+재생 시각 증가, 640×480 프레임 및 MediaError 없음까지 확인했다
+(`browser_playback_validation.json`).
+
+HTML에는 영상 재생기가 포함되며 영상 데이터도 내장되어 있다. HTML 하나만
+다운로드해 Firefox/Chrome 등 브라우저에서 열고 재생 버튼을 누르면 된다.
+GitHub 파일 미리보기에서는 재생되지 않을 수 있으므로 로컬에서 연다.
+MP4 다운로드 링크와 JSON 링크는 시험 폴더를 함께 유지해야 동작한다.
+
+이후 시험은 로봇 disable 및 녹화 종료 뒤 자동 변환한다. `ffmpeg`와 `ffprobe`
+(libx264 인코더 포함)가 필요하며, 변환 실패 시 원본을 유지하고
+`trial.json`의 `summary.video_exports`에 오류를 남긴다. 기존 영상 수동 복구:
+
+```bash
+cd /home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move
+/usr/bin/python3 tools/repair_trial_videos.py
+/usr/bin/python3 tools/build_gazebo_report.py
+```
+
 일부 ros_gz_bridge 버전은 launch SIGINT 종료 때 allocator 오류가 날 수 있다.
 시험은 disable 응답 후 종료하며, launch가 자식 프로세스 종료를 기다릴 때까지 기다린다.
 다른 로봇/관제 PID를 일괄 kill하지 않는다.

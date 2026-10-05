@@ -26,6 +26,7 @@ from std_srvs.srv import SetBool
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from pinky_move.metric_lane import nearest_on_chain, arc_stations
+from pinky_move.video_export import make_browser_mp4
 
 SIM_DDS = '<CycloneDDS><Domain><General><Interfaces><NetworkInterface name="lo"/></Interfaces><AllowMulticast>false</AllowMulticast></General><Discovery><Peers><Peer Address="127.0.0.1"/></Peers></Discovery></Domain></CycloneDDS>'
 
@@ -69,6 +70,8 @@ def main():
         if key not in videos:
             videos[key] = cv2.VideoWriter(str(args.output/(key+'.mp4')),
                 cv2.VideoWriter_fourcc(*'mp4v'), 15., (message.width,message.height))
+            if not videos[key].isOpened():
+                raise RuntimeError('video capture writer failed: '+key)
         videos[key].write(pixels)
         if observations[key] == 1:
             cv2.imwrite(str(args.output/('first_debug.jpg' if debug else 'first_camera.jpg')), pixels)
@@ -152,6 +155,13 @@ def main():
             reached_finish=bool(np.linalg.norm(points[-1]-centre[-1])<.10),
             lane_departure=bool(np.any(error_m>metadata['lane_width_m']/2)))
     summary['passed'] = bool(error is None and enabled and summary.get('reached_finish') and not summary.get('lane_departure'))
+    exports = []
+    for key in videos:
+        try:
+            exports.append(make_browser_mp4(args.output/(key+'.mp4')))
+        except Exception as exc:
+            exports.append(dict(path=key+'.mp4',error=str(exc)))
+    summary['video_exports'] = exports
     (args.output/'trial.json').write_text(json.dumps(dict(summary=summary,observations=observations),indent=2))
     (args.output/'course.json').write_text(json.dumps(metadata,indent=2))
     (args.output/'simulation_calibration.json').write_text(json.dumps(calibration,indent=2))

@@ -1,0 +1,178 @@
+[
+  {
+    "path": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/left90_01/raw_frames.mp4",
+    "changed": true,
+    "original": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/left90_01/original_mp4v/raw_frames.mp4",
+    "before": {
+      "codec_name": "mpeg4",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "831",
+      "duration": 55.4
+    },
+    "after": {
+      "codec_name": "h264",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "831",
+      "duration": 55.4
+    },
+    "full_decode_ok": true
+  },
+  {
+    "path": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/right90_01/raw_frames.mp4",
+    "changed": true,
+    "original": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/right90_01/original_mp4v/raw_frames.mp4",
+    "before": {
+      "codec_name": "mpeg4",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "528",
+      "duration": 35.2
+    },
+    "after": {
+      "codec_name": "h264",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "528",
+      "duration": 35.2
+    },
+    "full_decode_ok": true
+  },
+  {
+    "path": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/s_bend_01/raw_frames.mp4",
+    "changed": true,
+    "original": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/s_bend_01/original_mp4v/raw_frames.mp4",
+    "before": {
+      "codec_name": "mpeg4",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "788",
+      "duration": 52.533333
+    },
+    "after": {
+      "codec_name": "h264",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "788",
+      "duration": 52.533333
+    },
+    "full_decode_ok": true
+  },
+  {
+    "path": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/single_gap_01/raw_frames.mp4",
+    "changed": true,
+    "original": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/single_gap_01/original_mp4v/raw_frames.mp4",
+    "before": {
+      "codec_name": "mpeg4",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "414",
+      "duration": 27.6
+    },
+    "after": {
+      "codec_name": "h264",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "414",
+      "duration": 27.6
+    },
+    "full_decode_ok": true
+  },
+  {
+    "path": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/left90_01/debug_frames.mp4",
+    "changed": true,
+    "original": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/left90_01/original_mp4v/debug_frames.mp4",
+    "before": {
+      "codec_name": "mpeg4",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "137",
+      "duration": 9.133333
+    },
+    "after": {
+      "codec_name": "h264",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "137",
+      "duration": 9.133333
+    },
+    "full_decode_ok": true
+  },
+  {
+    "path": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/right90_01/debug_frames.mp4",
+    "changed": true,
+    "original": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/right90_01/original_mp4v/debug_frames.mp4",
+    "before": {
+      "codec_name": "mpeg4",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "87",
+      "duration": 5.8
+    },
+    "after": {
+      "codec_name": "h264",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "87",
+      "duration": 5.8
+    },
+    "full_decode_ok": true
+  },
+  {
+    "path": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/s_bend_01/debug_frames.mp4",
+    "changed": true,
+    "original": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/s_bend_01/original_mp4v/debug_frames.mp4",
+    "before": {
+      "codec_name": "mpeg4",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "107",
+      "duration": 7.133333
+    },
+    "after": {
+      "codec_name": "h264",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "107",
+      "duration": 7.133333
+    },
+    "full_decode_ok": true
+  },
+  {
+    "path": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/single_gap_01/debug_frames.mp4",
+    "changed": true,
+    "original": "/home/tory/pinky_nav_publish_yWXwM0/repo/pinky_move/reports/gazebo_physics_20261005/single_gap_01/original_mp4v/debug_frames.mp4",
+    "before": {
+      "codec_name": "mpeg4",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "53",
+      "duration": 3.533333
+    },
+    "after": {
+      "codec_name": "h264",
+      "width": 640,
+      "height": 480,
+      "pix_fmt": "yuv420p",
+      "nb_frames": "53",
+      "duration": 3.533333
+    },
+    "full_decode_ok": true
+  }
+]
