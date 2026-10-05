@@ -369,14 +369,14 @@ def test_reacquisition_opposite_side_and_empty_reset_confirmation():
         tracker.update([masks[0]], c, 2.2, lane_width=.16)
 
 
-def test_extra_instance_preserves_unique_locked_boundary_not_duplicates():
+def test_extra_instance_preserves_unique_locked_boundary_including_equivalent_copies():
     c = calibration(); masks = masks_for_lines(); tracker = MetricLaneTracker()
     tracker.update([masks[0]], c, 0., lane_width=.16)
     empty = np.zeros_like(masks[0])
     result = tracker.update([masks[0], empty], c, .3, lane_width=.16)
     assert result['boundary_count'] == 1
-    with pytest.raises(ValueError):
-        tracker.update([masks[0], masks[0]], c, .6, lane_width=.16)
+    result = tracker.update([masks[0], masks[0]], c, .6, lane_width=.16)
+    assert result['boundary_count'] == 1 and result['visible_side'] == 'left'
 
 
 def test_positive_width_timeout_cannot_be_bypassed_by_reacquisition():

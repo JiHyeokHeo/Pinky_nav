@@ -1,0 +1,24 @@
+{
+  "date_kst": "2026-10-05",
+  "branch": "debug/lane-edge-cases-20261005",
+  "baseline_commit": "1ceed93",
+  "tests": {
+    "passed": 524,
+    "seconds": 70.10,
+    "excluded": ["copyright", "flake8", "pep257"],
+    "environment": "CYCLONEDDS_URI unset for test process only",
+    "first_run_with_robot_dds_config": {"passed": 523, "failed": 1, "failure": "isolated debug Image delivery timeout"}
+  },
+  "isolated_colcon_build": {"passed": true, "seconds": 1.84},
+  "same_cache_image_comparison": {"images": 407, "before_targets": 380, "after_targets": 380, "regressions": 0},
+  "case01": "Regenerated saved-photo masks: first two confirmation frames stopped; third and subsequent frames have a target",
+  "case02": "Cold-start photograph already passes before change; synthetic previous-target jump test confirms replacement after three consistent fresh paths",
+  "robot_deployed": false,
+  "motion_started": false,
+  "limitations": [
+    "Raw and debug photographs are not synchronous",
+    "Original live mask stream and previous target are unavailable",
+    "Repeated photographs and synthetic history are not physical course completion",
+    "Inference expiration and paired-centre discontinuity are separate issues"
+  ]
+}

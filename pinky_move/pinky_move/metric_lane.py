@@ -683,7 +683,19 @@ def unique_near_boundary(masks, calibration, max_forward_m, lo, hi, degree):
             side = initial_boundary_side(fitted)
         except ValueError:
             return None
-        observations.append((float(near[0,0]), index, side, curves[0]))
+        # Two YOLO instances can describe the SAME observed ground stripe,
+        # with different far-image appendages. Count ground-equivalent curves
+        # once, rather than demanding a fictitious 6 cm separation between
+        # copies. Compare the whole supported chain in traversal order, not
+        # just its near endpoint. Never merge masks or choose a closer side.
+        duplicate = False
+        for _, _, old_side, old_curve in observations:
+            old_near = supported_chain(old_curve, lo, hi)
+            if side == old_side and equivalent_boundary(near, old_near):
+                duplicate = True
+                break
+        if not duplicate:
+            observations.append((float(near[0,0]), index, side, curves[0]))
     observations.sort(key=lambda item: item[0])
     if not observations:
         return None
@@ -692,6 +704,18 @@ def unique_near_boundary(masks, calibration, max_forward_m, lo, hi, degree):
             (len(observations) > 1 and observations[1][0]-x < .06)):
         return None
     return index, side, curve
+
+
+def equivalent_boundary(a, b):
+    """Whole observed stripes agree within 8 mm, including both endpoints.
+
+    Unlike an interior overlap matcher, this cannot absorb a different branch
+    sharing only its entry leg. It is independent of image instance order.
+    """
+    if len(a) < 5 or len(b) < 5:
+        return False
+    a, b = resample_chain(a), resample_chain(b)
+    return bool(np.max(np.linalg.norm(a-b, axis=1)) <= .008)
 
 
 def center_from_pair(left, right):
@@ -1009,6 +1033,7 @@ class MetricLaneTracker:
         self.confirmed_at = None
         self.streak = 0
         self.previous = None
+        self.target_reconfirmation = None
         self.observed_curve = None
         self.observed_side = None
         self.observed_at = None
@@ -1028,7 +1053,8 @@ class MetricLaneTracker:
     @staticmethod
     def _same_curve(a, b):
         """Require shared support, close lateral position and similar tangent."""
-        return curve_match_error(a, b, .15, .45) <= .035
+        return (curve_match_error(a, b, .15, .45) <= .035 or
+                equivalent_boundary(a, b))
 
     def update(self, masks, calibration, now_s, lookahead=.28, timeout_s=0.,
                lane_width=0., degree=3, max_forward_m=2.,
@@ -1046,8 +1072,10 @@ class MetricLaneTracker:
             return self._update(masks, calibration, now_s, lookahead, timeout_s,
                                 lane_width, degree, max_forward_m, path_min_m,
                                 path_max_m, image_side_hint, image_match, recovery_side_hint)
-        except ValueError:
+        except ValueError as exc:
             self.pair_transition = None
+            if str(exc) != 'inferred target discontinuity':
+                self.target_reconfirmation = None
             if bootstrap:
                 for name, value in before.items():
                     setattr(self, name, value)
@@ -1152,6 +1180,15 @@ class MetricLaneTracker:
                         if len(curves) == 1 and (flow_match or
                                 self._same_curve(curves[0], self.observed_curve)):
                             candidates.append((index, mask, flow_match))
+                    if len(candidates) > 1:
+                        candidate_curves = [floor_curves([item[1]], calibration, max_forward_m,
+                            path_min_m, path_max_m, degree)[0] for item in candidates]
+                        if all(equivalent_boundary(candidate_curves[0], other)
+                               for other in candidate_curves[1:]):
+                            # Equivalent observations are one boundary, not
+                            # two competing roles. Keep model order, not body
+                            # distance priority; never stitch their pixels.
+                            candidates = candidates[:1]
                     if len(candidates) == 1:
                         index, mask, flow_match = candidates[0]
                         target = self.update([mask], calibration, now_s, lookahead,
@@ -1251,6 +1288,7 @@ class MetricLaneTracker:
                                          width=trusted_width, width_source='measured')
             self.streak += 1
             self.previous = target
+            self.target_reconfirmation = None
             if self.streak >= 2:
                 self.confirmed = dict(target, normal_width_m=trusted_width,
                                       width_m=trusted_width)
@@ -1449,8 +1487,6 @@ class MetricLaneTracker:
         virtual, virtual_warning = optional_virtual_boundary(real, direction*width)
         point, adaptive = select_lookahead(centres, lookahead)
         x, y = map(float, point)
-        if self.previous and abs(y-self.previous['y_m']) > max(.05, width*.25):
-            raise ValueError('inferred target discontinuity')
         target = dict(x_m=x, y_m=y, width_m=self.confirmed['width_m'],
                       normal_width_m=width, boundary_count=1, inferred=True,
                       visible_side=side, inference_age_s=now_s-self.confirmed_at,
@@ -1466,6 +1502,7 @@ class MetricLaneTracker:
         # An omitted/folded boundary must never enter matching references.
         if virtual is not None:
             target[('right' if side == 'left' else 'left')+'_curve'] = virtual.tolist()
+        self._validate_target_continuity(target, now_s, side)
         self.previous = target
         self.recovery = None
         self.observed_curve = curve.copy()
@@ -1473,6 +1510,33 @@ class MetricLaneTracker:
         self.observed_at = now_s
         self.preferred_observation_side = side
         return target
+
+    def _validate_target_continuity(self, target, now_s, side):
+        """Reject one-frame target jumps, but do not latch onto an old target.
+
+        A changed lookahead endpoint is not automatically a changed boundary.
+        After identity, fitting and offset validity have succeeded, require
+        three NEW consistent centre paths before replacing a distant old
+        target. All confirmation frames are stopped; no stale target replay.
+        """
+        width = target['normal_width_m']
+        if not self.previous or abs(target['y_m']-self.previous['y_m']) <= max(.05, width*.25):
+            self.target_reconfirmation = None
+            return
+        path = np.asarray(target['center_path'], float)
+        pending = self.target_reconfirmation
+        count = 1
+        if (pending is not None and pending['side'] == side and
+                0 < now_s-pending['time'] <= self.tracking_gap_s and
+                np.linalg.norm(np.array([target['x_m'], target['y_m']])-pending['point']) <= .02 and
+                equivalent_boundary(path, pending['path'])):
+            count = pending['count']+1
+        self.target_reconfirmation = dict(side=side, time=now_s, count=count,
+            path=path.copy(), point=np.array([target['x_m'], target['y_m']]))
+        if count < 3:
+            raise ValueError('inferred target discontinuity')
+        target['target_reconfirmed_frames'] = count
+        self.target_reconfirmation = None
 
 
 def pursuit(target, speed, max_angular=.15):
