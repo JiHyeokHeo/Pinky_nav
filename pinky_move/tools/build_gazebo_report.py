@@ -54,6 +54,9 @@ def main():
         data = json.loads(file.read_text())
         summary = data['summary']
         summary = dict(summary, run=file.parent.name)
+        course_file = file.parent/'course.json'
+        course_data = json.loads(course_file.read_text()) if course_file.exists() else {}
+        summary['stripe_geometry'] = course_data.get('stripe_geometry', 'legacy segmented boxes')
         # The first aid trial predates provenance in recorder metadata.
         if file.parent.name == 'left90_aid_01':
             summary['perception'] = 'YOLO + white pixel aid (launch white_lane_aid:=true)'
@@ -64,11 +67,15 @@ def main():
             if error:
                 errors[error.group(1)] += 1
         summary['ordinary_error_counts'] = dict(errors)
+        summary['final_status'] = next((r['text'] for r in reversed(data['observations']['status'])
+                                        if not r['text'].startswith('DISABLED')), '')
         summaries.append(summary)
         if '_yolo_only_' in file.parent.name:
             clips = ''.join(video_player(file.parent/name) for name in
                             ('raw_frames.mp4', 'debug_frames.mp4') if (file.parent/name).exists())
-            current_trials.append(f'<section><h2>현재 버전 재시험 — {html.escape(file.parent.name)}</h2>'
+            geometry_label = ('새 연속 차선 시험' if 'mesh' in summary['stripe_geometry']
+                              else '차선 형상 수정 전 YOLO 단독 시험')
+            current_trials.append(f'<section><h2>{geometry_label} — {html.escape(file.parent.name)}</h2>'
                 f'<p>YOLO 단독 / odometry 시간 비교 수정 / 흰 픽셀 보조 기능 없음 · '
                 f'{"PASS" if summary["passed"] else "FAIL"} · 이동 {summary.get("travelled_m", 0):.3f}m</p>'
                 f'<div class="comparison">{clips}</div>'
@@ -79,7 +86,7 @@ def main():
         videos = ''.join(video_player(file.parent/name)
                         for name in ('raw_frames.mp4','debug_frames.mp4') if (file.parent/name).exists())
         panels.append(f'<section><h2>{html.escape(file.parent.name)} — {"PASS" if summary["passed"] else "FAIL"}</h2>'
-            f'<p>인식 방식: {html.escape(summary["perception"])}</p>'
+            f'<p>인식 방식: {html.escape(summary["perception"])} / 차선 형상: {html.escape(summary["stripe_geometry"])}</p>'
             f'<div class="pictures">{images}</div><div class="pictures">{videos}</div><details><summary>원문 수치와 오류</summary>'
             f'<pre>{html.escape(json.dumps(summary,ensure_ascii=False,indent=2))}</pre></details>'
             f'<p><a href="{file.parent.name}/trial.json">전체 시간 이력 JSON</a></p></section>')
@@ -92,6 +99,16 @@ def main():
     shape_root = ROOT.parent/'stripe_continuity_20261005'
     shape_preview = figure(shape_root/'s_sharp_three_lines_top.png', '수정된 연속 mesh의 평면도 — 2차로 / 3라인')
     shape_preview += figure(shape_root/'gazebo_camera.png', '수정된 mesh를 렌더링한 실제 Gazebo 카메라 — 주행 disabled')
+    mesh_summary = ROOT/'mesh_trials_summary.json'
+    mesh_notice = ''
+    if mesh_summary.exists():
+        measured = json.loads(mesh_summary.read_text())
+        mesh_notice = (f'<section><h2>새 연속 차선 시험 요약</h2><p>YOLO 단독 · '
+            f'{measured["tests"]}회 중 {measured["passed"]}회 완주. '
+            '좌·우는 코너 진입 중 검출 0개로 정지했고, 급 S자·3라인은 검출 1개를 '
+            '저장된 경계 정체성과 연결하지 못해 정지했습니다. '
+            '정지 시점의 odometry 보간은 세 시험 모두 정상이었습니다. '
+            '차선 연결 형상 수정만으로 완주 문제가 해결된 것은 아닙니다.</p></section>')
     document = f'''<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Pinky Gazebo 물리 주행 시험</title>
 <style>body{{background:#eef2f7;color:#172332;font:16px/1.7 system-ui;margin:0}}main{{max-width:1200px;margin:auto;padding:24px}}section,header{{background:white;padding:24px;border-radius:14px;margin-bottom:20px}}.pictures{{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}}.comparison{{display:grid;grid-template-columns:1fr 1fr;gap:20px}}figure{{margin:0}}img{{width:100%;border-radius:8px}}figcaption{{font-size:13px}}table{{width:100%;border-collapse:collapse;font-size:14px}}td,th{{text-align:left;border-bottom:1px solid #ddd;padding:8px}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f5fa;padding:16px}}.notice{{background:#fff2d5;padding:14px}}@media(max-width:760px){{.pictures,.comparison{{grid-template-columns:1fr}}table{{font-size:11px}}}}@media print{{section{{break-inside:avoid}}body{{background:white}}}}</style>
@@ -102,9 +119,10 @@ YOLO는 가상 카메라 영상을 직접 처리했고 정답 마스크를 주�
 white pixel aid 시험은 실제 카메라의 흰 픽셀 보조 검출도 사용했으며 YOLO 단독 성공이 아닙니다.
 현재 버전은 보조 검출을 제거하고 YOLO만 사용합니다. *_yolo_only_* 행은 제거 후 재시험입니다.
 성공뿐 아니라 실패 기록도 보존했습니다.</div></header>
+{mesh_notice}
 <section><h2>차선 연결 형상 수정</h2><p>선분별 사각형을 하나의 연속 miter mesh로 교체했습니다.
 코너의 안쪽/바깥쪽 모서리를 정확히 공유하며 폭 2cm를 유지합니다. 아래는 새 형상의 정지 화면입니다.
-기존 주행 영상은 형상 수정 전 촬영 기록이며 새 형상으로 완주했다는 결과가 아닙니다.</p>
+새 형상 주행 영상은 ‘새 연속 차선 시험’ 섹션에 표시합니다. 이전 영상과 구분해 보세요.</p>
 <div class="comparison">{shape_preview}</div></section>
 {''.join(current_trials)}
 <section><h2>실행 결과</h2><table><thead><tr><th>시험</th><th>완주</th><th>이동 거리</th><th>최대 중심 이탈</th><th>비영점 명령</th><th>인식 방식</th><th>관측 오류</th></tr></thead><tbody>{rows}</tbody></table>

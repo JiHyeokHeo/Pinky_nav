@@ -119,6 +119,16 @@ source /opt/ros/jazzy/setup.bash
 `reports/stripe_continuity_20261005/`의 평면도와 카메라 화면은 새 형상이고,
 기존 주행 영상은 변경 전 형상이다. 새 형상에서 완주했다는 뜻은 아니다.
 
+연속 mesh의 YOLO 단독 주행도 이후 별도 시험했다:
+`left90_mesh_yolo_only_01` 70초 / 약 .601m 이동 / 코너 각도 88.3도,
+`right90_mesh_yolo_only_01` 60초 / 약 .581m 이동 / 코너 각도 -89.7도,
+`s_sharp_three_mesh_yolo_only_01` 60초 / 약 .472m 이동.
+3회 모두 **FAIL**이며 차선 바깥으로 이탈해서가 아니라 진입 중 정지해 완주하지 못했다.
+좌/우는 Lane=0, S자는 Lane=1이지만 `reacquisition requires the locked boundary side`
+오류로 ENTRY_WAIT였다. 마지막 pose_timing은 모두 interpolated여서 이 시점의
+odom 시간 연결 실패와는 구분된다. `mesh_trials_summary.json` 및 HTML의
+‘새 연속 차선 시험’ 섹션에 새 영상과 원문 정지 이유를 보존했다.
+
 `two_lines`는 이름 그대로 **경계선 2개 / 차로 1개**다.
 차로 2개는 `lane_count:=2`로 실행하며 경계선 3개가 생성된다.
 `lane_width`는 도로 전체가 아니라 **차로 하나의 폭**이다.

@@ -48,12 +48,14 @@
     "lane_departure": false,
     "passed": false,
     "run": "left90_01",
+    "stripe_geometry": "legacy segmented boxes",
     "perception": "YOLO only",
     "ordinary_error_counts": {
       "no common observed lane interval: normal_pairs=0, minimum=3, runs=0": 1,
       "center_path curve folds back (offset=0.100m)": 4,
       "no boundaries detected": 51
-    }
+    },
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=0, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'no boundaries detected'}"
   },
   {
     "course": "left90",
@@ -148,12 +150,119 @@
       }
     ],
     "run": "left90_aid_01",
+    "stripe_geometry": "legacy segmented boxes",
     "perception": "YOLO + white pixel aid (launch white_lane_aid:=true)",
     "ordinary_error_counts": {
       "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)": 1,
       "center_path curve folds back (offset=0.101m)": 1,
       "inferred target discontinuity": 1
-    }
+    },
+    "final_status": "FOLLOWING: v=0.099, w=-0.011; Lane=2, used_boundaries=2, metric_target={'x_m': 0.21998423133904518, 'y_m': -0.0026340011711168737, 'width_m': 0.20224734629016128, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'NORMAL', 'angle_deg': 3.260068548500105e-14, 'reason': 'smooth boundary', 'history_votes': 0, 'history_frames': 5, 'local_map_frames': 8, 'local_map_retention_s': 10.0}"
+  },
+  {
+    "course": "left90",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "perception": "YOLO only",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 928,
+    "debug_frames": 151,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 163,
+    "status_counts": {
+      "WAITING_FOR_LANE": 283,
+      "FOLLOWING": 22,
+      "CORNER_STAGED": 28
+    },
+    "travelled_m": 0.6012680614560247,
+    "net_displacement_m": 0.6012661817773679,
+    "max_cross_track_m": 0.00081093087509411,
+    "final_progress_m": 0.6012660715957194,
+    "final_pose": {
+      "t": 70.11369323599502,
+      "x": 0.6012660715926699,
+      "y": -0.0003640013544304272,
+      "z": -8.69997604017099e-09,
+      "yaw": 0.003967331042640232,
+      "stamp": 62.696,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/left90_mesh_yolo_only_01/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/left90_mesh_yolo_only_01/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "928",
+          "duration": 61.866667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "928",
+          "duration": 61.866667
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/left90_mesh_yolo_only_01/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/left90_mesh_yolo_only_01/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "151",
+          "duration": 10.066667
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "151",
+          "duration": 10.066667
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "left90_mesh_yolo_only_01",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {
+      "center_path curve folds back (offset=0.100m)": 3,
+      "no boundaries detected": 276,
+      "visible boundary identity ambiguous": 1
+    },
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=0, used_boundaries=0, perception=YOLO, metric_target=None, corner={'mode': 'ENTRY_WAIT', 'reason': 'fresh same-side boundary and odometry required', 'pivot_world': [0.754451753740307, -0.0005935124789715355], 'pivot_base': [0.19736991995424974, -0.0013935127911210174], 'pivot_original_travel_m': 0.0023750971572665106, 'pivot_shift_m': 0.0, 'pivot_lateral_shift_m': 0.0, 'pivot_measured_entry_start_m': 0.0, 'pivot_rotation_margin_m': None, 'arrival_latched': False, 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'interpolated', 'processing_lag_s': 0.047461114008910954, 'odom_age_s': 0.027160741010447964, 'bracket_gap_s': 0.034}, 'ordinary_error': 'no boundaries detected'}"
   },
   {
     "course": "left90",
@@ -254,10 +363,12 @@
       }
     ],
     "run": "left90_odomfix_01",
+    "stripe_geometry": "legacy segmented boxes",
     "ordinary_error_counts": {
       "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)": 1,
       "center_path curve folds back (offset=0.101m)": 1
-    }
+    },
+    "final_status": "CORNER_STAGED: turn complete; waiting for exit lane; v=0.000, w=0.000"
   },
   {
     "course": "left90",
@@ -358,11 +469,13 @@
       }
     ],
     "run": "left90_yolo_only_01",
+    "stripe_geometry": "legacy segmented boxes",
     "ordinary_error_counts": {
       "no common observed lane interval: normal_pairs=0, minimum=3, runs=0": 1,
       "center_path curve folds back (offset=0.100m)": 2,
       "no boundaries detected": 103
-    }
+    },
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=0, used_boundaries=0, perception=YOLO, metric_target=None, corner={'mode': 'ENTRY_WAIT', 'reason': 'fresh same-side boundary and odometry required', 'pivot_world': [0.7585914151299389, -0.00016065674085288947], 'pivot_base': [0.23223182044016316, 4.8006795502173426e-05], 'pivot_original_travel_m': 0.03385491758234108, 'pivot_shift_m': 0.0, 'pivot_lateral_shift_m': 0.0, 'pivot_measured_entry_start_m': 0.0, 'pivot_rotation_margin_m': None, 'arrival_latched': False, 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'interpolated', 'processing_lag_s': 0.04691540500789415, 'odom_age_s': 0.01717997201194521, 'bracket_gap_s': 0.034}, 'ordinary_error': 'no boundaries detected'}"
   },
   {
     "course": "right90",
@@ -412,10 +525,12 @@
     "lane_departure": false,
     "passed": false,
     "run": "right90_01",
+    "stripe_geometry": "legacy segmented boxes",
     "perception": "YOLO only",
     "ordinary_error_counts": {
       "no boundaries detected": 32
-    }
+    },
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=0, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'no boundaries detected'}"
   },
   {
     "course": "right90",
@@ -513,11 +628,116 @@
       }
     ],
     "run": "right90_aid_01",
+    "stripe_geometry": "legacy segmented boxes",
     "ordinary_error_counts": {
       "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)": 1,
       "inferred target discontinuity": 2,
       "no forward centre path": 1
-    }
+    },
+    "final_status": "FOLLOWING: v=0.098, w=0.023; Lane=2, used_boundaries=2, perception=WHITE_PIXEL_AID, metric_target={'x_m': 0.21992684556697692, 'y_m': 0.005672970911178175, 'width_m': 0.20253066016784985, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'NORMAL', 'angle_deg': -2.743228412762283e-14, 'reason': 'smooth boundary', 'history_votes': 0, 'history_frames': 4, 'local_map_frames': 10, 'local_map_retention_s': 10.0}"
+  },
+  {
+    "course": "right90",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "perception": "YOLO only",
+    "lane_count": 1,
+    "stripe_count": 2,
+    "error": null,
+    "raw_frames": 788,
+    "debug_frames": 134,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 136,
+    "status_counts": {
+      "WAITING_FOR_LANE": 255,
+      "FOLLOWING": 20,
+      "CORNER_STAGED": 22
+    },
+    "travelled_m": 0.5810141034674989,
+    "net_displacement_m": 0.5810126732806212,
+    "max_cross_track_m": 0.0007733707579738468,
+    "final_progress_m": 0.5810125570982183,
+    "final_pose": {
+      "t": 60.08204958199349,
+      "x": 0.5810125570951686,
+      "y": 0.0003674328287436756,
+      "z": -8.701738820612408e-09,
+      "yaw": -0.003215087953065136,
+      "stamp": 53.788,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/right90_mesh_yolo_only_01/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/right90_mesh_yolo_only_01/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "788",
+          "duration": 52.533333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "788",
+          "duration": 52.533333
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/right90_mesh_yolo_only_01/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/right90_mesh_yolo_only_01/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "134",
+          "duration": 8.933333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "134",
+          "duration": 8.933333
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "right90_mesh_yolo_only_01",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {
+      "no boundaries detected": 253
+    },
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=0, used_boundaries=0, perception=YOLO, metric_target=None, corner={'mode': 'ENTRY_WAIT', 'reason': 'fresh same-side boundary and odometry required', 'pivot_world': [0.7703501732689744, 0.0004347990146705863], 'pivot_base': [0.25140584081604883, 0.0007678754358730323], 'pivot_original_travel_m': 0.05459790600860991, 'pivot_shift_m': 0.0, 'pivot_lateral_shift_m': 0.0, 'pivot_measured_entry_start_m': 0.0, 'pivot_rotation_margin_m': None, 'arrival_latched': False, 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'interpolated', 'processing_lag_s': 0.04221644399513025, 'odom_age_s': 0.03224140498787165, 'bracket_gap_s': 0.034}, 'ordinary_error': 'no boundaries detected'}"
   },
   {
     "course": "right90",
@@ -617,11 +837,13 @@
       }
     ],
     "run": "right90_yolo_only_01",
+    "stripe_geometry": "legacy segmented boxes",
     "ordinary_error_counts": {
       "no reliable visible boundary": 1,
       "center_path curve folds back (offset=-0.100m)": 1,
       "no boundaries detected": 130
-    }
+    },
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=0, used_boundaries=0, perception=YOLO, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'interpolated', 'processing_lag_s': 0.028258505000849254, 'odom_age_s': 0.024554442992666736, 'bracket_gap_s': 0.034}, 'ordinary_error': 'no boundaries detected'}"
   },
   {
     "course": "s_bend",
@@ -669,10 +891,12 @@
     "lane_departure": false,
     "passed": false,
     "run": "s_bend_01",
+    "stripe_geometry": "legacy segmented boxes",
     "perception": "YOLO only",
     "ordinary_error_counts": {
       "multiple ambiguous boundaries on same side": 54
-    }
+    },
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=3, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'multiple ambiguous boundaries on same side'}"
   },
   {
     "course": "s_sharp",
@@ -745,7 +969,9 @@
       }
     ],
     "run": "s_sharp_three_aid_01",
-    "ordinary_error_counts": {}
+    "stripe_geometry": "legacy segmented boxes",
+    "ordinary_error_counts": {},
+    "final_status": ""
   },
   {
     "course": "s_sharp",
@@ -844,9 +1070,118 @@
       }
     ],
     "run": "s_sharp_three_aid_02",
+    "stripe_geometry": "legacy segmented boxes",
     "ordinary_error_counts": {
       "no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)": 62
-    }
+    },
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=4, used_boundaries=0, perception=WHITE_PIXEL_AID, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'no unambiguous left/right boundary pair (projected=1, fitted=1; side association ambiguous)'}"
+  },
+  {
+    "course": "s_sharp",
+    "physics_trial": true,
+    "yolo_enabled": true,
+    "perception": "YOLO only",
+    "lane_count": 2,
+    "stripe_count": 3,
+    "error": null,
+    "raw_frames": 821,
+    "debug_frames": 113,
+    "camera_intrinsics": [
+      [
+        566.0,
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        566.0,
+        240.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "nonzero_commands": 119,
+    "status_counts": {
+      "WAITING_FOR_LANE": 187,
+      "FOLLOWING": 18,
+      "CORNER_STAGED": 17
+    },
+    "travelled_m": 0.4724109329717746,
+    "net_displacement_m": 0.472409770699305,
+    "max_cross_track_m": 0.0005998978273163919,
+    "final_progress_m": 0.47240968662518723,
+    "final_pose": {
+      "t": 60.06520998799533,
+      "x": 0.47240968662213767,
+      "y": -0.00028184191022248925,
+      "z": -8.69166920212066e-09,
+      "yaw": 0.004578033322409357,
+      "stamp": 55.828,
+      "frame": "world",
+      "child": "base_link"
+    },
+    "reached_finish": false,
+    "lane_departure": false,
+    "passed": false,
+    "video_exports": [
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_mesh_yolo_only_01/raw_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_mesh_yolo_only_01/original_mp4v/raw_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "821",
+          "duration": 54.733333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "821",
+          "duration": 54.733333
+        },
+        "full_decode_ok": true
+      },
+      {
+        "path": "reports/gazebo_physics_20261005/s_sharp_three_mesh_yolo_only_01/debug_frames.mp4",
+        "changed": true,
+        "original": "reports/gazebo_physics_20261005/s_sharp_three_mesh_yolo_only_01/original_mp4v/debug_frames.mp4",
+        "before": {
+          "codec_name": "mpeg4",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "113",
+          "duration": 7.533333
+        },
+        "after": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 480,
+          "pix_fmt": "yuv420p",
+          "nb_frames": "113",
+          "duration": 7.533333
+        },
+        "full_decode_ok": true
+      }
+    ],
+    "run": "s_sharp_three_mesh_yolo_only_01",
+    "stripe_geometry": "continuous miter-joined triangle mesh",
+    "ordinary_error_counts": {
+      "center_path curve folds back (offset=0.101m)": 2,
+      "no boundaries detected": 1,
+      "visible boundary identity ambiguous": 5,
+      "reference tracking gap; stop and reacquire boundary": 1,
+      "reacquisition requires the locked boundary side": 176
+    },
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=1, used_boundaries=0, perception=YOLO, metric_target=None, corner={'mode': 'ENTRY_WAIT', 'reason': 'fresh same-side boundary and odometry required', 'pivot_world': [0.652466544527987, 0.0002091844368337331], 'pivot_base': [0.2307572844473295, -0.00013450269737268368], 'pivot_original_travel_m': 0.05223067397189949, 'pivot_shift_m': 0.0, 'pivot_lateral_shift_m': 0.0, 'pivot_measured_entry_start_m': 0.0, 'pivot_rotation_margin_m': None, 'arrival_latched': False, 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'interpolated', 'processing_lag_s': 0.09843810800521169, 'odom_age_s': 0.08587266699760221, 'bracket_gap_s': 0.034}, 'ordinary_error': 'reacquisition requires the locked boundary side'}"
   },
   {
     "course": "s_sharp",
@@ -945,10 +1280,12 @@
       }
     ],
     "run": "s_sharp_three_yolo_only_01",
+    "stripe_geometry": "legacy segmented boxes",
     "ordinary_error_counts": {
       "center_path curve folds back (offset=0.100m)": 4,
       "no boundaries detected": 85
-    }
+    },
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=0, used_boundaries=0, perception=YOLO, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'interpolated', 'processing_lag_s': 0.04433190899726469, 'odom_age_s': 0.030353334004757926, 'bracket_gap_s': 0.034}, 'ordinary_error': 'no boundaries detected'}"
   },
   {
     "course": "single_gap",
@@ -997,8 +1334,10 @@
     "lane_departure": false,
     "passed": true,
     "run": "single_gap_01",
+    "stripe_geometry": "legacy segmented boxes",
     "perception": "YOLO only",
-    "ordinary_error_counts": {}
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.100, w=0.002; Lane=2, used_boundaries=2, metric_target={'x_m': 0.2199994955876379, 'y_m': 0.00047110634138277914, 'width_m': 0.20221448208179243, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'NORMAL', 'angle_deg': -3.267522973534785e-14, 'reason': 'smooth boundary', 'history_votes': 0, 'history_frames': 4, 'local_map_frames': 5, 'local_map_retention_s': 10.0}"
   },
   {
     "course": "two_lines",
@@ -1048,10 +1387,12 @@
     "lane_departure": false,
     "passed": false,
     "run": "two_lines_01",
+    "stripe_geometry": "legacy segmented boxes",
     "perception": "YOLO only",
     "ordinary_error_counts": {
       "no boundaries detected": 12
-    }
+    },
+    "final_status": "WAITING_FOR_LANE: no usable boundary; Lane=0, used_boundaries=0, metric_target=None, corner={'mode': 'UNKNOWN', 'reason': 'no fresh trusted boundary', 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'ordinary_error': 'no boundaries detected'}"
   },
   {
     "course": "two_lines",
@@ -1100,7 +1441,9 @@
     "lane_departure": false,
     "passed": true,
     "run": "two_lines_02",
+    "stripe_geometry": "legacy segmented boxes",
     "perception": "YOLO only",
-    "ordinary_error_counts": {}
+    "ordinary_error_counts": {},
+    "final_status": "FOLLOWING: v=0.100, w=0.000; Lane=2, used_boundaries=2, metric_target={'x_m': 0.21999999842720325, 'y_m': 2.630647392987296e-05, 'width_m': 0.20227153523807456, 'boundary_count': 2, 'inferred': False}, corner={'mode': 'NORMAL', 'angle_deg': -1.671033611940793e-14, 'reason': 'smooth boundary', 'history_votes': 0, 'history_frames': 6, 'local_map_frames': 1, 'local_map_retention_s': 10.0}"
   }
 ]

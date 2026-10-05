@@ -1,0 +1,314 @@
+{
+  "simulation_only": true,
+  "physical_robot_driven": false,
+  "tests": 3,
+  "passed": 0,
+  "runs": [
+    {
+      "run": "left90_mesh_yolo_only_01",
+      "summary": {
+        "course": "left90",
+        "physics_trial": true,
+        "yolo_enabled": true,
+        "perception": "YOLO only",
+        "lane_count": 1,
+        "stripe_count": 2,
+        "error": null,
+        "raw_frames": 928,
+        "debug_frames": 151,
+        "camera_intrinsics": [
+          [
+            566.0,
+            0.0,
+            320.0
+          ],
+          [
+            0.0,
+            566.0,
+            240.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "nonzero_commands": 163,
+        "status_counts": {
+          "WAITING_FOR_LANE": 283,
+          "FOLLOWING": 22,
+          "CORNER_STAGED": 28
+        },
+        "travelled_m": 0.6012680614560247,
+        "net_displacement_m": 0.6012661817773679,
+        "max_cross_track_m": 0.00081093087509411,
+        "final_progress_m": 0.6012660715957194,
+        "final_pose": {
+          "t": 70.11369323599502,
+          "x": 0.6012660715926699,
+          "y": -0.0003640013544304272,
+          "z": -8.69997604017099e-09,
+          "yaw": 0.003967331042640232,
+          "stamp": 62.696,
+          "frame": "world",
+          "child": "base_link"
+        },
+        "reached_finish": false,
+        "lane_departure": false,
+        "passed": false,
+        "video_exports": [
+          {
+            "path": "reports/gazebo_physics_20261005/left90_mesh_yolo_only_01/raw_frames.mp4",
+            "changed": true,
+            "original": "reports/gazebo_physics_20261005/left90_mesh_yolo_only_01/original_mp4v/raw_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "928",
+              "duration": 61.866667
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "928",
+              "duration": 61.866667
+            },
+            "full_decode_ok": true
+          },
+          {
+            "path": "reports/gazebo_physics_20261005/left90_mesh_yolo_only_01/debug_frames.mp4",
+            "changed": true,
+            "original": "reports/gazebo_physics_20261005/left90_mesh_yolo_only_01/original_mp4v/debug_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "151",
+              "duration": 10.066667
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "151",
+              "duration": 10.066667
+            },
+            "full_decode_ok": true
+          }
+        ]
+      },
+      "last_status": "WAITING_FOR_LANE: no usable boundary; Lane=0, used_boundaries=0, perception=YOLO, metric_target=None, corner={'mode': 'ENTRY_WAIT', 'reason': 'fresh same-side boundary and odometry required', 'pivot_world': [0.754451753740307, -0.0005935124789715355], 'pivot_base': [0.19736991995424974, -0.0013935127911210174], 'pivot_original_travel_m': 0.0023750971572665106, 'pivot_shift_m': 0.0, 'pivot_lateral_shift_m': 0.0, 'pivot_measured_entry_start_m': 0.0, 'pivot_rotation_margin_m': None, 'arrival_latched': False, 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'interpolated', 'processing_lag_s': 0.047461114008910954, 'odom_age_s': 0.027160741010447964, 'bracket_gap_s': 0.034}, 'ordinary_error': 'no boundaries detected'}",
+      "geometry": "continuous miter-joined triangle mesh"
+    },
+    {
+      "run": "right90_mesh_yolo_only_01",
+      "summary": {
+        "course": "right90",
+        "physics_trial": true,
+        "yolo_enabled": true,
+        "perception": "YOLO only",
+        "lane_count": 1,
+        "stripe_count": 2,
+        "error": null,
+        "raw_frames": 788,
+        "debug_frames": 134,
+        "camera_intrinsics": [
+          [
+            566.0,
+            0.0,
+            320.0
+          ],
+          [
+            0.0,
+            566.0,
+            240.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "nonzero_commands": 136,
+        "status_counts": {
+          "WAITING_FOR_LANE": 255,
+          "FOLLOWING": 20,
+          "CORNER_STAGED": 22
+        },
+        "travelled_m": 0.5810141034674989,
+        "net_displacement_m": 0.5810126732806212,
+        "max_cross_track_m": 0.0007733707579738468,
+        "final_progress_m": 0.5810125570982183,
+        "final_pose": {
+          "t": 60.08204958199349,
+          "x": 0.5810125570951686,
+          "y": 0.0003674328287436756,
+          "z": -8.701738820612408e-09,
+          "yaw": -0.003215087953065136,
+          "stamp": 53.788,
+          "frame": "world",
+          "child": "base_link"
+        },
+        "reached_finish": false,
+        "lane_departure": false,
+        "passed": false,
+        "video_exports": [
+          {
+            "path": "reports/gazebo_physics_20261005/right90_mesh_yolo_only_01/raw_frames.mp4",
+            "changed": true,
+            "original": "reports/gazebo_physics_20261005/right90_mesh_yolo_only_01/original_mp4v/raw_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "788",
+              "duration": 52.533333
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "788",
+              "duration": 52.533333
+            },
+            "full_decode_ok": true
+          },
+          {
+            "path": "reports/gazebo_physics_20261005/right90_mesh_yolo_only_01/debug_frames.mp4",
+            "changed": true,
+            "original": "reports/gazebo_physics_20261005/right90_mesh_yolo_only_01/original_mp4v/debug_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "134",
+              "duration": 8.933333
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "134",
+              "duration": 8.933333
+            },
+            "full_decode_ok": true
+          }
+        ]
+      },
+      "last_status": "WAITING_FOR_LANE: no usable boundary; Lane=0, used_boundaries=0, perception=YOLO, metric_target=None, corner={'mode': 'ENTRY_WAIT', 'reason': 'fresh same-side boundary and odometry required', 'pivot_world': [0.7703501732689744, 0.0004347990146705863], 'pivot_base': [0.25140584081604883, 0.0007678754358730323], 'pivot_original_travel_m': 0.05459790600860991, 'pivot_shift_m': 0.0, 'pivot_lateral_shift_m': 0.0, 'pivot_measured_entry_start_m': 0.0, 'pivot_rotation_margin_m': None, 'arrival_latched': False, 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'interpolated', 'processing_lag_s': 0.04221644399513025, 'odom_age_s': 0.03224140498787165, 'bracket_gap_s': 0.034}, 'ordinary_error': 'no boundaries detected'}",
+      "geometry": "continuous miter-joined triangle mesh"
+    },
+    {
+      "run": "s_sharp_three_mesh_yolo_only_01",
+      "summary": {
+        "course": "s_sharp",
+        "physics_trial": true,
+        "yolo_enabled": true,
+        "perception": "YOLO only",
+        "lane_count": 2,
+        "stripe_count": 3,
+        "error": null,
+        "raw_frames": 821,
+        "debug_frames": 113,
+        "camera_intrinsics": [
+          [
+            566.0,
+            0.0,
+            320.0
+          ],
+          [
+            0.0,
+            566.0,
+            240.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "nonzero_commands": 119,
+        "status_counts": {
+          "WAITING_FOR_LANE": 187,
+          "FOLLOWING": 18,
+          "CORNER_STAGED": 17
+        },
+        "travelled_m": 0.4724109329717746,
+        "net_displacement_m": 0.472409770699305,
+        "max_cross_track_m": 0.0005998978273163919,
+        "final_progress_m": 0.47240968662518723,
+        "final_pose": {
+          "t": 60.06520998799533,
+          "x": 0.47240968662213767,
+          "y": -0.00028184191022248925,
+          "z": -8.69166920212066e-09,
+          "yaw": 0.004578033322409357,
+          "stamp": 55.828,
+          "frame": "world",
+          "child": "base_link"
+        },
+        "reached_finish": false,
+        "lane_departure": false,
+        "passed": false,
+        "video_exports": [
+          {
+            "path": "reports/gazebo_physics_20261005/s_sharp_three_mesh_yolo_only_01/raw_frames.mp4",
+            "changed": true,
+            "original": "reports/gazebo_physics_20261005/s_sharp_three_mesh_yolo_only_01/original_mp4v/raw_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "821",
+              "duration": 54.733333
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "821",
+              "duration": 54.733333
+            },
+            "full_decode_ok": true
+          },
+          {
+            "path": "reports/gazebo_physics_20261005/s_sharp_three_mesh_yolo_only_01/debug_frames.mp4",
+            "changed": true,
+            "original": "reports/gazebo_physics_20261005/s_sharp_three_mesh_yolo_only_01/original_mp4v/debug_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "113",
+              "duration": 7.533333
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "113",
+              "duration": 7.533333
+            },
+            "full_decode_ok": true
+          }
+        ]
+      },
+      "last_status": "WAITING_FOR_LANE: no usable boundary; Lane=1, used_boundaries=0, perception=YOLO, metric_target=None, corner={'mode': 'ENTRY_WAIT', 'reason': 'fresh same-side boundary and odometry required', 'pivot_world': [0.652466544527987, 0.0002091844368337331], 'pivot_base': [0.2307572844473295, -0.00013450269737268368], 'pivot_original_travel_m': 0.05223067397189949, 'pivot_shift_m': 0.0, 'pivot_lateral_shift_m': 0.0, 'pivot_measured_entry_start_m': 0.0, 'pivot_rotation_margin_m': None, 'arrival_latched': False, 'local_map_frames': 0, 'local_map_retention_s': 10.0, 'pose_timing': {'reason': 'interpolated', 'processing_lag_s': 0.09843810800521169, 'odom_age_s': 0.08587266699760221, 'bracket_gap_s': 0.034}, 'ordinary_error': 'reacquisition requires the locked boundary side'}",
+      "geometry": "continuous miter-joined triangle mesh"
+    }
+  ]
+}
