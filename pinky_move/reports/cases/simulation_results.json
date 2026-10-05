@@ -1,0 +1,165 @@
+{
+  "kind": "synthetic-clock mask/history regression; no physics or ROS publishers",
+  "baseline_commit": "1ceed93",
+  "assertions_passed": true,
+  "before": [
+    {
+      "t": 1.2,
+      "visible": true,
+      "accepted": false,
+      "v": 0.0,
+      "w": 0.0,
+      "reason": "inferred target discontinuity"
+    },
+    {
+      "t": 1.4,
+      "visible": true,
+      "accepted": false,
+      "v": 0.0,
+      "w": 0.0,
+      "reason": "inferred target discontinuity"
+    },
+    {
+      "t": 1.6,
+      "visible": true,
+      "accepted": false,
+      "v": 0.0,
+      "w": 0.0,
+      "reason": "inferred target discontinuity"
+    },
+    {
+      "t": 1.8,
+      "visible": true,
+      "accepted": false,
+      "v": 0.0,
+      "w": 0.0,
+      "reason": "inferred target discontinuity"
+    },
+    {
+      "t": 2.0,
+      "visible": true,
+      "accepted": false,
+      "v": 0.0,
+      "w": 0.0,
+      "reason": "inferred target discontinuity"
+    },
+    {
+      "t": 2.2,
+      "visible": true,
+      "accepted": false,
+      "v": 0.0,
+      "w": 0.0,
+      "reason": "inferred target discontinuity"
+    },
+    {
+      "t": 2.4,
+      "visible": false,
+      "accepted": false,
+      "v": 0.0,
+      "w": 0.0,
+      "reason": "no boundaries detected"
+    },
+    {
+      "t": 2.6,
+      "visible": true,
+      "accepted": false,
+      "v": 0.0,
+      "w": 0.0,
+      "reason": "inferred target discontinuity"
+    },
+    {
+      "t": 2.8,
+      "visible": true,
+      "accepted": false,
+      "v": 0.0,
+      "w": 0.0,
+      "reason": "inferred target discontinuity"
+    }
+  ],
+  "after": [
+    {
+      "t": 1.2,
+      "visible": true,
+      "accepted": false,
+      "v": 0.0,
+      "w": 0.0,
+      "reason": "inferred target discontinuity"
+    },
+    {
+      "t": 1.4,
+      "visible": true,
+      "accepted": false,
+      "v": 0.0,
+      "w": 0.0,
+      "reason": "inferred target discontinuity"
+    },
+    {
+      "t": 1.6,
+      "visible": true,
+      "accepted": true,
+      "v": 0.03,
+      "w": -5.240672889020197e-05,
+      "x": 0.2799999916263326,
+      "y": -6.847812574986395e-05,
+      "reason": "current observed path"
+    },
+    {
+      "t": 1.8,
+      "visible": true,
+      "accepted": true,
+      "v": 0.03,
+      "w": -5.240672889020197e-05,
+      "x": 0.2799999916263326,
+      "y": -6.847812574986395e-05,
+      "reason": "current observed path"
+    },
+    {
+      "t": 2.0,
+      "visible": true,
+      "accepted": true,
+      "v": 0.03,
+      "w": -5.240672889020197e-05,
+      "x": 0.2799999916263326,
+      "y": -6.847812574986395e-05,
+      "reason": "current observed path"
+    },
+    {
+      "t": 2.2,
+      "visible": true,
+      "accepted": true,
+      "v": 0.03,
+      "w": -5.240672889020197e-05,
+      "x": 0.2799999916263326,
+      "y": -6.847812574986395e-05,
+      "reason": "current observed path"
+    },
+    {
+      "t": 2.4,
+      "visible": false,
+      "accepted": false,
+      "v": 0.0,
+      "w": 0.0,
+      "reason": "no boundaries detected"
+    },
+    {
+      "t": 2.6,
+      "visible": true,
+      "accepted": true,
+      "v": 0.03,
+      "w": -5.240672889020197e-05,
+      "x": 0.2799999916263326,
+      "y": -6.847812574986395e-05,
+      "reason": "current observed path"
+    },
+    {
+      "t": 2.8,
+      "visible": true,
+      "accepted": true,
+      "v": 0.03,
+      "w": -5.240672889020197e-05,
+      "x": 0.2799999916263326,
+      "y": -6.847812574986395e-05,
+      "reason": "current observed path"
+    }
+  ]
+}
