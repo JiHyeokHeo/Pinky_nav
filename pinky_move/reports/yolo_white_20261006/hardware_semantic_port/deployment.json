@@ -1,0 +1,16 @@
+{
+  "branch": "experiment/hardware-semantic-path-20261006",
+  "rollback_checkpoint": "6691f6e",
+  "local_workspace": "/home/tory/ws/pinky_pro",
+  "local_source_applied": true,
+  "local_build_passed": true,
+  "local_full_package_backup": "/home/tory/pinky_move_rollback_20261006_0s1r9M/pinky_move",
+  "hardware_ip": "192.168.45.22",
+  "hardware_upload_completed": false,
+  "hardware_build_completed": false,
+  "hardware_connection": "SSH ConnectTimeout; upload/build unavailable",
+  "hardware_enable_called": false,
+  "calibration_file_replaced": false,
+  "mode_rollback_argument": "semantic_lane_following:=false",
+  "real_car_completion_verified": false
+}

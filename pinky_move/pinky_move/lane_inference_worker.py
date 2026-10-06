@@ -40,7 +40,10 @@ def predict_reply(model, model_hash, request, imgsz=320, confidence=.55, iou=.70
                 instances.append(dict(**{'class': name}, points=points.tolist()))
         # Retry only genuine Lane absence, on the SAME captured frame. Never
         # lower confidence or renew the robot's capture timestamp/TTL.
-        if not any(item['class'] == 'lane' for item in instances) and retry_imgsz > imgsz:
+        semantic_path = request.get('planning', {}).get('parameters', {}).get('semantic_lane_following', False)
+        # 새 모드는 현재 flow/흰 픽셀 보충으로 이어받는다. 없는 차선을
+        # 640 재추론하느라 fresh 320 결과까지 TTL 밖으로 밀지 않는다.
+        if not semantic_path and not any(item['class'] == 'lane' for item in instances) and retry_imgsz > imgsz:
             retry = model.predict(frame, imgsz=retry_imgsz, conf=confidence, iou=iou,
                                   retina_masks=True, device='cpu', verbose=False)[0]
             recovered = []
@@ -59,6 +62,10 @@ def predict_reply(model, model_hash, request, imgsz=320, confidence=.55, iou=.70
                 raise ValueError('PC planner is required by this robot')
             planning_started = time.monotonic()
             reply['plan'] = planner.process(request, decoded, frame)
+            if getattr(planner, 'perception_instances', None) is not None:
+                # 경로 계산에 사용한 보충 마스크를 그대로 돌려줘 debug의
+                # 좌우 label index와 로봇의 현재 overlay가 어긋나지 않게 한다.
+                reply['instances'] = planner.perception_instances
             reply['pc_geometry_seconds'] = time.monotonic()-planning_started
     except Exception as exc:
         reply['error'] = str(exc)[:200]

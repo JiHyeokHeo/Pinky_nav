@@ -1,0 +1,34 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><title>실차 YOLO 연결 경로 실행·롤백</title>
+<style>body{font:17px system-ui;max-width:1000px;margin:40px auto;padding:20px}pre{padding:16px;background:#eee;white-space:pre-wrap}li{margin:12px 0}</style>
+<h1>실차 YOLO＋흰 픽셀 보충 / 연결 경로 모드</h1>
+<p>브랜치: experiment/hardware-semantic-path-20261006. 롤백 기준 커밋: 6691f6e.</p>
+<p>PC에서 기존 모델 추론, 현재 흰 픽셀/flow 보충, intrinsic/URDF 바닥 투영과 연결 경로를 계산합니다.
+Pinky2에서는 현재 오도메트리로 목표를 보정하고 기존 freshness 검사를 통과한 명령만 출력합니다. Nav2는 사용하지 않습니다.</p>
+<p>새 모드는 Pinky2 런치에서 기본 선택되지만 enabled=false로 시작합니다. semantic_lane_following:=false로 기존 처리 방식을 선택할 수 있습니다.
+시뮬레이션의 보정 파일이나 차선폭으로 실차 설정을 덮지 않습니다. 실제 보정 정확도와 물리 차선폭은 별도 확인 대상입니다.</p>
+<h2>설치 후 실행</h2><p>PC와 Pinky2 양쪽에 같은 버전 소스가 필요합니다. 신규 모듈과 런치 변경이 있어 양쪽 모두 pinky_move만 빌드합니다.</p>
+<h3>Pinky2</h3><pre>cd ~/pinky_pro
+source /opt/ros/jazzy/setup.bash
+colcon build --packages-select pinky_move --symlink-install
+source install/setup.bash
+ROS_DOMAIN_ID=22 ros2 launch pinky_move lane_autonomy_pinky2.launch.py semantic_lane_following:=true</pre>
+<h3>PC</h3><pre>cd ~/ws/pinky_pro
+source /opt/ros/jazzy/setup.bash
+colcon build --packages-select pinky_move --symlink-install
+source install/setup.bash
+ros2 launch pinky_move lane_inference_pc.launch.py robot:=pinky@192.168.45.22</pre>
+<p>상태·카메라·debug_image를 확인하고 현장에서 직접 정지시킬 수 있을 때 별도 enable합니다. 여기서는 실제 주행/enable을 수행하지 않았습니다.
+Nav2/teleop 등 다른 cmd_vel 발행자는 동시에 사용하지 마세요.</p>
+<pre># 로봇과 동일한 Domain22/DDS 설정에서 현장 확인 후 호출
+ros2 service call /lane_autonomy/enable std_srvs/srv/SetBool "{data: true}"
+# 정지
+ros2 service call /lane_autonomy/enable std_srvs/srv/SetBool "{data: false}"</pre>
+<h2>롤백</h2><pre># 기존 런치를 종료한 뒤 다시 실행
+ROS_DOMAIN_ID=22 ros2 launch pinky_move lane_autonomy_pinky2.launch.py semantic_lane_following:=false</pre>
+<p>위 명령은 제어 모드 롤백입니다. 이전 파일 전체를 정확히 복원하려면 로컬 패키지 전체 백업
+/home/tory/pinky_move_rollback_20261006_0s1r9M/pinky_move 또는 저장소의 기준 커밋을 사용해야 합니다.
+실행 중인 노드는 자동 교체하지 않습니다. 소스 반영·빌드 후 직접 재시작해야 합니다.</p>
+<h2>검증 범위</h2><p>이전 연결 경로 시뮬 버전은 6/6 성공했습니다. 실차 이식 공통 함수 재시험에서는 5회 중 1회 S자 추적 끊김이 재현됐습니다.
+단독 재검증은 통과했지만 간헐 정지가 완전히 제거된 버전은 아닙니다. 실제 로봇 완주는 아직 검증하지 않았습니다.</p>
+<p>비포·애프터 영상 및 원본 판정은 저장소 pinky_move/reports/yolo_white_20261006/hardware_semantic_port/report.html에 있습니다.
+이 문서 작성 시 Pinky2 SSH가 타임아웃이어서 로봇 업로드·로봇 빌드는 미완료입니다.</p></html>

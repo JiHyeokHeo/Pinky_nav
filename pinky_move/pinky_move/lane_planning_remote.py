@@ -67,9 +67,14 @@ class PCPlanner:
         node._reset_transient_state()
         node.lane_class_id, node.crossline_class_id = 1, 0
         node._update_crossline = lambda *args: None  # Robot retains stop-line authority.
+        if defaults['semantic_lane_following']:
+            from .yolo_white import YoloWhiteSupplement
+            node.semantic_supplementer = YoloWhiteSupplement(
+                support_interval=(.08, defaults['metric_path_max_m']))
         self.node = node
 
     def process(self, request, result, frame):
+        self.perception_instances = None
         ctx = request['planning']
         session, sequence = request['token'].rsplit(':', 1)
         key = (session, ctx['generation'], json.dumps(ctx['parameters'], sort_keys=True),
@@ -90,6 +95,21 @@ class PCPlanner:
         # Robot owns arrival latch, accumulated blind travel, and deadlines.
         # Echo its latest state before each plan; never invent a new session.
         node.corner_policy.staged = restore_stage(ctx['staged'])
+        if node._bool_parameter('semantic_lane_following'):
+            from .white_lane import semantic_result
+            result = semantic_result(result, frame, node.semantic_supplementer,
+                ctx['now_ns']/1e9, node.robot_calibration, node._float_parameter('lane_width'))
+            import cv2
+            self.perception_instances = []
+            # node가 사용하는 selected 순서와 wire mask 순서를 동일하게
+            # 유지한다. 먼 미선택 후보 때문에 LEFT/RIGHT label이 밀리면 안 된다.
+            for _, mask, _, _ in result.white_selected.values():
+                contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                polygon = max(contours, key=cv2.contourArea).reshape(-1, 2)
+                self.perception_instances.append({'class': 'lane', 'points': polygon.astype(float).tolist()})
+            ids = result.boxes.cls.int().cpu().tolist()
+            self.perception_instances.extend({'class': 'crossline', 'points': np.asarray(polygon,float).tolist()}
+                for i, polygon in zip(ids,result.masks.xy) if i == 0)
         header = SimpleNamespace(stamp=SimpleNamespace(sec=request['capture_sec'],
                     nanosec=request['capture_nanosec']), frame_id=request['frame_id'])
         node._process_result(frame, result, now, header)
@@ -130,6 +150,13 @@ def validate_plan(plan, token, generation, capture_ns):
                 raise ValueError('missing staged pivot')
             if not np.allclose(target.get('corner_pivot_world'), stage['pivot'], atol=1e-9):
                 raise ValueError('inconsistent staged pivot')
+        if target.get('white_path'):
+            path = np.asarray(target.get('center_path'), float)
+            if (path.ndim != 2 or path.shape[1] != 2 or not 2 <= len(path) <= 1000 or
+                    not np.isfinite(path).all() or np.max(np.abs(path)) > 5. or
+                    target.get('visible_side') not in ('left', 'right') or
+                    target.get('corner_staged')):
+                raise ValueError('invalid semantic centre path')
         for key in ('corner_speed_cap', 'corner_angular_cap'):
             if key in target and (type(target[key]) not in (int, float) or not 0 <= target[key] <= 1.):
                 raise ValueError('invalid planned speed cap')

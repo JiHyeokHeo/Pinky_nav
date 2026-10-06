@@ -115,3 +115,38 @@ def semantic_center_path(masks, calibration, lane_width):
             if len(curves) == 1:
                 candidates.append((mask, curves[0], []))
     return white_center_path(candidates, lane_width)
+
+
+def semantic_result(result, frame, supplementer, now_s, calibration, lane_width):
+    """공통 PC/시뮬 perception: 모델 승인 → 현재 흰 픽셀 보충 → 연결 경로.
+
+    클래스 번호는 wire의 lane=1/crossline=0이다. 원래 stop-line 결과는
+    보존하고 승인된 차선 마스크와 debug polygon의 순서를 일치시킨다.
+    """
+    from types import SimpleNamespace
+    from .lane_wire import ClassIds
+    ids = result.boxes.cls.int().cpu().tolist() if result.boxes is not None else []
+    polygons = result.masks.xy if result.masks is not None else []
+    masks, crosslines = [], []
+    for class_id, polygon in zip(ids, polygons):
+        if class_id == 1:
+            binary = np.zeros(frame.shape[:2], np.uint8)
+            cv2.fillPoly(binary, [np.asarray(polygon, np.int32)], 1)
+            masks.append(binary)
+        elif class_id == 0:
+            crosslines.append(polygon)
+    complete, info = supplementer.update(frame, masks, now_s, calibration)
+    current = []
+    for mask in complete:
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            current.append(max(contours, key=cv2.contourArea).reshape(-1, 2))
+    prepared = SimpleNamespace(boxes=SimpleNamespace(cls=ClassIds([1]*len(current)+[0]*len(crosslines))),
+        masks=SimpleNamespace(xy=current+list(crosslines)), supplement=info)
+    try:
+        prepared.white_path, prepared.white_selected, prepared.white_side = semantic_center_path(
+            complete, calibration, lane_width)
+    except ValueError as exc:
+        prepared.white_path, prepared.white_selected, prepared.white_side = None, {}, None
+        info['path_error'] = str(exc)
+    return prepared

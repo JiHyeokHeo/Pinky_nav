@@ -141,6 +141,16 @@ class LaneAutonomy(Node):
 
     def _validate_yolo_white_profile(self):
         """실험 모드가 원격 경로나 실제 장비에서 우회 활성화되지 않게 한다."""
+        if self._bool_parameter('semantic_lane_following'):
+            if (not self._bool_parameter('remote_inference') or
+                    not self._bool_parameter('remote_geometry')):
+                raise ValueError('hardware semantic path requires PC inference and geometry')
+            if (self._bool_parameter('simulation_white_lane') or
+                    self._bool_parameter('simulation_yolo_white') or
+                    self._bool_parameter('simulation_semantic_path')):
+                raise ValueError('hardware semantic path cannot mix simulation profiles')
+            if not self.robot_calibration or self.robot_calibration.get('method') != 'intrinsics_urdf_floor':
+                raise ValueError('hardware semantic path requires robot intrinsic/URDF calibration')
         if (self._bool_parameter('simulation_semantic_path') and
                 not self._bool_parameter('simulation_yolo_white')):
             raise ValueError('semantic path comparison requires YOLO/white simulation')
@@ -278,6 +288,7 @@ class LaneAutonomy(Node):
             ('simulation_white_lane', False),
             ('simulation_yolo_white', False),
             ('simulation_semantic_path', False),
+            ('semantic_lane_following', False),  # 실차 PC 계산 경로, 기존 처리로 롤백 가능.
             ('connected_geometry', False),
             ('remote_inference', False),
             ('remote_geometry', False),
@@ -655,7 +666,16 @@ class LaneAutonomy(Node):
                 frame = self._image_to_bgr(message).copy()
                 result = (SimpleNamespace(masks=None, boxes=None) if self.model is None else
                           self.model.predict(source=frame, **predict_arguments)[0])
-                if self._bool_parameter('simulation_yolo_white'):
+                if self._bool_parameter('simulation_semantic_path'):
+                    from .white_lane import semantic_result
+                    from .lane_wire import ClassIds
+                    raw_ids = result.boxes.cls.int().cpu().tolist() if result.boxes is not None else []
+                    normalized = [1 if i == self.lane_class_id else 0 if i == self.crossline_class_id else -1
+                                  for i in raw_ids]
+                    result = semantic_result(SimpleNamespace(boxes=SimpleNamespace(cls=ClassIds(normalized)),
+                        masks=result.masks), frame, self.yolo_white, received.nanoseconds/1e9,
+                        self.robot_calibration, self._float_parameter('lane_width'))
+                elif self._bool_parameter('simulation_yolo_white'):
                     from .lane_wire import ClassIds
                     ids = result.boxes.cls.int().cpu().tolist() if result.boxes is not None else []
                     original = list(result.masks.xy) if result.masks is not None else []
@@ -679,13 +699,6 @@ class LaneAutonomy(Node):
                             classes.append(class_id)
                     result = SimpleNamespace(masks=SimpleNamespace(xy=polygons),
                         boxes=SimpleNamespace(cls=ClassIds(classes)), supplement=supplement)
-                    if self._bool_parameter('simulation_semantic_path'):
-                        from .white_lane import semantic_center_path
-                        try:
-                            result.white_path, result.white_selected, result.white_side = semantic_center_path(
-                                complete, self.robot_calibration, self._float_parameter('lane_width'))
-                        except ValueError:
-                            result.white_path, result.white_selected, result.white_side = None, {}, None
                 if self.model is None:
                     # CPU-heavy thinning belongs to the perception worker,
                     # never the executor thread receiving odometry/control.
@@ -1066,22 +1079,37 @@ class LaneAutonomy(Node):
                     crossline_masks.append(binary_mask)
 
         if (self._bool_parameter('simulation_white_lane') or
-                self._bool_parameter('simulation_semantic_path')):
-            if not self._string_parameter('image_topic').startswith('/lane_sim/'):
+                self._bool_parameter('simulation_semantic_path') or
+                (self._bool_parameter('semantic_lane_following') and
+                 not getattr(self, 'remote_inference', False))):
+            hardware_semantic = self._bool_parameter('semantic_lane_following')
+            if not hardware_semantic and not self._string_parameter('image_topic').startswith('/lane_sim/'):
                 raise ValueError('white-pixel experiment requires isolated /lane_sim camera')
             # Camera-only centreline pursuit intentionally bypasses the
             # hardware staged-corner identity gates in this isolated profile.
             lane_masks = [item[1] for item in result.white_selected.values()]
-            semantic = self._bool_parameter('simulation_semantic_path')
-            self.perception_source = 'YOLO_SEMANTIC_PATH_SIM' if semantic else 'OPENCV_WHITE_SIM'
+            semantic = self._bool_parameter('simulation_semantic_path') or hardware_semantic
+            self.perception_source = ('YOLO_WHITE_CONNECTED_PC' if hardware_semantic else
+                                     'YOLO_SEMANTIC_PATH_SIM' if semantic else 'OPENCV_WHITE_SIM')
             if semantic:
                 self.supplement_debug = dict(result.supplement)
             if not semantic:
                 self.lane_instances = len(lane_masks)
             self.corner_policy.debug = {'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}
+            if hardware_semantic:
+                self.corner_policy.debug.update(mode='SEMANTIC_PATH', supplement=self.supplement_debug,
+                                                perception_source=self.perception_source)
             self.corner_policy.staged = None
+            self.corner_policy.block_recovery = False
             self.sim_white_path = result.white_path
             self.sim_white_side = result.white_side
+            if hardware_semantic:
+                chosen = result.white_selected
+                side = result.white_side
+                other = 'right' if side == 'left' else 'left'
+                self.metric_tracker.last_observation = (dict(side=side, curve=chosen[side][2],
+                    other=chosen[other][2] if other in chosen else None,
+                    width=self._float_parameter('lane_width'), width_source='configured') if side in chosen else None)
             count = self._update_lane_command(lane_masks, width, now)
             self.boundary_count = count
             self.debug_boundary_labels = {i: (side, 'USED') for i, side in enumerate(result.white_selected)}
@@ -1415,6 +1443,13 @@ class LaneAutonomy(Node):
                     abs(wrap(current['exit_yaw']-self.corner_odom[1][2])) > np.deg2rad(12)):
                 raise ValueError('PC exit before local heading arrival')
         target = deepcopy(plan['target'])
+        if target is not None and target.get('white_path') and not self._bool_parameter('semantic_lane_following'):
+            raise ValueError('semantic target received in legacy profile')
+        if self._bool_parameter('semantic_lane_following'):
+            if incoming is not None or (target is not None and not target.get('white_path')):
+                raise ValueError('hardware semantic profile received staged/legacy target')
+            self.perception_source = 'YOLO_WHITE_CONNECTED_PC'
+            self.supplement_debug = plan['debug'].get('supplement', {})
         if incoming is not None and incoming.get('fault'):
             target = None
         if target is not None and target.get('corner_staged'):
@@ -1463,7 +1498,8 @@ class LaneAutonomy(Node):
 
     def _update_lane_command(self, lane_masks, image_width, now):
         if (self._bool_parameter('simulation_white_lane') or
-                self._bool_parameter('simulation_semantic_path')):
+                self._bool_parameter('simulation_semantic_path') or
+                self._bool_parameter('semantic_lane_following')):
             try:
                 if self.sim_white_path is None:
                     raise ValueError('white centre path unavailable')
@@ -1793,7 +1829,8 @@ class LaneAutonomy(Node):
             pose = self.corner_odom[1]  # Freshness enforced by _safety_stop_reason.
             c, s = np.cos(pose[2]), np.sin(pose[2])
             point = np.array([[c, s], [-s, c]])@(np.asarray(self.metric_target['remote_world_target'])-pose[:2])
-            if point[0] <= .01:
+            if point[0] <= .01 and not (self._bool_parameter('semantic_lane_following') and
+                                       self.metric_target.get('white_path')):
                 self._publish_zero()
                 self._publish_status('WAITING_FOR_LANE: PC target reached or behind robot')
                 return

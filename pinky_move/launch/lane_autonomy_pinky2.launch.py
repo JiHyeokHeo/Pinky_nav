@@ -7,7 +7,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription
 from launch.launch_description_sources import AnyLaunchDescriptionSource
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -16,6 +16,9 @@ def generate_launch_description():
     """Start Pinky2 with one /cmd_vel publisher, initially disabled."""
     bringup_share = get_package_share_directory('pinky_bringup')
     move_share = get_package_share_directory('pinky_move')
+    def semantic_value(enabled, legacy):
+        return ParameterValue(PythonExpression([str(enabled), " if '",
+            LaunchConfiguration('semantic_lane_following'), "'.lower() == 'true' else ", str(legacy)]), value_type=float)
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -29,6 +32,8 @@ def generate_launch_description():
         DeclareLaunchArgument('remote_inference', default_value='true'),
         DeclareLaunchArgument('remote_geometry', default_value='true'),
         DeclareLaunchArgument('connected_geometry', default_value='false'),
+        DeclareLaunchArgument('semantic_lane_following', default_value='true',
+                             description='YOLO+현재 흰 픽셀 보충/연결 경로 PC 계산; false는 기존 방식'),
         DeclareLaunchArgument('remote_port', default_value='18765'),
         DeclareLaunchArgument('result_timeout', default_value='0.8'),
         DeclareLaunchArgument('start_hardware', default_value='true'),
@@ -63,6 +68,12 @@ def generate_launch_description():
                     'remote_inference': ParameterValue(LaunchConfiguration('remote_inference'), value_type=bool),
                     'remote_geometry': ParameterValue(LaunchConfiguration('remote_geometry'), value_type=bool),
                     'connected_geometry': ParameterValue(LaunchConfiguration('connected_geometry'), value_type=bool),
+                    'semantic_lane_following': ParameterValue(LaunchConfiguration('semantic_lane_following'), value_type=bool),
+                    'metric_path_min_m': semantic_value(.08, .14),
+                    'metric_path_max_m': semantic_value(.70, .48),
+                    'metric_lookahead_m': semantic_value(.16, .22),
+                    'maximum_angular_speed': semantic_value(.6, .15),
+                    'single_line_max_speed': semantic_value(.06, .03),
                     'remote_port': ParameterValue(LaunchConfiguration('remote_port'), value_type=int),
                     'result_timeout': ParameterValue(LaunchConfiguration('result_timeout'), value_type=float),
                     'cmd_vel_topic': LaunchConfiguration('cmd_vel_topic'),
