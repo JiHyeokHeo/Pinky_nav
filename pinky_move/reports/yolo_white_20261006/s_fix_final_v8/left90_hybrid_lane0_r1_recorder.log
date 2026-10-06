@@ -1,0 +1,100 @@
+{
+  "course": "left90",
+  "physics_trial": true,
+  "controller_enabled": true,
+  "yolo_enabled": true,
+  "perception": "YOLO + white supplement",
+  "lane_count": 1,
+  "stripe_count": 2,
+  "error": null,
+  "raw_frames": 722,
+  "debug_frames": 88,
+  "camera_intrinsics": [
+    [
+      566.0,
+      0.0,
+      320.0
+    ],
+    [
+      0.0,
+      566.0,
+      240.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "nonzero_commands": 550,
+  "status_counts": {
+    "DISABLED": 2,
+    "WAITING_FOR_LANE": 14,
+    "SAFETY_STOP": 15,
+    "FOLLOWING": 82,
+    "REACQUIRING_LANE": 5
+  },
+  "travelled_m": 1.883778755306924,
+  "net_displacement_m": 1.3826264579905767,
+  "max_cross_track_m": 0.039944432661454976,
+  "final_progress_m": 1.9112208948148952,
+  "final_pose": {
+    "t": 54.284149336000155,
+    "x": 0.7504811495179506,
+    "y": 1.161220894813772,
+    "z": -8.462061912620926e-09,
+    "yaw": 1.6155803166356042,
+    "stamp": 47.634,
+    "frame": "world",
+    "child": "base_link"
+  },
+  "reached_finish": true,
+  "lane_departure": false,
+  "passed": true,
+  "video_exports": [
+    {
+      "path": "pinky_move/reports/yolo_white_20261006/s_fix_final_v8/left90_hybrid_lane0_r1/raw_frames.mp4",
+      "changed": true,
+      "original": "pinky_move/reports/yolo_white_20261006/s_fix_final_v8/left90_hybrid_lane0_r1/original_mp4v/raw_frames.mp4",
+      "before": {
+        "codec_name": "mpeg4",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "722",
+        "duration": 48.133333
+      },
+      "after": {
+        "codec_name": "h264",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "722",
+        "duration": 48.133333
+      },
+      "full_decode_ok": true
+    },
+    {
+      "path": "pinky_move/reports/yolo_white_20261006/s_fix_final_v8/left90_hybrid_lane0_r1/debug_frames.mp4",
+      "changed": true,
+      "original": "pinky_move/reports/yolo_white_20261006/s_fix_final_v8/left90_hybrid_lane0_r1/original_mp4v/debug_frames.mp4",
+      "before": {
+        "codec_name": "mpeg4",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "88",
+        "duration": 5.866667
+      },
+      "after": {
+        "codec_name": "h264",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "88",
+        "duration": 5.866667
+      },
+      "full_decode_ok": true
+    }
+  ]
+}

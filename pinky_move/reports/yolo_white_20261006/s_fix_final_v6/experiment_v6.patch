@@ -1,0 +1,823 @@
+diff --git a/pinky_move/pinky_move/lane_autonomy.py b/pinky_move/pinky_move/lane_autonomy.py
+index 5d4b612..e67bf7a 100644
+--- a/pinky_move/pinky_move/lane_autonomy.py
++++ b/pinky_move/pinky_move/lane_autonomy.py
+@@ -155,7 +155,9 @@ class LaneAutonomy(Node):
+         self._validate_yolo_white_profile()
+         if self._bool_parameter('simulation_yolo_white'):
+             from .yolo_white import YoloWhiteSupplement
+-            self.yolo_white = YoloWhiteSupplement()
++            self.yolo_white = YoloWhiteSupplement(support_interval=(
++                .08,  # 차선 관측은 PP 목표 최소 거리보다 가까워도 보존한다.
++                self._float_parameter('metric_path_max_m')))
+         if self._bool_parameter('simulation_white_lane'):
+             if (self.context.get_domain_id() in (20, 22, 52) or
+                     not self._string_parameter('image_topic').startswith('/lane_sim/') or
+@@ -454,6 +456,7 @@ class LaneAutonomy(Node):
+         self.metric_target = None
+         self.metric_tracker = MetricLaneTracker(
+             connected_geometry=self._bool_parameter('connected_geometry'),
++            connected_primary=self._bool_parameter('simulation_yolo_white'),
+             tracking_gap_s=self._float_parameter('lane_tracking_gap_seconds'),
+             minimum_lane_width_m=2*(self._float_parameter('corner_robot_half_width_m')+
+                                     self._float_parameter('corner_clearance_m')))
+@@ -1264,6 +1267,7 @@ class LaneAutonomy(Node):
+                     estimator = getattr(self.metric_tracker, 'width_estimator', None)
+                     self.metric_tracker = MetricLaneTracker(
+                         connected_geometry=self._bool_parameter('connected_geometry'),
++                        connected_primary=self._bool_parameter('simulation_yolo_white'),
+                         tracking_gap_s=self._float_parameter('lane_tracking_gap_seconds'),
+                         minimum_lane_width_m=2*(self._float_parameter('corner_robot_half_width_m')+
+                                                self._float_parameter('corner_clearance_m')))
+@@ -1277,10 +1281,26 @@ class LaneAutonomy(Node):
+                 if not hasattr(self, 'metric_tracker'):
+                     self.metric_tracker = MetricLaneTracker(
+                         connected_geometry=self._bool_parameter('connected_geometry'),
++                        connected_primary=self._bool_parameter('simulation_yolo_white'),
+                         tracking_gap_s=self._float_parameter('lane_tracking_gap_seconds'),
+                         minimum_lane_width_m=2*(self._float_parameter('corner_robot_half_width_m')+
+                                                 self._float_parameter('corner_clearance_m')))
+                 ordinary_error = None
++                map_side = None
++                if (self._bool_parameter('simulation_yolo_white') and len(lane_masks) == 1
++                        and self.robot_calibration.get('method') == 'intrinsics_urdf_floor'
++                        and self.corner_policy.local_lane_map.frames):
++                    from .metric_lane import floor_curves
++                    pose = self._corner_pose_for_frame(now.nanoseconds/1e9)
++                    curves = floor_curves(lane_masks, self.robot_calibration,
++                        self._float_parameter('projection_max_forward_m'),
++                        self._float_parameter('metric_path_min_m'),
++                        self._float_parameter('metric_path_max_m'),
++                        self._int_parameter('path_polynomial_degree'),
++                        connected_geometry=self._bool_parameter('connected_geometry'), connected_primary=True)
++                    if len(curves) == 1:
++                        map_side = self.corner_policy.local_lane_map.measured_side(
++                            curves[0], now.nanoseconds/1e9, pose)
+                 try:
+                     target = self.metric_tracker.update(lane_masks, self.robot_calibration,
+                                        now.nanoseconds/1e9,
+@@ -1291,9 +1311,9 @@ class LaneAutonomy(Node):
+                                        max_forward_m=self._float_parameter('projection_max_forward_m'),
+                                        path_min_m=self._float_parameter('metric_path_min_m'),
+                                        path_max_m=self._float_parameter('metric_path_max_m'),
+-                                       image_side_hint=getattr(self, 'image_side_hint', None),
++                                       image_side_hint=map_side or getattr(self, 'image_side_hint', None),
+                                        image_match=getattr(self, 'image_match', None),
+-                                       recovery_side_hint=(near_pixel_side(lane_masks[0])
++                                       recovery_side_hint=(map_side or near_pixel_side(lane_masks[0])
+                                                            if len(lane_masks) == 1 else None))
+                 except ValueError as exc:
+                     target = None
+@@ -1317,14 +1337,25 @@ class LaneAutonomy(Node):
+                         and str(ordinary_error) == 'inferred target discontinuity')
+                     if ordinary_error and (active_mask_count != 1 or
+                             ('center_path curve folds back' not in str(ordinary_error)
++                             and not (self._bool_parameter('simulation_yolo_white') and
++                                      str(ordinary_error) == 'no forward centre path')
+                              and not staged_target_jump and not s_route_target_jump)):
+                         observation = None
+                     pose = self._corner_pose_for_frame(now.nanoseconds/1e9)
++                    if (pose is not None and
++                            self._bool_parameter('simulation_yolo_white') and
++                            self.corner_policy.staged is not None):
++                        recovered = self.corner_policy.staged_observation(
++                            lane_masks, self.robot_calibration, pose)
++                        if recovered is not None:
++                            observation = recovered
+                     self.corner_policy.floor_calibration = self.robot_calibration
+                     target = self.corner_policy.update(observation, target, now.nanoseconds/1e9,
+                               pose, self._metric_lookahead(), self._float_parameter('corner_max_angular_speed'),
+                               no_boundaries=len(lane_masks) == 0)
+                     self.corner_policy.debug['pose_timing'] = getattr(self, 'corner_pose_diagnostic', {})
++                    if map_side:
++                        self.corner_policy.debug['measured_map_side_hint'] = map_side
+                     if ordinary_error:
+                         self.corner_policy.debug['ordinary_error'] = str(ordinary_error)
+                     if staged_target_jump:
+diff --git a/pinky_move/pinky_move/lane_corner.py b/pinky_move/pinky_move/lane_corner.py
+index e60577e..93d87f4 100644
+--- a/pinky_move/pinky_move/lane_corner.py
++++ b/pinky_move/pinky_move/lane_corner.py
+@@ -83,6 +83,38 @@ def match_corner_fragment(current, reference):
+     return dict(info, fragment_ok=True, fragment_reason='matched visible corner segment')
+ 
+ 
++def trim_corner_endpoint_extensions(current, reference):
++    """기록 끝점을 지나 길어진 현재 선만 잘라 관측 지지의 길이를 맞춘다.
++
++    새로 보이는 긴 출구를 분모에 넣으면 같은 차선의 대응률이 감소한다.
++    끝점 바깥, 끝 선분과 15mm/10도 이내로 일직선인 앞/뒤 연결 부분만
++    제외한다. 내부 불일치·평행한 다른 차선·분기는 제거하지 않는다.
++    """
++    a, b = np.asarray(current, float), np.asarray(reference, float)
++    if len(a) < 5 or len(b) < 5:
++        return a
++    q, index, fraction = nearest_on_chain(a, b)
++    tangent = np.gradient(a, axis=0)
++    extension = np.zeros(len(a), bool)
++    for point, segment, endpoint, outer in (
++            (b[0], b[1]-b[0], 0, -1),
++            (b[-1], b[-1]-b[-2], len(b)-2, 1)):
++        segment = segment/max(np.linalg.norm(segment), 1e-12)
++        delta = a-point
++        normal = np.array([-segment[1], segment[0]])
++        cosine = np.abs(tangent@segment)/np.maximum(np.linalg.norm(tangent, axis=1), 1e-12)
++        at_endpoint = (index == endpoint) & ((fraction <= .001) if outer < 0 else (fraction >= .999))
++        extension |= (at_endpoint & (outer*(delta@segment) > 0.) &
++                      (np.abs(delta@normal) <= .015) &
++                      (cosine >= np.cos(np.deg2rad(10))))
++    lo, hi = 0, len(a)
++    while lo < hi and extension[lo]:
++        lo += 1
++    while hi > lo and extension[hi-1]:
++        hi -= 1
++    return a[lo:hi] if hi-lo >= 5 else a
++
++
+ def staged_command(target, pose, now, max_angular, tolerance):
+     """Re-evaluate staged motion at control rate with CURRENT odometry.
+ 
+@@ -1229,6 +1261,13 @@ class CornerPolicy:
+         self.state = 'APPROACH' if corner_distance > cfg.approach_m else 'TURN'
+         self.debug.update(mode=self.state, confirmed=True)
+         if cfg.staged_turn and 75 <= abs(feature['angle_deg']) <= 115:
++            if centre_can_approach and len(ordinary.get('center_path', [])) >= 5:
++                # 실제 관측 중앙 경로가 유효하고 코너가 아직 먼 경우에는
++                # 진입 피벗을 확정하지 않는다. 조기 확정하면 긴 접근 동안
++                # 카메라 크롭/새 출구 길이로 저장 경계의 대응을 먼저 잃는다.
++                self.block_recovery = False
++                self.debug.update(reason='ordinary centre path approaches distant confirmed corner')
++                return dict(ordinary, corner_speed_cap=cfg.speed_mps)
+             try:
+                 self._start_staged(observation, feature, pose, now)
+             except ValueError as exc:
+@@ -1264,12 +1303,97 @@ class CornerPolicy:
+         self.confirmed_exit = exit_yaw
+         return target
+ 
++    def staged_observation(self, masks, calibration, pose):
++        """확정된 코너의 CURRENT 경계만 대응한다. PP 경로 생성과 분리한다.
++
++        진입 끝에서 PP 최소 x 밖으로 잘린 선도 고정된 odom 코너에 대응하면
++        관측으로 유효하다. 옛 마스크/중앙 경로를 발행하거나 새 코너를 만들지
++        않는다. 대응하는 현재 마스크가 정확히 하나일 때만 반환한다.
++        """
++        from .metric_lane import floor_curves, connected_floor_curve
++        s = self.staged
++        if s is None or pose is None:
++            return None
++        c, sn = np.cos(pose[2]), np.sin(pose[2])
++        reference = (s['curve']-pose[:2])@np.array([[c, -sn], [sn, c]])
++        candidates = []
++        for mask in masks:
++            curves = connected_floor_curve(mask, calibration, 2.)
++            if not curves:
++                curves = floor_curves([mask], calibration, 2., .05, 2.,
++                                      connected_geometry=True)
++            accepted = []
++            for curve in curves:
++                # 현재 새로 보인 출구의 길이가 저장 당시보다 길다는 이유만으로
++                # 같은 코너의 관측을 실패시키지 않는다. 목표/회전각은 고정이다.
++                current = trim_corner_endpoint_extensions(curve, reference)
++                if match_corner_fragment(current, reference)['fragment_ok']:
++                    accepted.append(current)
++            if len(accepted) == 1:
++                candidates.append(accepted[0])
++        if len(candidates) != 1:
++            return None
++        self.debug['staged_current_fragment_recovered'] = True
++        return dict(curve=candidates[0], side=s['side'], width=s['width'],
++                    width_source='committed corner')
++
++    def _mapped_entry_support(self, obs, feature, pose, now):
++        """동일 진입선의 과거 실관측만 odom 변환해 현재 잘린 입구를 보완한다.
++
++        2초 내 두 독립 관측이 현재 입구와 8mm/10도 이내로 대응해야 한다.
++        출구·코너·회전각은 현재 관측 그대로이며 보이지 않은 선을 외삽하지 않는다.
++        """
++        c, sn = np.cos(pose[2]), np.sin(pose[2])
++        inverse = np.array([[c, -sn], [sn, c]])
++        entry, tin = feature['entry'], feature['tin']
++        normal = np.array([-tin[1], tin[0]])
++        votes = []
++        for timestamp, curves, width in self.local_lane_map.frames:
++            if not 0 < now-timestamp <= 2. or obs['side'] not in curves or abs(width-obs['width']) > .02:
++                continue
++            reference = (curves[obs['side']]-pose[:2])@inverse
++            rel = reference-entry
++            station = rel@tin
++            valid = (np.abs(rel@normal) <= .008) & (station <= .06)
++            indices = np.flatnonzero(valid)
++            if len(indices) < 5:
++                continue
++            runs = np.split(indices, np.flatnonzero(np.diff(indices) > 1)+1)
++            for run in runs:
++                p = reference[run]
++                st = station[run]
++                if len(p) < 5 or st.min() >= -.01 or st.max() < .025:
++                    continue
++                tangent = p[-1]-p[0]
++                if (np.linalg.norm(tangent) < .04 or
++                        tangent@tin/np.linalg.norm(tangent) < np.cos(np.deg2rad(10))):
++                    continue
++                votes.append((timestamp, p, float(st.min())))
++                break
++        if len(votes) < 2:
++            return feature
++        # Both observations must independently support the extended start.
++        start = sorted(v[2] for v in votes)[1]
++        reference = min(votes, key=lambda v: abs(v[2]-start))[1]
++        current = np.asarray(obs['curve'])
++        current_start = float((current[0]-entry)@tin)
++        prefix = reference[(reference-entry)@tin < min(0., current_start)-1e-6]
++        joined = np.vstack((prefix, current)) if len(prefix) else current.copy()
++        if first_self_intersection(joined) is not None:
++            return feature
++        result = dict(feature, entry=entry+start*tin,
++                      observed_reference=joined,
++                      mapped_entry_support_m=-start)
++        self.debug['mapped_entry_support_m'] = -start
++        return result
++
+     def _start_staged(self, obs, feature, pose, now):
+         """Intersect offset entry/exit lines to locate an axle-centre pivot.
+ 
+         Only the measured entry span is used for approach. The stationary spin
+         is NOT a footprint-safe Bezier plan or an obstacle-clearance guarantee.
+         """
++        feature = self._mapped_entry_support(obs, feature, pose, now)
+         width = obs['width']
+         if width < 2*(self.config.half_width_m+self.config.clearance_m):
+             raise ValueError('corner entry: lane narrower than robot')
+diff --git a/pinky_move/pinky_move/lane_history.py b/pinky_move/pinky_move/lane_history.py
+index b179a12..a14bcf8 100644
+--- a/pinky_move/pinky_move/lane_history.py
++++ b/pinky_move/pinky_move/lane_history.py
+@@ -179,6 +179,49 @@ class LocalLaneMap:
+             world[side] = p@rotation(pose[2]).T+pose[:2]
+         self.frames.append((now, world, float(observation.get('width', 0.))))
+ 
++    def measured_side(self, curve, now, pose):
++        """현재 픽셀 경계의 역할만 확인한다. 저장 경로/목표를 반환하지 않는다.
++
++        영상 중심을 가로지르는 S자 선도 odom 지도에서 같은 실관측 선인지
++        대응한다. 두 개의 독립 관측과 5cm/15mm/정방향 접선 지지가 필요하다.
++        양쪽 역할이 모두 대응하거나 좌표계가 끊겼으면 힌트를 주지 않는다.
++        """
++        if pose is None or not np.isfinite(pose).all():
++            return None
++        if self.last_pose is not None and (
++                np.linalg.norm(pose[:2]-self.last_pose[:2]) > .20 or
++                abs((pose[2]-self.last_pose[2]+np.pi)%(2*np.pi)-np.pi) > np.pi/4):
++            return None
++        p = np.asarray(curve, float)
++        if p.ndim != 2 or p.shape[1] != 2 or len(p) < 5 or not np.isfinite(p).all():
++            return None
++        p = resample_chain(p, 80)
++        votes = {'left': set(), 'right': set()}
++        for timestamp, curves, _ in self.frames:
++            if not 0 < now-timestamp <= self.retention_s:
++                continue
++            for side, world in curves.items():
++                reference = (world-pose[:2])@rotation(pose[2])
++                q, idx, frac = nearest_on_chain(p, reference)
++                a, b = np.gradient(p, axis=0), np.diff(reference, axis=0)[idx]
++                cosine = np.sum(a*b, axis=1)/np.maximum(
++                    np.linalg.norm(a,axis=1)*np.linalg.norm(b,axis=1), 1e-12)
++                valid = (np.linalg.norm(p-q, axis=1) <= .015) & (cosine >= .95)
++                indices = np.flatnonzero(valid)
++                if not len(indices):
++                    continue
++                runs = np.split(indices, np.flatnonzero(np.diff(indices)>1)+1)
++                for run in runs:
++                    if len(run)<5 or arc_stations(p[run])[-1]<.05:
++                        continue
++                    stations = arc_stations(reference)
++                    along = stations[idx[run]]+frac[run]*np.diff(stations)[idx[run]]
++                    if along[-1]-along[0]>=.05 and np.min(np.diff(along))>=-.002:
++                        votes[side].add(timestamp)
++                        break
++        roles = [side for side, times in votes.items() if len(times)>=2]
++        return roles[0] if len(roles)==1 else None
++
+     def current_target(self, observation, ordinary, now, pose, lookahead, relaxed=False):
+         """Confirm a near path using two prior same-side measured frames.
+ 
+diff --git a/pinky_move/pinky_move/metric_lane.py b/pinky_move/pinky_move/metric_lane.py
+index 8d2acab..209f325 100644
+--- a/pinky_move/pinky_move/metric_lane.py
++++ b/pinky_move/pinky_move/metric_lane.py
+@@ -218,7 +218,7 @@ def fit_connected_approach(points, degree=3):
+ 
+ def floor_curves(masks, calibration, max_forward_m=2.0,
+                  path_min_m=.05, path_max_m=None, degree=3, recover_short_hook=False,
+-                 component_recovery=True, connected_geometry=False):
++                 component_recovery=True, connected_geometry=False, connected_primary=False):
+     """Compare row/column extraction instead of committing to one image axis.
+ 
+     Perspective can make a legitimate near stripe too thick for column scans,
+@@ -229,6 +229,18 @@ def floor_curves(masks, calibration, max_forward_m=2.0,
+     """
+     curves = []
+     for mask in masks:
++        if connected_geometry and connected_primary:
++            # 시뮬 실험만: 축 샘플러가 L의 한 다리만 성공했다고 간주하는
++            # 문제를 분리한다. 연결/분기/실좌표 피팅 검사는 그대로 적용한다.
++            primary = connected_floor_curve(mask, calibration, max_forward_m)
++            if len(primary) == 1:
++                hi = max_forward_m if path_max_m is None else path_max_m
++                try:
++                    fit_boundary(supported_chain(primary[0], path_min_m, hi), degree)
++                    curves.append(primary[0])
++                    continue
++                except ValueError:
++                    pass
+         candidates = []
+         for by_column in (False, True):
+             for points in _axis_floor_curves([mask], calibration, max_forward_m, by_column):
+@@ -694,7 +706,8 @@ def distinct_near_masks(masks):
+     return kept
+ 
+ 
+-def unique_near_boundary(masks, calibration, max_forward_m, lo, hi, degree):
++def unique_near_boundary(masks, calibration, max_forward_m, lo, hi, degree,
++                         connected_geometry=False, connected_primary=False):
+     """Candidate for temporal confirmation when distant masks cannot pair.
+ 
+     Exactly one reliable near stripe must be at least 6 cm ahead of all other
+@@ -703,7 +716,8 @@ def unique_near_boundary(masks, calibration, max_forward_m, lo, hi, degree):
+     """
+     observations = []
+     for index, mask in enumerate(masks):
+-        curves = floor_curves([mask], calibration, max_forward_m, lo, hi, degree)
++        curves = floor_curves([mask], calibration, max_forward_m, lo, hi, degree,
++                              connected_geometry=connected_geometry, connected_primary=connected_primary)
+         if len(curves) != 1:
+             rows = np.nonzero(mask)[0]
+             if not len(rows) or rows.max() >= .65*mask.shape[0]:
+@@ -922,13 +936,15 @@ def classify_lanes(curves, reference_x, previous=None):
+ 
+ 
+ def metric_target(masks, calibration, lookahead=.28, previous=None, degree=3,
+-                  max_forward_m=2., path_min_m=.05, path_max_m=None):
++                  max_forward_m=2., path_min_m=.05, path_max_m=None,
++                  connected_geometry=False, connected_primary=False):
+     masks = distinct_near_masks(masks)
+     if len(masks) < 2:
+         raise ValueError('two lane boundaries required')
+     curves = []
+     path_max_m = lookahead+.20 if path_max_m is None else path_max_m
+-    projected = floor_curves(masks, calibration, max_forward_m, path_min_m, path_max_m, degree)
++    projected = floor_curves(masks, calibration, max_forward_m, path_min_m, path_max_m, degree,
++                             connected_geometry=connected_geometry, connected_primary=connected_primary)
+     rejected = []
+     for p in projected:
+         try:
+@@ -945,7 +961,8 @@ def metric_target(masks, calibration, lookahead=.28, previous=None, degree=3,
+         # member failed ordinary row/column extraction in the pair batch.
+         candidates = []
+         for mask in masks:
+-            one = floor_curves([mask], calibration, max_forward_m, path_min_m, path_max_m, degree)
++            one = floor_curves([mask], calibration, max_forward_m, path_min_m, path_max_m, degree,
++                               connected_geometry=connected_geometry, connected_primary=connected_primary)
+             if len(one) != 1:
+                 break
+             try:
+@@ -1058,11 +1075,12 @@ class MetricLaneTracker:
+     confirmation timestamp using inferred geometry.
+     """
+     def __init__(self, minimum_lane_width_m=0., width_measure_interval_s=.5, tracking_gap_s=.8,
+-                 connected_geometry=False):
++                 connected_geometry=False, connected_primary=False):
+         if not np.isfinite(tracking_gap_s) or tracking_gap_s <= 0:
+             raise ValueError('invalid tracking gap')
+         self.tracking_gap_s = tracking_gap_s
+         self.connected_geometry = bool(connected_geometry)
++        self.connected_primary = bool(connected_primary)
+         self._curve_cache = {}
+         self.confirmed = None
+         self.confirmed_at = None
+@@ -1106,7 +1124,8 @@ class MetricLaneTracker:
+             # Retain masks too: a temporary array's recycled id must not hit
+             # a different mask's cached geometry later in the same update.
+             self._curve_cache[key] = (tuple(masks), floor_curves(
+-                masks, calibration, *args, **kwargs, connected_geometry=True))
++                masks, calibration, *args, **kwargs, connected_geometry=True,
++                connected_primary=self.connected_primary))
+         return self._curve_cache[key][1]
+ 
+     def update(self, masks, calibration, now_s, lookahead=.28, timeout_s=0.,
+@@ -1219,7 +1238,9 @@ class MetricLaneTracker:
+         if len(masks) >= 2:
+             try:
+                 target = metric_target(masks, calibration, lookahead, self.previous,
+-                                       degree, max_forward_m, path_min_m, path_max_m)
++                                       degree, max_forward_m, path_min_m, path_max_m,
++                                       connected_geometry=self.connected_geometry,
++                                       connected_primary=self.connected_primary)
+             except ValueError as pair_error:
+                 self.streak = 0
+                 # A second YOLO instance need not be the opposite boundary.
+@@ -1255,7 +1276,9 @@ class MetricLaneTracker:
+                         and ('no unambiguous left/right boundary pair' in str(pair_error)
+                              or 'no common observed lane interval' in str(pair_error))):
+                     candidate = unique_near_boundary(
+-                        masks, calibration, max_forward_m, path_min_m, path_max_m, degree)
++                        masks, calibration, max_forward_m, path_min_m, path_max_m, degree,
++                        connected_geometry=self.connected_geometry,
++                        connected_primary=self.connected_primary)
+                     if candidate is not None:
+                         index, side, curve = candidate
+                         old = self.pair_hint
+diff --git a/pinky_move/pinky_move/yolo_white.py b/pinky_move/pinky_move/yolo_white.py
+index f05ac1b..db4f4fc 100644
+--- a/pinky_move/pinky_move/yolo_white.py
++++ b/pinky_move/pinky_move/yolo_white.py
+@@ -12,12 +12,13 @@ class YoloWhiteSupplement:
+     결과는 항상 CURRENT 흰 성분이며 과거 마스크를 그대로 발행하지 않는다.
+     마지막 YOLO 확인 10초, 영상 간격 0.8초를 넘으면 해당 성분은 사용할 수 없다.
+     """
+-    def __init__(self, semantic_timeout_s=10., frame_gap_s=.8):
++    def __init__(self, semantic_timeout_s=10., frame_gap_s=.8, support_interval=None):
+         self.semantic_timeout_s = semantic_timeout_s
+         self.frame_gap_s = frame_gap_s
+         self.previous_gray = None
+         self.previous_at = None
+         self.tracks = []
++        self.support_interval = support_interval
+ 
+     def update(self, frame, lane_masks, now_s, calibration, white_masks=None):
+         if not np.isfinite(now_s):
+@@ -28,11 +29,42 @@ class YoloWhiteSupplement:
+         # A white floor or broad pale object must not become an entire lane.
+         components = [m for m in components if m.shape == gray.shape and
+                       60 <= np.count_nonzero(m) <= .18*height*width]
++        unsupported = 0
++        if self.support_interval is not None:
++            # 먼 S자 출구 조각은 현재 제어 구간의 경계가 아니다. 이미지 높이가
++            # 아니라 보정된 바닥 좌표로 검사하고, 가까운 부분이 있는 긴 선은
++            # 통째로 보존한다. 과거 선을 이어 그리거나 연결하지 않는다.
++            from .robot_projection import robot_floor_points
++            lo, hi = self.support_interval
++            supported = []
++            for component in components:
++                rows, cols = np.nonzero(component)
++                pixels = np.column_stack((cols[::4], rows[::4]))
++                points = robot_floor_points(pixels, calibration, (width, height), 2.)
++                valid = np.isfinite(points).all(axis=1) & (points[:, 0] >= lo) & (points[:, 0] <= hi)
++                if np.count_nonzero(valid) >= 5:
++                    supported.append(component)
++                else:
++                    unsupported += 1
++            components = supported
+         masks = [(m > 0).astype(np.uint8) for m in lane_masks]
+-        union = np.maximum.reduce(masks) if masks else np.zeros(gray.shape, np.uint8)
+-        seed = cv2.dilate(union, np.ones((9, 9), np.uint8))
+-        current_seed = [np.count_nonzero(m & seed) >= max(20, .05*np.count_nonzero(m))
+-                        for m in components]
++        # 하나의 semantic instance가 여러 독립 흰 조각을 모두 경계로
++        # 증식시키지 않도록 instance별 하나의 유일한 대응만 완성한다.
++        current_seed = set()
++        completed_instances = set()
++        for instance, mask in enumerate(masks):
++            seed = cv2.dilate(mask, np.ones((9, 9), np.uint8))
++            candidates = []
++            for index, component in enumerate(components):
++                overlap = np.count_nonzero(component & seed)
++                area = np.count_nonzero(component)
++                if overlap >= max(20, .05*area):
++                    score = 2*overlap/max(1, area+np.count_nonzero(seed))
++                    candidates.append((score, index))
++            candidates.sort(reverse=True)
++            if candidates and (len(candidates) == 1 or candidates[0][0]-candidates[1][0] >= .05):
++                current_seed.add(candidates[0][1])
++                completed_instances.add(instance)
+         warped = []
+         if (self.previous_gray is not None and self.previous_gray.shape == gray.shape and
+                 self.previous_at is not None and 0 < now_s-self.previous_at <= self.frame_gap_s):
+@@ -50,27 +82,41 @@ class YoloWhiteSupplement:
+                                        cv2.INTER_NEAREST, borderMode=cv2.BORDER_CONSTANT)
+                     warped.append((mapped, last_semantic))
+         selected, next_tracks, history_count = [], [], 0
++        # Optical-flow도 양방향 유일 대응을 요구한다. 한 과거 선을 여러
++        # 조각으로 복제하지 않고, 같은 선의 현재 semantic 재확인을 우선한다.
++        scores = np.zeros((len(components), len(warped)))
++        for index, component in enumerate(components):
++            for old, (previous, _) in enumerate(warped):
++                scores[index, old] = np.count_nonzero(component & previous)/max(
++                    1, max(np.count_nonzero(component), np.count_nonzero(previous)))
++        consumed = set()
++        for index in current_seed:
++            if len(warped) and scores[index].max() >= .35:
++                consumed.add(int(scores[index].argmax()))
+         for index, mask in enumerate(components):
+-            semantic_at = now_s if current_seed[index] else None
++            semantic_at = now_s if index in current_seed else None
+             if semantic_at is None:
+                 candidates = []
+-                for previous, timestamp in warped:
+-                    overlap = np.count_nonzero(mask & previous)/max(
+-                        1, min(np.count_nonzero(mask), np.count_nonzero(previous)))
+-                    if overlap >= .35:
+-                        candidates.append((overlap, timestamp))
++                for old, (_, timestamp) in enumerate(warped):
++                    if old in consumed or scores[index, old] < .35:
++                        continue
++                    competing = [scores[other, old] for other in range(len(components)) if other != index]
++                    if competing and scores[index, old]-max(competing) < .1:
++                        continue
++                    candidates.append((scores[index, old], timestamp, old))
+                 candidates.sort(reverse=True)
+                 if candidates and (len(candidates) == 1 or candidates[0][0]-candidates[1][0] >= .1):
+                     semantic_at = candidates[0][1]
++                    consumed.add(candidates[0][2])
+                     history_count += 1
+             if semantic_at is not None:
+                 selected.append(mask)
+                 next_tracks.append((mask.copy(), semantic_at))
+         # Keep uncompleted YOLO observations, including nonwhite genuine lanes.
+-        retained = [mask for mask in masks if not any(
++        retained = [mask for instance, mask in enumerate(masks) if instance not in completed_instances and not any(
+             np.count_nonzero(mask & complete) >= max(10, .15*np.count_nonzero(mask))
+             for complete in selected)]
+         self.previous_gray, self.previous_at, self.tracks = gray, now_s, next_tracks
+         return selected+retained, dict(yolo=len(masks), white_current=len(selected)-history_count,
+             white_tracked=history_count, retained_yolo=len(retained),
+-            semantic_timeout_s=self.semantic_timeout_s)
++            semantic_timeout_s=self.semantic_timeout_s, unsupported_white=unsupported)
+diff --git a/pinky_move/test/test_connected_path.py b/pinky_move/test/test_connected_path.py
+index 2c2f690..54ea03c 100644
+--- a/pinky_move/test/test_connected_path.py
++++ b/pinky_move/test/test_connected_path.py
+@@ -103,6 +103,30 @@ def test_successful_axis_does_not_run_new_skeleton(monkeypatch):
+     np.testing.assert_array_equal(curves[0], p)
+ 
+ 
++def test_pair_projection_receives_connected_recovery_setting(monkeypatch):
++    import pinky_move.metric_lane as lane
++    from test_metric_lane import masks_for_lines, calibration
++    original = lane.floor_curves
++    calls = []
++    def capture(*args, **kwargs):
++        calls.append(kwargs.get('connected_geometry', False))
++        return original(*args, **kwargs)
++    monkeypatch.setattr(lane, 'floor_curves', capture)
++    lane.MetricLaneTracker(connected_geometry=True).update(
++        masks_for_lines(), calibration(), 1.)
++    assert calls and all(calls)
++
++
++def test_sim_primary_preserves_connected_corner_not_only_axis_leg(monkeypatch):
++    import pinky_move.metric_lane as lane
++    p = chain(np.array([[.14, .1], [.35,.1], [.35,-.2]]))
++    monkeypatch.setattr(lane, 'connected_floor_curve', lambda *args: [p])
++    monkeypatch.setattr(lane, '_axis_floor_curves', lambda *args: pytest.fail('axis lost connected corner'))
++    curves = lane.floor_curves([np.ones((20,20))], {}, 2., .14, .48,
++                              connected_geometry=True, connected_primary=True)
++    np.testing.assert_array_equal(curves[0], p)
++
++
+ def test_existing_long_s_success_target_is_identical_with_option():
+     from pinky_move.metric_lane import MetricLaneTracker
+     from test_connected_approach import scene
+diff --git a/pinky_move/test/test_local_lane_map.py b/pinky_move/test/test_local_lane_map.py
+index 96babd2..22b9528 100644
+--- a/pinky_move/test/test_local_lane_map.py
++++ b/pinky_move/test/test_local_lane_map.py
+@@ -31,6 +31,30 @@ def test_recent_map_confirms_only_near_current_path():
+     assert len(target['center_path'])==80
+ 
+ 
++def test_map_role_matches_current_transformed_pixels_not_image_side():
++    m, obs, _ = populated()
++    pose = np.array([.02, .12, 0.])
++    current = obs['curve']-pose[:2]
++    assert np.all(current[:,1]<0)  # 화면 중심 반대편으로 이동해도 같은 실관측 선.
++    assert m.measured_side(current, 1.4, pose) == 'left'
++    assert m.measured_side(current, 11.3, pose) is None
++    assert m.measured_side(current+[0., .05], 1.4, pose) is None
++    assert m.measured_side(current[::-1], 1.4, pose) is None
++
++
++def test_map_role_requires_two_unique_times_and_unique_side():
++    m = LocalLaneMap()
++    obs, _ = scene()
++    m.remember(obs, 1., np.zeros(3))
++    m.remember(obs, 1., np.zeros(3))
++    assert m.measured_side(obs['curve'], 1.4, np.zeros(3)) is None
++    m.remember(obs, 1.2, np.zeros(3))
++    assert m.measured_side(obs['curve'], 1.4, np.zeros(3)) == 'left'
++    for t in (1.,1.2):
++        m.remember(dict(obs, side='right'), t, np.zeros(3))
++    assert m.measured_side(obs['curve'], 1.4, np.zeros(3)) is None
++
++
+ def test_odom_translation_keeps_measured_world_boundary():
+     m,obs,target=populated()
+     pose=np.array([.02,0.,0.])
+diff --git a/pinky_move/test/test_staged_corner.py b/pinky_move/test/test_staged_corner.py
+index d3e9141..f88d306 100644
+--- a/pinky_move/test/test_staged_corner.py
++++ b/pinky_move/test/test_staged_corner.py
+@@ -82,6 +82,57 @@ def test_short_observed_entry_allows_supported_pivot_but_not_extrapolation():
+         p._start_staged(obs, f, np.zeros(3), 1.)
+ 
+ 
++def test_cropped_entry_uses_two_recent_measured_map_supports():
++    from pinky_move.lane_corner import classify_boundary
++    p = CornerPolicy(CornerConfig(staged_turn=True, clearance_m=0.))
++    full = dict(observation(), width=.20)
++    feature = classify_boundary(full['curve'], p.config)
++    cropped = dict(feature, entry=feature['corner']-.08*feature['tin'])
++    p.local_lane_map.remember(full, .6, np.zeros(3))
++    # One old line is not enough to invent a supported entry.
++    assert p._mapped_entry_support(full, cropped, np.zeros(3), 1.) is cropped
++    p.local_lane_map.remember(full, .8, np.zeros(3))
++    recovered = p._mapped_entry_support(full, cropped, np.zeros(3), 1.)
++    assert recovered['mapped_entry_support_m'] > .02
++    np.testing.assert_array_equal(recovered['corner'], cropped['corner'])
++    np.testing.assert_array_equal(recovered['tout'], cropped['tout'])
++    p._start_staged(full, cropped, np.zeros(3), 1.)
++    assert p.staged is not None
++    assert p._mapped_entry_support(full, cropped, np.zeros(3), 3.) is cropped
++
++
++def test_staged_current_fragment_requires_unique_observed_match(monkeypatch):
++    import pinky_move.metric_lane as lane
++    p, obs, _ = prepared()
++    monkeypatch.setattr(lane, 'connected_floor_curve', lambda *args: [obs['curve']])
++    assert p.staged_observation([np.ones((20,20))], {}, np.zeros(3))['side'] == obs['side']
++    assert p.staged_observation([np.ones((20,20)), np.ones((20,20))], {}, np.zeros(3)) is None
++    monkeypatch.setattr(lane, 'connected_floor_curve', lambda *args: [obs['curve']+[0., .2]])
++    assert p.staged_observation([np.ones((20,20))], {}, np.zeros(3)) is None
++
++
++def test_newly_visible_long_exit_does_not_dilute_corner_correspondence():
++    from pinky_move.lane_corner import trim_corner_endpoint_extensions, match_corner_fragment
++    from test_lane_corner import boundary
++    reference = boundary()
++    current = np.vstack((reference, np.column_stack((np.full(300,.5), np.linspace(.205,2.,300)))))
++    assert not match_corner_fragment(current, reference)['fragment_ok']
++    clipped = trim_corner_endpoint_extensions(current, reference)
++    assert match_corner_fragment(clipped, reference)['fragment_ok']
++    assert np.max(clipped[:,1]) <= .205
++
++
++def test_displaced_parallel_exit_is_not_an_endpoint_extension():
++    from pinky_move.lane_corner import trim_corner_endpoint_extensions, match_corner_fragment
++    from test_lane_corner import boundary
++    reference = boundary()
++    current = reference.copy()
++    current[80:,0] += .1
++    clipped = trim_corner_endpoint_extensions(current, reference)
++    np.testing.assert_array_equal(clipped, current)
++    assert not match_corner_fragment(clipped, reference)['fragment_ok']
++
++
+ def test_rejected_staging_keeps_valid_distant_ordinary_path(monkeypatch):
+     p = CornerPolicy(CornerConfig(staged_turn=True, clearance_m=0.))
+     def reject(*args):
+@@ -95,6 +146,20 @@ def test_rejected_staging_keeps_valid_distant_ordinary_path(monkeypatch):
+     assert p.block_recovery
+ 
+ 
++def test_valid_centre_approaches_before_distant_corner_is_committed():
++    policy = CornerPolicy(CornerConfig(staged_turn=True, clearance_m=0.))
++    obs = observation()
++    current = dict(ordinary(), center_path=np.column_stack((
++        np.linspace(.14,.3,20), np.zeros(20))).tolist())
++    for now in (1.,1.2,1.4):
++        target = policy.update(obs, current, now, np.zeros(3), .22, .25)
++        assert target is not None and not target.get('corner_staged')
++    assert policy.staged is None and not policy.block_recovery
++    # No valid centre remains: the same confirmed measured corner can commit.
++    target = policy.update(obs, None, 1.6, np.zeros(3), .22, .25)
++    assert target['corner_staged']
++
++
+ @pytest.mark.parametrize('sign', [1, -1])
+ @pytest.mark.parametrize('travel', [.001, .003, .0049])
+ def test_visible_entry_origin_is_not_robot_distance(sign, travel):
+diff --git a/pinky_move/test/test_staged_target_jump.py b/pinky_move/test/test_staged_target_jump.py
+index 13b4f71..a9b8baf 100644
+--- a/pinky_move/test/test_staged_target_jump.py
++++ b/pinky_move/test/test_staged_target_jump.py
+@@ -34,3 +34,40 @@ def test_target_jump_separation_preserves_all_corner_guards(controller, case, er
+         assert node.corner_policy.debug['ordinary_target_ignored']
+     else:
+         assert count == 0 and node.metric_target is None
++
++
++def test_hybrid_staged_skeleton_replaces_incorrect_axis_observation(controller):
++    node = controller
++    node.safety_clock.seconds = 1.6
++    node.robot_calibration = {'test': True}
++    node.parameters.update(corner_enabled=True, simulation_yolo_white=True)
++    policy, measured, _ = prepared()
++    node.corner_policy = policy
++    node._corner_pose_for_frame = lambda *args: np.zeros(3)
++    def reject(*args, **kwargs):
++        raise ValueError('center_path curve folds back')
++    wrong_axis = dict(measured, curve=measured['curve']+[0., .1])
++    node.metric_tracker = SimpleNamespace(update=reject, last_observation=wrong_axis)
++    policy.staged_observation = lambda *args: measured
++    assert node._update_lane_command([np.zeros((20,20),np.uint8)], 20,
++                                     node.safety_clock.now()) == 1
++    assert node.metric_target['corner_staged']
++
++
++def test_hybrid_forward_target_failure_keeps_current_corner_evidence(controller):
++    node = controller
++    node.robot_calibration = {'test': True}
++    node.parameters.update(corner_enabled=True, simulation_yolo_white=True)
++    node.corner_policy = CornerPolicy(CornerConfig(staged_turn=True, clearance_m=0.))
++    node._corner_pose_for_frame = lambda *args: np.zeros(3)
++    def reject(*args, **kwargs):
++        raise ValueError('no forward centre path')
++    node.metric_tracker = SimpleNamespace(update=reject, last_observation=observation())
++    node.corner_policy.staged_observation = lambda *args: None
++    masks = [np.zeros((20,20),np.uint8)]
++    for now in (1., 1.2):
++        node.safety_clock.seconds = now
++        assert node._update_lane_command(masks, 20, node.safety_clock.now()) == 0
++    node.safety_clock.seconds = 1.4
++    assert node._update_lane_command(masks, 20, node.safety_clock.now()) == 1
++    assert node.metric_target['corner_staged']
+diff --git a/pinky_move/test/test_yolo_white.py b/pinky_move/test/test_yolo_white.py
+index ce805f2..2f7d771 100644
+--- a/pinky_move/test/test_yolo_white.py
++++ b/pinky_move/test/test_yolo_white.py
+@@ -73,6 +73,51 @@ def test_unrelated_white_stripe_is_not_supplemented():
+     np.testing.assert_array_equal(masks[0], white)
+ 
+ 
++def test_distant_tracked_fragment_cannot_block_current_control_interval(monkeypatch):
++    import pinky_move.robot_projection as projection
++    frame, white, seed = scene()
++    distant = np.roll(white, 110, axis=1)
++    monkeypatch.setattr(projection, 'robot_floor_points', lambda pixels, *args:
++        np.column_stack((np.where(pixels[:, 0] < 100, .22, .56), np.zeros(len(pixels)))))
++    helper = YoloWhiteSupplement(support_interval=(.14, .48))
++    helper.update(frame, [seed, distant], 1., {}, [white, distant])
++    masks, info = helper.update(frame, [seed], 1.2, {}, [white, distant])
++    assert len(masks) == 1 and info['unsupported_white'] == 1
++    np.testing.assert_array_equal(masks[0], white)
++
++
++def test_supported_long_component_keeps_far_exit_pixels(monkeypatch):
++    import pinky_move.robot_projection as projection
++    frame, white, seed = scene()
++    monkeypatch.setattr(projection, 'robot_floor_points', lambda pixels, *args:
++        np.column_stack((np.where(pixels[:, 1] > 80, .22, .80), np.zeros(len(pixels)))))
++    masks, _ = YoloWhiteSupplement(support_interval=(.14, .48)).update(
++        frame, [seed], 1., {}, [white])
++    np.testing.assert_array_equal(masks[0], white)
++
++
++def test_one_yolo_instance_cannot_create_multiple_white_boundaries():
++    frame, white, _ = scene()
++    other = np.roll(white, 110, axis=1)
++    model = white.copy()
++    model[55:68] |= other[55:68]
++    masks, info = YoloWhiteSupplement().update(frame, [model], 1., {}, [white, other])
++    assert len(masks) == 1 and info['white_current'] == 1 and info['retained_yolo'] == 0
++    np.testing.assert_array_equal(masks[0], white)
++
++
++def test_one_history_track_cannot_duplicate_into_two_current_fragments():
++    frame, white, seed = scene()
++    helper = YoloWhiteSupplement()
++    helper.update(frame, [seed], 1., {}, [white])
++    large, small = white.copy(), white.copy()
++    large[:69] = 0
++    small[69:] = 0
++    masks, info = helper.update(frame, [], 1.2, {}, [large, small])
++    assert len(masks) == 1 and info['white_tracked'] == 1
++    np.testing.assert_array_equal(masks[0], large)
++
++
+ @pytest.mark.parametrize('mode', ['remote_inference', 'remote_geometry', 'simulation_white_lane'])
+ def test_remote_or_white_only_cannot_bypass_hybrid_guard(controller, mode):
+     controller.parameters.update(simulation_yolo_white=True, image_topic='/lane_sim/camera/image_raw')
+diff --git a/pinky_move/tools/run_opencv_physics_suite.py b/pinky_move/tools/run_opencv_physics_suite.py
+index c49353f..c6848e1 100644
+--- a/pinky_move/tools/run_opencv_physics_suite.py
++++ b/pinky_move/tools/run_opencv_physics_suite.py
+@@ -18,6 +18,7 @@ def main():
+     parser.add_argument('--perception', choices=('opencv', 'yolo', 'hybrid'), default='opencv')
+     parser.add_argument('--connected-geometry', action='store_true')
+     parser.add_argument('--resume', action='store_true', help='완료된 trial.json을 보존하고 미시작 시험만 재개')
++    parser.add_argument('--cases', choices=('all', 's'), default='all')
+     args = parser.parse_args()
+     if not 1 <= args.repeats <= 5 or not 1 <= args.seconds <= 300:
+         parser.error('repeats: 1..5, seconds: 1..300')
+@@ -28,6 +29,8 @@ def main():
+     # Three stripes are exercised from BOTH lanes, not just one favourable view.
+     for course, lanes, lane in [('left90', 1, 0), ('right90', 1, 0),
+                                ('s_sharp', 2, 0), ('s_sharp', 2, 1)]:
++        if args.cases == 's' and course != 's_sharp':
++            continue
+         for repeat in range(1, args.repeats+1):
+             name = f'{course}_{args.perception}_lane{lane}_r{repeat}'
+             output = args.output/name
+

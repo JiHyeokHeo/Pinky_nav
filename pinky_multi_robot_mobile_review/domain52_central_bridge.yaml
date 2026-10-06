@@ -1,0 +1,20 @@
+# One bridge process for the production topology:
+# Central controller Domain 52, pinky1 Domain 20, pinky2 Domain 22.
+# domain_bridge supports topics only. NavigateToPose is relayed by
+# pinky_multi_robot nav2_action_proxy instead of this YAML file.
+name: domain52_central_bridge
+from_domain: 20
+to_domain: 52
+
+topics:
+  # Domain 20 /amcl_pose -> Domain 52 /pinky1/amcl_pose
+  /amcl_pose:
+    type: geometry_msgs/msg/PoseWithCovarianceStamped
+    remap: /pinky1/amcl_pose
+
+  # Domain 22 /amcl_pose -> Domain 52 /pinky2/amcl_pose
+  /amcl_pose:
+    type: geometry_msgs/msg/PoseWithCovarianceStamped
+    from_domain: 22
+    to_domain: 52
+    remap: /pinky2/amcl_pose

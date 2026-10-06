@@ -1,0 +1,98 @@
+{
+  "course": "left90",
+  "physics_trial": true,
+  "controller_enabled": true,
+  "yolo_enabled": true,
+  "perception": "YOLO + white supplement",
+  "lane_count": 1,
+  "stripe_count": 2,
+  "error": null,
+  "raw_frames": 539,
+  "debug_frames": 76,
+  "camera_intrinsics": [
+    [
+      566.0,
+      0.0,
+      320.0
+    ],
+    [
+      0.0,
+      566.0,
+      240.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "nonzero_commands": 603,
+  "status_counts": {
+    "DISABLED": 2,
+    "WAITING_FOR_LANE": 8,
+    "FOLLOWING": 111
+  },
+  "travelled_m": 1.8742446759681919,
+  "net_displacement_m": 1.37591104874834,
+  "max_cross_track_m": 0.04360256681237629,
+  "final_progress_m": 1.9022341232724216,
+  "final_pose": {
+    "t": 40.789626854999824,
+    "x": 0.7519891882436145,
+    "y": 1.1522341232712983,
+    "z": -8.462025023285595e-09,
+    "yaw": 1.6078590032459072,
+    "stamp": 35.53,
+    "frame": "world",
+    "child": "base_link"
+  },
+  "reached_finish": true,
+  "lane_departure": false,
+  "passed": true,
+  "video_exports": [
+    {
+      "path": "pinky_move/reports/yolo_white_20261006/s_fix_final/left90_hybrid_lane0_r1/raw_frames.mp4",
+      "changed": true,
+      "original": "pinky_move/reports/yolo_white_20261006/s_fix_final/left90_hybrid_lane0_r1/original_mp4v/raw_frames.mp4",
+      "before": {
+        "codec_name": "mpeg4",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "539",
+        "duration": 35.933333
+      },
+      "after": {
+        "codec_name": "h264",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "539",
+        "duration": 35.933333
+      },
+      "full_decode_ok": true
+    },
+    {
+      "path": "pinky_move/reports/yolo_white_20261006/s_fix_final/left90_hybrid_lane0_r1/debug_frames.mp4",
+      "changed": true,
+      "original": "pinky_move/reports/yolo_white_20261006/s_fix_final/left90_hybrid_lane0_r1/original_mp4v/debug_frames.mp4",
+      "before": {
+        "codec_name": "mpeg4",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "76",
+        "duration": 5.066667
+      },
+      "after": {
+        "codec_name": "h264",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "76",
+        "duration": 5.066667
+      },
+      "full_decode_ok": true
+    }
+  ]
+}

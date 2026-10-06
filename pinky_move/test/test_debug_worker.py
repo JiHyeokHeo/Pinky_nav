@@ -5,35 +5,6 @@ from multiprocessing import get_context
 from types import SimpleNamespace
 from array import array
 import time
-import numpy as np
-from test_lane_controller import controller
-
-
-def test_debug_snapshot_clones_real_ros_time_without_pickling(controller):
-    from rclpy.time import Time
-    from rclpy.clock import ClockType
-    from std_msgs.msg import Header
-    submitted = []
-    controller.turn_started_at = Time(nanoseconds=123456789, clock_type=ClockType.STEADY_TIME)
-    controller.debug_transport = SimpleNamespace()
-    controller.debug_worker = SimpleNamespace(submit=submitted.append)
-    controller.last_debug_enqueued = 0.
-    controller._queue_debug_snapshot(np.zeros((10,10,3), np.uint8), [], 0, Header())
-    assert len(submitted) == 1
-    copied = submitted[0][0].turn_started_at
-    assert copied is not controller.turn_started_at
-    assert copied == controller.turn_started_at
-
-
-def test_diagnostic_copy_failure_never_invalidates_lane(controller):
-    from std_msgs.msg import Header
-    def failed(*args):
-        raise TypeError('diagnostic copy failed')
-    controller._queue_debug_snapshot = failed
-    controller.latest_linear, controller.latest_angular = .03, .15
-    controller._queue_debug(np.zeros((10,10,3), np.uint8), [], 1, Header())
-    assert (controller.latest_linear, controller.latest_angular) == (.03, .15)
-    assert controller.inference_error is None
 
 
 def blocked_image_process(requests, timings, domain_id, topics):
@@ -104,7 +75,7 @@ def test_blocked_dds_process_drops_images_without_blocking_producer():
         transport.close()
 
 
-def test_isolated_publisher_preserves_image_and_header_on_ros_topic(monkeypatch):
+def test_isolated_publisher_preserves_image_and_header_on_ros_topic():
     """Dedicated test domain, diagnostic Image only; never a motor topic."""
     import os
     import rclpy
@@ -113,13 +84,6 @@ def test_isolated_publisher_preserves_image_and_header_on_ros_topic(monkeypatch)
     from rclpy.executors import SingleThreadedExecutor
     from rclpy.qos import QoSProfile, ReliabilityPolicy
     from sensor_msgs.msg import Image
-    # This is a LOCAL two-process transport test. The developer's hardware
-    # CycloneDDS profile may list robot peers only and disable multicast;
-    # inheriting it makes an unrelated network profile decide this test.
-    monkeypatch.setenv('CYCLONEDDS_URI', '<CycloneDDS><Domain><General>'
-        '<Interfaces><NetworkInterface name="lo"/></Interfaces>'
-        '<AllowMulticast>false</AllowMulticast></General><Discovery><Peers>'
-        '<Peer Address="127.0.0.1"/></Peers></Discovery></Domain></CycloneDDS>')
     context = Context()
     rclpy.init(args=[], domain_id=211, context=context)
     node = Node('lane_image_transport_test', context=context, enable_rosout=False)

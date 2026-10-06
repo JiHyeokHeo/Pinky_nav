@@ -1,0 +1,133 @@
+{
+  "course": "s_sharp",
+  "lane_width_m": 0.2,
+  "lane_count": 2,
+  "stripe_count": 3,
+  "target_lane": 1,
+  "perception": "YOLO + white supplement",
+  "stripe_geometry": "continuous miter-joined triangle mesh",
+  "stripe_width_m": 0.02,
+  "target_lane_indexing": "rightmost=0; increment towards left",
+  "centre": [
+    [
+      -0.35,
+      0.0
+    ],
+    [
+      0.65,
+      0.0
+    ],
+    [
+      0.65,
+      0.5
+    ],
+    [
+      1.35,
+      0.5
+    ],
+    [
+      1.35,
+      0.0
+    ],
+    [
+      2.1,
+      0.0
+    ]
+  ],
+  "boundaries": {
+    "outer_0": [
+      [
+        -0.35,
+        -0.30000000000000004
+      ],
+      [
+        0.9500000000000001,
+        -0.30000000000000004
+      ],
+      [
+        0.9500000000000001,
+        0.19999999999999996
+      ],
+      [
+        1.05,
+        0.19999999999999996
+      ],
+      [
+        1.05,
+        -0.30000000000000004
+      ],
+      [
+        2.1,
+        -0.30000000000000004
+      ],
+      [
+        2.6,
+        -0.30000000000000004
+      ]
+    ],
+    "right": [
+      [
+        -0.35,
+        -0.1
+      ],
+      [
+        0.75,
+        -0.1
+      ],
+      [
+        0.75,
+        0.4
+      ],
+      [
+        1.25,
+        0.4
+      ],
+      [
+        1.25,
+        -0.1
+      ],
+      [
+        2.1,
+        -0.1
+      ],
+      [
+        2.6,
+        -0.1
+      ]
+    ],
+    "left": [
+      [
+        -0.35,
+        0.1
+      ],
+      [
+        0.55,
+        0.1
+      ],
+      [
+        0.55,
+        0.6
+      ],
+      [
+        1.4500000000000002,
+        0.6
+      ],
+      [
+        1.4500000000000002,
+        0.1
+      ],
+      [
+        2.1,
+        0.1
+      ],
+      [
+        2.6,
+        0.1
+      ]
+    ]
+  },
+  "ground_truth_topic": "/lane_sim/ground_truth",
+  "calibration": "/tmp/pinky-opencv-suite-l9tchi1x/simulation_calibration.json",
+  "description": "/home/tory/ws/pinky_pro/install/pinky_description/share/pinky_description",
+  "notes": "Physics model reused from URDF. Camera/paint/lighting are idealised, no physical success claim."
+}

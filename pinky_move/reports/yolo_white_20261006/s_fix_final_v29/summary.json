@@ -1,0 +1,623 @@
+{
+  "passed": 0,
+  "total": 2,
+  "actual_robot_driven": false,
+  "test_count": 656,
+  "failed_tests": 0,
+  "results": [
+    {
+      "run": "s_sharp_hybrid_lane0_r1",
+      "before": {
+        "course": "s_sharp",
+        "physics_trial": true,
+        "controller_enabled": true,
+        "yolo_enabled": true,
+        "perception": "YOLO + white supplement",
+        "lane_count": 2,
+        "stripe_count": 3,
+        "error": null,
+        "raw_frames": 907,
+        "debug_frames": 128,
+        "camera_intrinsics": [
+          [
+            566.0,
+            0.0,
+            320.0
+          ],
+          [
+            0.0,
+            566.0,
+            240.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "nonzero_commands": 439,
+        "status_counts": {
+          "DISABLED": 2,
+          "WAITING_FOR_LANE": 143,
+          "FOLLOWING": 85
+        },
+        "travelled_m": 0.9743530942961929,
+        "net_displacement_m": 0.7657763615630592,
+        "max_cross_track_m": 0.03463713502528776,
+        "final_progress_m": 1.014029105210688,
+        "final_pose": {
+          "t": 67.618068903,
+          "x": 0.6737182248444578,
+          "y": 0.3640291052095649,
+          "z": -8.851988809715041e-09,
+          "yaw": 1.675065761812316,
+          "stamp": 59.84,
+          "frame": "world",
+          "child": "base_link"
+        },
+        "reached_finish": false,
+        "lane_departure": false,
+        "passed": false,
+        "video_exports": [
+          {
+            "path": "pinky_move/reports/yolo_white_20261006/staged/s_sharp_hybrid_lane0_r1/raw_frames.mp4",
+            "changed": true,
+            "original": "pinky_move/reports/yolo_white_20261006/staged/s_sharp_hybrid_lane0_r1/original_mp4v/raw_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "907",
+              "duration": 60.466667
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "907",
+              "duration": 60.466667
+            },
+            "full_decode_ok": true
+          },
+          {
+            "path": "pinky_move/reports/yolo_white_20261006/staged/s_sharp_hybrid_lane0_r1/debug_frames.mp4",
+            "changed": true,
+            "original": "pinky_move/reports/yolo_white_20261006/staged/s_sharp_hybrid_lane0_r1/original_mp4v/debug_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "128",
+              "duration": 8.533333
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "128",
+              "duration": 8.533333
+            },
+            "full_decode_ok": true
+          }
+        ]
+      },
+      "after_65s": {
+        "course": "s_sharp",
+        "physics_trial": true,
+        "controller_enabled": true,
+        "yolo_enabled": true,
+        "perception": "YOLO + white supplement",
+        "lane_count": 2,
+        "stripe_count": 3,
+        "error": null,
+        "raw_frames": 917,
+        "debug_frames": 128,
+        "camera_intrinsics": [
+          [
+            566.0,
+            0.0,
+            320.0
+          ],
+          [
+            0.0,
+            566.0,
+            240.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "nonzero_commands": 906,
+        "status_counts": {
+          "DISABLED": 2,
+          "WAITING_FOR_LANE": 27,
+          "FOLLOWING": 117,
+          "SAFETY_STOP": 1,
+          "CORNER_STAGED": 112
+        },
+        "travelled_m": 1.697457802887987,
+        "net_displacement_m": 1.344168610533382,
+        "max_cross_track_m": 0.03879718239018504,
+        "final_progress_m": 1.748200988398287,
+        "final_pose": {
+          "t": 67.53709908700012,
+          "x": 1.2482009883971639,
+          "y": 0.49878206273359743,
+          "z": -8.413850232687647e-09,
+          "yaw": -0.12027555729388811,
+          "stamp": 60.622,
+          "frame": "world",
+          "child": "base_link"
+        },
+        "reached_finish": false,
+        "lane_departure": false,
+        "passed": false,
+        "video_exports": [
+          {
+            "path": "pinky_move/reports/yolo_white_20261006/s_fix_v2/s_sharp_hybrid_lane0_r1/raw_frames.mp4",
+            "changed": true,
+            "original": "pinky_move/reports/yolo_white_20261006/s_fix_v2/s_sharp_hybrid_lane0_r1/original_mp4v/raw_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "917",
+              "duration": 61.133333
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "917",
+              "duration": 61.133333
+            },
+            "full_decode_ok": true
+          },
+          {
+            "path": "pinky_move/reports/yolo_white_20261006/s_fix_v2/s_sharp_hybrid_lane0_r1/debug_frames.mp4",
+            "changed": true,
+            "original": "pinky_move/reports/yolo_white_20261006/s_fix_v2/s_sharp_hybrid_lane0_r1/original_mp4v/debug_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "128",
+              "duration": 8.533333
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "128",
+              "duration": 8.533333
+            },
+            "full_decode_ok": true
+          }
+        ]
+      },
+      "after_200s": {
+        "course": "s_sharp",
+        "physics_trial": true,
+        "controller_enabled": true,
+        "yolo_enabled": true,
+        "perception": "YOLO + white supplement",
+        "lane_count": 2,
+        "stripe_count": 3,
+        "error": null,
+        "raw_frames": 2879,
+        "debug_frames": 341,
+        "camera_intrinsics": [
+          [
+            566.0,
+            0.0,
+            320.0
+          ],
+          [
+            0.0,
+            566.0,
+            240.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "nonzero_commands": 274,
+        "status_counts": {
+          "DISABLED": 2,
+          "WAITING_FOR_LANE": 293,
+          "FOLLOWING": 50,
+          "SAFETY_STOP": 11,
+          "CORNER_STAGED": 27
+        },
+        "travelled_m": 0.8514506893142273,
+        "net_displacement_m": 0.7258765445368215,
+        "max_cross_track_m": 0.034298609194313046,
+        "final_progress_m": 0.8921408089572093,
+        "final_pose": {
+          "t": 202.98397968099925,
+          "x": 0.6842986091943131,
+          "y": 0.2421408089560862,
+          "z": -8.699870502919169e-09,
+          "yaw": 1.5596702312888133,
+          "stamp": 189.958,
+          "frame": "world",
+          "child": "base_link"
+        },
+        "reached_finish": false,
+        "lane_departure": false,
+        "passed": false,
+        "video_exports": [
+          {
+            "path": "pinky_move/reports/yolo_white_20261006/s_fix_final_v29/s_sharp_hybrid_lane0_r1/raw_frames.mp4",
+            "changed": true,
+            "original": "pinky_move/reports/yolo_white_20261006/s_fix_final_v29/s_sharp_hybrid_lane0_r1/original_mp4v/raw_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "2879",
+              "duration": 191.933333
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "2879",
+              "duration": 191.933333
+            },
+            "full_decode_ok": true
+          },
+          {
+            "path": "pinky_move/reports/yolo_white_20261006/s_fix_final_v29/s_sharp_hybrid_lane0_r1/debug_frames.mp4",
+            "changed": true,
+            "original": "pinky_move/reports/yolo_white_20261006/s_fix_final_v29/s_sharp_hybrid_lane0_r1/original_mp4v/debug_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "341",
+              "duration": 22.733333
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "341",
+              "duration": 22.733333
+            },
+            "full_decode_ok": true
+          }
+        ]
+      },
+      "diagnostics": {
+        "status_samples": 383,
+        "geometry_white_samples": 0,
+        "geometry_without_yolo_samples": 0,
+        "inference_failure_samples": 0
+      }
+    },
+    {
+      "run": "s_sharp_hybrid_lane1_r1",
+      "before": {
+        "course": "s_sharp",
+        "physics_trial": true,
+        "controller_enabled": true,
+        "yolo_enabled": true,
+        "perception": "YOLO + white supplement",
+        "lane_count": 2,
+        "stripe_count": 3,
+        "error": null,
+        "raw_frames": 898,
+        "debug_frames": 131,
+        "camera_intrinsics": [
+          [
+            566.0,
+            0.0,
+            320.0
+          ],
+          [
+            0.0,
+            566.0,
+            240.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "nonzero_commands": 65,
+        "status_counts": {
+          "DISABLED": 2,
+          "WAITING_FOR_LANE": 244,
+          "FOLLOWING": 12
+        },
+        "travelled_m": 0.3938358048960258,
+        "net_displacement_m": 0.3938353701604956,
+        "max_cross_track_m": 0.0005945380930449841,
+        "final_progress_m": 0.39383492139970333,
+        "final_pose": {
+          "t": 67.57538181899997,
+          "x": 0.39383492139858023,
+          "y": -0.0005945380930449841,
+          "z": -9.172012267537772e-09,
+          "yaw": -0.0023171513722148973,
+          "stamp": 59.262,
+          "frame": "world",
+          "child": "base_link"
+        },
+        "reached_finish": false,
+        "lane_departure": false,
+        "passed": false,
+        "video_exports": [
+          {
+            "path": "pinky_move/reports/yolo_white_20261006/staged/s_sharp_hybrid_lane1_r1/raw_frames.mp4",
+            "changed": true,
+            "original": "pinky_move/reports/yolo_white_20261006/staged/s_sharp_hybrid_lane1_r1/original_mp4v/raw_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "898",
+              "duration": 59.866667
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "898",
+              "duration": 59.866667
+            },
+            "full_decode_ok": true
+          },
+          {
+            "path": "pinky_move/reports/yolo_white_20261006/staged/s_sharp_hybrid_lane1_r1/debug_frames.mp4",
+            "changed": true,
+            "original": "pinky_move/reports/yolo_white_20261006/staged/s_sharp_hybrid_lane1_r1/original_mp4v/debug_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "131",
+              "duration": 8.733333
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "131",
+              "duration": 8.733333
+            },
+            "full_decode_ok": true
+          }
+        ]
+      },
+      "after_65s": {
+        "course": "s_sharp",
+        "physics_trial": true,
+        "controller_enabled": true,
+        "yolo_enabled": true,
+        "perception": "YOLO + white supplement",
+        "lane_count": 2,
+        "stripe_count": 3,
+        "error": null,
+        "raw_frames": 911,
+        "debug_frames": 134,
+        "camera_intrinsics": [
+          [
+            566.0,
+            0.0,
+            320.0
+          ],
+          [
+            0.0,
+            566.0,
+            240.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "nonzero_commands": 936,
+        "status_counts": {
+          "DISABLED": 2,
+          "WAITING_FOR_LANE": 25,
+          "FOLLOWING": 96,
+          "SAFETY_STOP": 1,
+          "CORNER_STAGED": 158
+        },
+        "travelled_m": 1.6813165840300657,
+        "net_displacement_m": 1.3305580063318054,
+        "max_cross_track_m": 0.0378017132259163,
+        "final_progress_m": 1.7331291085259464,
+        "final_pose": {
+          "t": 67.65606715600006,
+          "x": 1.2331291085248235,
+          "y": 0.49977716026212404,
+          "z": -8.70170338228698e-09,
+          "yaw": -0.0009294614830445303,
+          "stamp": 60.112,
+          "frame": "world",
+          "child": "base_link"
+        },
+        "reached_finish": false,
+        "lane_departure": false,
+        "passed": false,
+        "video_exports": [
+          {
+            "path": "pinky_move/reports/yolo_white_20261006/s_fix_v2/s_sharp_hybrid_lane1_r1/raw_frames.mp4",
+            "changed": true,
+            "original": "pinky_move/reports/yolo_white_20261006/s_fix_v2/s_sharp_hybrid_lane1_r1/original_mp4v/raw_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "911",
+              "duration": 60.733333
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "911",
+              "duration": 60.733333
+            },
+            "full_decode_ok": true
+          },
+          {
+            "path": "pinky_move/reports/yolo_white_20261006/s_fix_v2/s_sharp_hybrid_lane1_r1/debug_frames.mp4",
+            "changed": true,
+            "original": "pinky_move/reports/yolo_white_20261006/s_fix_v2/s_sharp_hybrid_lane1_r1/original_mp4v/debug_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "134",
+              "duration": 8.933333
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "134",
+              "duration": 8.933333
+            },
+            "full_decode_ok": true
+          }
+        ]
+      },
+      "after_200s": {
+        "course": "s_sharp",
+        "physics_trial": true,
+        "controller_enabled": true,
+        "yolo_enabled": true,
+        "perception": "YOLO + white supplement",
+        "lane_count": 2,
+        "stripe_count": 3,
+        "error": null,
+        "raw_frames": 2734,
+        "debug_frames": 452,
+        "camera_intrinsics": [
+          [
+            566.0,
+            0.0,
+            320.0
+          ],
+          [
+            0.0,
+            566.0,
+            240.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "nonzero_commands": 272,
+        "status_counts": {
+          "DISABLED": 2,
+          "WAITING_FOR_LANE": 481,
+          "FOLLOWING": 49,
+          "SAFETY_STOP": 17,
+          "CORNER_STAGED": 21
+        },
+        "travelled_m": 0.8600755470138328,
+        "net_displacement_m": 0.728240135222806,
+        "max_cross_track_m": 0.03568414275423881,
+        "final_progress_m": 0.8955579875475282,
+        "final_pose": {
+          "t": 202.6178108309996,
+          "x": 0.68559096354893,
+          "y": 0.2455579875464052,
+          "z": -8.699929764295972e-09,
+          "yaw": 1.5833474881838492,
+          "stamp": 180.948,
+          "frame": "world",
+          "child": "base_link"
+        },
+        "reached_finish": false,
+        "lane_departure": false,
+        "passed": false,
+        "video_exports": [
+          {
+            "path": "pinky_move/reports/yolo_white_20261006/s_fix_final_v29/s_sharp_hybrid_lane1_r1/raw_frames.mp4",
+            "changed": true,
+            "original": "pinky_move/reports/yolo_white_20261006/s_fix_final_v29/s_sharp_hybrid_lane1_r1/original_mp4v/raw_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "2734",
+              "duration": 182.266667
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "2734",
+              "duration": 182.266667
+            },
+            "full_decode_ok": true
+          },
+          {
+            "path": "pinky_move/reports/yolo_white_20261006/s_fix_final_v29/s_sharp_hybrid_lane1_r1/debug_frames.mp4",
+            "changed": true,
+            "original": "pinky_move/reports/yolo_white_20261006/s_fix_final_v29/s_sharp_hybrid_lane1_r1/original_mp4v/debug_frames.mp4",
+            "before": {
+              "codec_name": "mpeg4",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "452",
+              "duration": 30.133333
+            },
+            "after": {
+              "codec_name": "h264",
+              "width": 640,
+              "height": 480,
+              "pix_fmt": "yuv420p",
+              "nb_frames": "452",
+              "duration": 30.133333
+            },
+            "full_decode_ok": true
+          }
+        ]
+      },
+      "diagnostics": {
+        "status_samples": 570,
+        "geometry_white_samples": 0,
+        "geometry_without_yolo_samples": 0,
+        "inference_failure_samples": 1
+      }
+    }
+  ]
+}

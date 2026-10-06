@@ -1,0 +1,7 @@
+{
+  "perception": "hybrid",
+  "connected_geometry": true,
+  "semantic_path": true,
+  "seconds": 120.0,
+  "domain": 172
+}

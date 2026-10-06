@@ -1,0 +1,100 @@
+{
+  "course": "s_sharp",
+  "physics_trial": true,
+  "controller_enabled": true,
+  "yolo_enabled": true,
+  "perception": "YOLO + white supplement",
+  "lane_count": 2,
+  "stripe_count": 3,
+  "error": null,
+  "raw_frames": 2814,
+  "debug_frames": 378,
+  "camera_intrinsics": [
+    [
+      566.0,
+      0.0,
+      320.0
+    ],
+    [
+      0.0,
+      566.0,
+      240.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "nonzero_commands": 356,
+  "status_counts": {
+    "DISABLED": 2,
+    "WAITING_FOR_LANE": 335,
+    "SAFETY_STOP": 32,
+    "FOLLOWING": 55,
+    "CORNER_STAGED": 32
+  },
+  "travelled_m": 0.8644804393357497,
+  "net_displacement_m": 0.7314071474779812,
+  "max_cross_track_m": 0.03580954435045929,
+  "final_progress_m": 0.9086974929220987,
+  "final_pose": {
+    "t": 202.88588853000147,
+    "x": 0.684128659344675,
+    "y": 0.2586974929209755,
+    "z": -8.699380712982947e-09,
+    "yaw": 1.5636085507226198,
+    "stamp": 185.674,
+    "frame": "world",
+    "child": "base_link"
+  },
+  "reached_finish": false,
+  "lane_departure": false,
+  "passed": false,
+  "video_exports": [
+    {
+      "path": "pinky_move/reports/yolo_white_20261006/s_fix_final_v17/s_sharp_hybrid_lane0_r1/raw_frames.mp4",
+      "changed": true,
+      "original": "pinky_move/reports/yolo_white_20261006/s_fix_final_v17/s_sharp_hybrid_lane0_r1/original_mp4v/raw_frames.mp4",
+      "before": {
+        "codec_name": "mpeg4",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "2814",
+        "duration": 187.6
+      },
+      "after": {
+        "codec_name": "h264",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "2814",
+        "duration": 187.6
+      },
+      "full_decode_ok": true
+    },
+    {
+      "path": "pinky_move/reports/yolo_white_20261006/s_fix_final_v17/s_sharp_hybrid_lane0_r1/debug_frames.mp4",
+      "changed": true,
+      "original": "pinky_move/reports/yolo_white_20261006/s_fix_final_v17/s_sharp_hybrid_lane0_r1/original_mp4v/debug_frames.mp4",
+      "before": {
+        "codec_name": "mpeg4",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "378",
+        "duration": 25.2
+      },
+      "after": {
+        "codec_name": "h264",
+        "width": 640,
+        "height": 480,
+        "pix_fmt": "yuv420p",
+        "nb_frames": "378",
+        "duration": 25.2
+      },
+      "full_decode_ok": true
+    }
+  ]
+}

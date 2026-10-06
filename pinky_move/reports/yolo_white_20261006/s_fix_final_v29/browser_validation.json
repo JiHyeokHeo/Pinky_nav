@@ -1,0 +1,34 @@
+{
+  "players": 4,
+  "passed": 4,
+  "results": [
+    {
+      "run": "s_sharp_hybrid_lane0_r1",
+      "label": null,
+      "ok": true,
+      "width": 640,
+      "height": 480
+    },
+    {
+      "run": "s_sharp_hybrid_lane0_r1",
+      "label": null,
+      "ok": true,
+      "width": 640,
+      "height": 480
+    },
+    {
+      "run": "s_sharp_hybrid_lane1_r1",
+      "label": null,
+      "ok": true,
+      "width": 640,
+      "height": 480
+    },
+    {
+      "run": "s_sharp_hybrid_lane1_r1",
+      "label": null,
+      "ok": true,
+      "width": 640,
+      "height": 480
+    }
+  ]
+}

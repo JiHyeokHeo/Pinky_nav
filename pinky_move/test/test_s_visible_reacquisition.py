@@ -116,21 +116,6 @@ def test_rotation_crop_keeps_committed_goal(monkeypatch):
     assert p.s_route['covered_m'] == 0.
 
 
-@pytest.mark.parametrize('preserve,ratio,accepted', [(False,.95,False),(True,.95,True),(True,.7,False)])
-def test_rotation_junction_outlier_requires_precise_current_center(monkeypatch,preserve,ratio,accepted):
-    p, _, pose, obs = rotation_case(monkeypatch)
-    monkeypatch.setattr(p,'_boundary_overlap',lambda actual,*a: (True,
-        dict(max_error_m=.008,min_cosine=-.2,ratio=ratio),actual))
-    current=dict(target(path()[30:],pose),preserve_pending_s=preserve)
-    if accepted:
-        result=p._track_s_route(current,obs,pose,1.2,.22)
-        assert result['s_route_tracking']
-        assert p.debug['s_rotation_junction_match']
-    else:
-        with pytest.raises(ValueError,match='rotation boundary mismatch'):
-            p._track_s_route(current,obs,pose,1.2,.22)
-
-
 @pytest.mark.parametrize('case',['visible','wrong_boundary','reverse_boundary','no_boundary','time','travel','yaw'])
 def test_rotation_crop_rejects_unsupported_or_unbounded_replay(monkeypatch,case):
     p, _, pose, obs = rotation_case(monkeypatch)

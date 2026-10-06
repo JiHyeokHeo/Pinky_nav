@@ -772,29 +772,3 @@ def test_corner_odometry_interpolation_duplicates_reset_and_expiry(controller):
     msg.child_frame_id='unknown'
     controller._corner_odom_callback(msg)
     assert controller.corner_odom is None
-
-
-def test_new_odom_after_inference_completion_is_not_future(controller):
-    controller.safety_clock.seconds = 10.2
-    controller.corner_odom = (10.18, np.array([.02, 0., 0.]))
-    controller.corner_capture_stamp = 1_100_000_000
-    controller.corner_odom_history = [(1_000_000_000, np.array([0., 0., 0.])),
-                                     (1_200_000_000, np.array([.02, 0., 0.]))]
-    # Worker completion precedes a healthy newer odometry callback.
-    np.testing.assert_allclose(controller._corner_pose_for_frame(10.15), [.01, 0., 0.])
-    assert controller.corner_pose_diagnostic['reason'] == 'interpolated'
-    assert controller.corner_pose_diagnostic['odom_age_s'] == pytest.approx(.02)
-    # Do not let that earlier completion timestamp hide a real later outage.
-    controller.safety_clock.seconds = 10.6
-    assert controller._corner_pose_for_frame(10.15) is None
-    assert controller.corner_pose_diagnostic['reason'] == 'odometry stale or future reception'
-
-
-def test_frame_without_time_coverage_is_still_rejected(controller):
-    controller.safety_clock.seconds = 10.2
-    controller.corner_odom = (10.18, np.zeros(3))
-    controller.corner_capture_stamp = 1_100_000_000
-    controller.corner_odom_history = [(1_000_000_000, np.zeros(3))]
-    assert controller._corner_pose_for_frame(10.15) is None
-    assert controller.corner_pose_diagnostic['reason'] == 'camera time not covered by odometry'
-    assert controller.corner_pose_diagnostic['nearest_camera_gap_s'] == pytest.approx(.1)

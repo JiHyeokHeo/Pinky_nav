@@ -1,0 +1,16 @@
+{
+  "source": "../s_fix_final_v20/s_sharp_hybrid_lane0_r1/first_camera.jpg",
+  "calibration": "/tmp/pinky-opencv-suite-45qc5_ve/simulation_calibration.json",
+  "evaluation": "same saved current frame; geometry replay, not physical completion",
+  "raw_near_fragment_fraction": 0.55,
+  "raw_near_fragment_reason": "partial overlap lacks precise correspondence",
+  "rdp_tolerance_m": 0.008,
+  "simplified_near_fragment_fraction": 1.0,
+  "simplified_near_fragment_error_m": 0.005843835656590836,
+  "simplified_near_fragment_span_m": 0.08207071644497392,
+  "side": "right",
+  "sharp_s_prefix": true,
+  "feature": "CORNER",
+  "angle_deg": 90.06875132187724,
+  "corner_base_m": [0.73450473, -0.0971773]
+}

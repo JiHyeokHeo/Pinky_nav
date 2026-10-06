@@ -1,28 +1,31 @@
 """PyQt5 map-click controller for the two Pinky Nav2 action proxies."""
 import argparse
 import math
+import time
 import sys
 from pathlib import Path
 
 import rclpy
 import yaml
-from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseArray, PoseStamped, PoseWithCovarianceStamped
 from nav2_msgs.action import NavigateToPose
 from pinky_interfaces.action import ExecuteMultiRobotMission
 from pinky_interfaces.msg import RobotTask
 from PyQt5.QtCore import QPointF, QRect, Qt, QTimer, pyqtSignal
-from PyQt5.QtGui import QColor, QImage, QPainter, QPen, QPixmap
+from PyQt5.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PyQt5.QtWidgets import (
-    QApplication, QButtonGroup, QComboBox, QDoubleSpinBox, QHBoxLayout, QLabel,
+    QApplication, QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox, QHBoxLayout, QLabel,
     QGroupBox, QListWidget, QMainWindow, QMessageBox, QPushButton, QScrollArea, QSpinBox,
     QVBoxLayout, QWidget,
 )
 from rclpy.action import ActionClient
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, DurabilityPolicy
 from std_msgs.msg import String
 
 from pinky_multi_robot.localization_command_bus import LocalizationCommandBus
+from pinky_multi_robot.mission_view import VIEW_TOPIC, parse_view, visible_paths, status_text
 
 
 DEFAULT_MAP_YAML = '/home/tory/ws/pinky_pro/pinky_navigation/map/my_pinky_map10.yaml'
@@ -35,7 +38,7 @@ class MapCanvas(QWidget):
 
     clicked = pyqtSignal(float, float)
 
-    def __init__(self, map_yaml):
+    def __init__(self, map_yaml, frame_id='map'):
         super().__init__()
         self.setMinimumSize(640, 480)
         self._pixmap = QPixmap()
@@ -43,6 +46,9 @@ class MapCanvas(QWidget):
         self._resolution = 0.0
         self._origin_x = self._origin_y = 0.0
         self._poses = {}
+        self._frame_id = frame_id
+        self._mission_view = {'paths': {}, 'robots': {}, 'active': False, 'yielding': None}
+        self.show_routes = True
         self.load_map(map_yaml)
 
     def load_map(self, map_yaml):
@@ -94,6 +100,10 @@ class MapCanvas(QWidget):
         self._poses[robot] = pose
         self.update()
 
+    def set_mission_view(self, view):
+        self._mission_view = view
+        self.update()
+
     def _draw_rect(self):
         if self._pixmap.isNull():
             return QRect()
@@ -130,8 +140,33 @@ class MapCanvas(QWidget):
         if not rect.isNull():
             painter.drawPixmap(rect, self._pixmap)
         colors = {'pinky1': QColor('#ef4444'), 'pinky2': QColor('#2563eb')}
+        if self.show_routes:
+            for robot, route in visible_paths(self._mission_view, self._frame_id).items():
+                color = colors[robot]
+                color.setAlpha(220 if self._mission_view['active'] else 110)
+                style = Qt.SolidLine if self._mission_view['active'] else Qt.DashLine
+                painter.setPen(QPen(color, 3, style))
+                painter.setBrush(Qt.NoBrush)
+                path = QPainterPath()
+                path.moveTo(self._world_to_widget(*route[0]))
+                for xy in route[1:]:
+                    path.lineTo(self._world_to_widget(*xy))
+                painter.drawPath(path)
+                end = self._world_to_widget(*route[-1])
+                painter.drawEllipse(end, 5, 5)
+                painter.drawText(end+QPointF(8, 12), robot+' goal')
+        for i, xy in enumerate(self._mission_view.get('yield_points', []), 1):
+            painter.setPen(QPen(QColor('#a855f7'), 3))
+            painter.setBrush(Qt.NoBrush)
+            point = self._world_to_widget(*xy)
+            painter.drawRect(QRect(round(point.x())-6, round(point.y())-6, 12, 12))
+            painter.drawText(point+QPointF(8,-8), f'대피 {i}')
         for robot, pose in self._poses.items():
             point = self._world_to_widget(pose.pose.pose.position.x, pose.pose.pose.position.y)
+            if robot == self._mission_view.get('yielding') and self._mission_view['active']:
+                painter.setPen(QPen(QColor('#eab308'), 4))
+                painter.setBrush(Qt.NoBrush)
+                painter.drawEllipse(point, 14, 14)
             painter.setPen(QPen(colors.get(robot, Qt.white), 3))
             painter.setBrush(colors.get(robot, Qt.white))
             painter.drawEllipse(point, 7, 7)
@@ -145,11 +180,17 @@ class MapCanvas(QWidget):
 
 
 class MapControlNode(Node):
-    def __init__(self, on_status, on_pose, on_localization=None):
+    def __init__(self, on_status, on_pose, on_localization=None, on_mission_view=None):
         super().__init__('pinky_map_ui')
         self._on_status = on_status
         self._on_pose = on_pose
         self._on_localization = on_localization
+        self._on_mission_view = on_mission_view
+        self._yield_points_publisher = self.create_publisher(PoseArray,
+            '/central_control/yield_points',
+            QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
+        self.create_subscription(String, VIEW_TOPIC, self._view_callback,
+            QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
         self._localization_states = {}
         # Do not call this _clients: Node already uses that private name for
         # its ROS service clients, which the executor iterates over.
@@ -178,6 +219,21 @@ class MapControlNode(Node):
             self.create_subscription(
                 String, f'/{robot}/localization_status',
                 lambda message, name=robot: self._localization_callback(name, message), 10)
+
+    def _view_callback(self, message):
+        try:
+            view = parse_view(message.data)
+        except (ValueError, TypeError, KeyError):
+            self._on_status('Invalid mission visualization ignored.')
+            return
+        if self._on_mission_view is not None:
+            self._on_mission_view(view)
+
+    def register_yield_points(self, points):
+        message = PoseArray()
+        message.header.frame_id = 'map'
+        message.poses = [self._pose(p['x'],p['y'],p.get('yaw',0.),'map').pose for p in points]
+        self._yield_points_publisher.publish(message)
 
     def _localization_callback(self, robot, message):
         if self._localization_states.get(robot) != message.data:
@@ -401,6 +457,7 @@ class MainWindow(QMainWindow):
     status_changed = pyqtSignal(str)
     pose_changed = pyqtSignal(str, object)
     localization_changed = pyqtSignal(str, str)
+    mission_view_changed = pyqtSignal(object)
 
     def __init__(self, map_yaml, frame_id, simulation=False, simulation_domain=152):
         super().__init__()
@@ -410,7 +467,9 @@ class MainWindow(QMainWindow):
         config_dir = Path.home() / '.config' / 'pinky_map_ui'
         self._parking_goals_file = config_dir / ('parking_goals_sim.yaml' if simulation else 'parking_goals.yaml')
         self._patrol_points_file = config_dir / ('patrol_points_sim.yaml' if simulation else 'patrol_points.yaml')
-        self.canvas = MapCanvas(map_yaml)
+        self._yield_points_file = config_dir / ('yield_points_sim.yaml' if simulation else 'yield_points.yaml')
+        self._map_yaml_path = str(Path(map_yaml).expanduser().resolve())
+        self.canvas = MapCanvas(map_yaml, frame_id)
         self.canvas.clicked.connect(self._map_clicked)
         self.robot = QComboBox()
         self.robot.addItems(['pinky1', 'pinky2', 'Both (simultaneous)'])
@@ -430,10 +489,12 @@ class MainWindow(QMainWindow):
         self.set_parking.setCheckable(True)
         self.add_patrol = QPushButton('Add patrol point: next click')
         self.add_patrol.setCheckable(True)
+        self.add_yield = QPushButton('대피점 추가: 지도 클릭')
+        self.add_yield.setCheckable(True)
         self._click_modes = QButtonGroup(self)
         self._click_modes.setExclusive(False)
         for button in (self.set_initial_pose_button, self.stage_goal,
-                       self.set_parking, self.add_patrol):
+                       self.set_parking, self.add_patrol, self.add_yield):
             self._click_modes.addButton(button)
             button.toggled.connect(
                 lambda checked, selected=button: [other.setChecked(False)
@@ -496,11 +557,29 @@ class MainWindow(QMainWindow):
         self.staged_summary.setWordWrap(True)
         self.health_labels = {robot: QLabel(f'{robot}: localization unknown')
                               for robot in ('pinky1', 'pinky2')}
+        route_group = QGroupBox('Nav2 계획 경로 · 경합 / 양보')
+        route_layout = QVBoxLayout(route_group)
+        self.route_toggle = QCheckBox('계획 경로 표시 (빨강=pinky1 / 파랑=pinky2)')
+        self.route_toggle.setChecked(True)
+        self.route_toggle.toggled.connect(self._toggle_routes)
+        route_layout.addWidget(self.route_toggle)
+        route_layout.addWidget(QLabel('노란 테두리=양보 대기 · 점선=종료된 계획'))
+        self.route_status = QLabel('미션 서버의 경로·경합 정보를 기다리는 중…')
+        self.route_status.setWordWrap(True)
+        route_layout.addWidget(self.route_status)
+        route_layout.addWidget(self.add_yield)
+        self.yield_list = QListWidget()
+        self.yield_list.setMaximumHeight(100)
+        route_layout.addWidget(self.yield_list)
+        remove_yield = QPushButton('선택한 대피점 삭제')
+        remove_yield.clicked.connect(self._remove_yield_point)
+        route_layout.addWidget(remove_yield)
+        self._view_received_at = None
 
         side_panel = QWidget()
         side_layout = QVBoxLayout(side_panel)
         for group in (selection_group, localization_group, goal_group,
-                      patrol_group, combined_group):
+                      route_group, patrol_group, combined_group):
             side_layout.addWidget(group)
         side_layout.addWidget(cancel)
         side_layout.addStretch()
@@ -524,7 +603,7 @@ class MainWindow(QMainWindow):
         root.setLayout(layout)
         self.setCentralWidget(root)
         self.node = MapControlNode(self.status_changed.emit, self.pose_changed.emit,
-                                   self.localization_changed.emit)
+                                   self.localization_changed.emit, self.mission_view_changed.emit)
         if simulation:
             self._localization_bus = LocalizationCommandBus(
                 domains={'pinky1': simulation_domain, 'pinky2': simulation_domain},
@@ -534,15 +613,83 @@ class MainWindow(QMainWindow):
         self._localization_states = {}
         self._parking_goals = self._load_parking_goals()
         self._patrol_points = self._load_patrol_points()
+        self._yield_points = self._load_yield_points()
+        self._refresh_yield_list()
+        self.node.register_yield_points(self._yield_points)
         self._refresh_patrol_list()
         self.status_changed.connect(self.status.setText)
         self.pose_changed.connect(self.canvas.set_pose)
         self.localization_changed.connect(self._localization_updated)
+        self.mission_view_changed.connect(self._mission_view_updated)
         self.executor = SingleThreadedExecutor()
         self.executor.add_node(self.node)
         self.timer = QTimer(self)
         self.timer.timeout.connect(lambda: self.executor.spin_once(timeout_sec=0.0))
         self.timer.start(20)
+        self.view_timer = QTimer(self)
+        self.view_timer.timeout.connect(self._view_health)
+        self.view_timer.start(1000)
+
+    def _toggle_routes(self, visible):
+        self.canvas.show_routes = visible
+        self.canvas.update()
+
+    def _load_yield_points(self):
+        if not self._yield_points_file.exists():
+            return []
+        try:
+            with self._yield_points_file.open(encoding='utf-8') as file:
+                data = yaml.safe_load(file) or {}
+            if data.get('map_yaml') != self._map_yaml_path:
+                return []  # A different map must not inherit old haven coordinates.
+            points = data.get('points', [])
+            if not isinstance(points,list) or len(points)>32:
+                return []
+            if any(not isinstance(p,dict) or not all(math.isfinite(float(p[k])) for k in ('x','y','yaw'))
+                   for p in points):
+                return []
+            return [{k:float(p[k]) for k in ('x','y','yaw')} for p in points]
+        except (OSError,ValueError,TypeError,KeyError,yaml.YAMLError):
+            return []
+
+    def _yield_edit_allowed(self):
+        if self.node._mission_pending or self.node._mission_handle is not None:
+            QMessageBox.warning(self,'임무 실행 중','임무를 종료한 뒤 대피점을 변경하세요.')
+            return False
+        return True
+
+    def _save_yield_points(self):
+        self._yield_points_file.parent.mkdir(parents=True,exist_ok=True)
+        with self._yield_points_file.open('w',encoding='utf-8') as file:
+            yaml.safe_dump({'map_yaml':self._map_yaml_path,'points':self._yield_points},file)
+        self.node.register_yield_points(self._yield_points)
+        self._refresh_yield_list()
+
+    def _refresh_yield_list(self):
+        self.yield_list.clear()
+        for i,p in enumerate(self._yield_points,1):
+            self.yield_list.addItem(f'대피 {i}: ({p["x"]:.2f}, {p["y"]:.2f})')
+
+    def _remove_yield_point(self):
+        if not self._yield_edit_allowed():
+            return
+        index=self.yield_list.currentRow()
+        if 0 <= index < len(self._yield_points):
+            self._yield_points.pop(index)
+            self._save_yield_points()
+
+    def _mission_view_updated(self, view):
+        self._view_received_at = time.monotonic()
+        self.canvas.set_mission_view(view)
+        message = status_text(view)
+        mismatched = [r for r, p in view['paths'].items() if p['frame_id'] != self._frame_id]
+        if mismatched:
+            message += '\n표시 제외: 지도 좌표계 불일치 '+', '.join(mismatched)
+        self.route_status.setText(message)
+
+    def _view_health(self):
+        if self._view_received_at is not None and time.monotonic()-self._view_received_at > 3.:
+            self.route_status.setText('경합 상태 수신 끊김: 표시 경로는 마지막 기록이며 현재 상태가 아닙니다.')
 
     def _selected_robots(self):
         return ('pinky1', 'pinky2') if self.robot.currentIndex() == 2 else (self.robot.currentText(),)
@@ -602,6 +749,17 @@ class MainWindow(QMainWindow):
     def _map_clicked(self, x, y):
         robots = self._selected_robots()
         yaw = math.radians(self.yaw.value())
+        if self.add_yield.isChecked():
+            if not self._yield_edit_allowed():
+                return
+            if len(self._yield_points)>=32 or not self.canvas._is_clear(x,y,safety_radius=.20):
+                QMessageBox.warning(self,'대피점 등록 불가','벽에서 20cm 이상 떨어진 빈 공간을 선택하세요. 최대 32개입니다.')
+                return
+            self._yield_points.append({'x':x,'y':y,'yaw':yaw})
+            self._save_yield_points()
+            self.add_yield.setChecked(False)
+            self.status.setText('대피점 등록 전달. 실제 도달 가능성은 임무 중 Nav2로 확인합니다.')
+            return
         if self.set_initial_pose_button.isChecked():
             robot = self._selected_single_robot()
             if robot is None:
@@ -739,6 +897,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         self.timer.stop()
+        self.view_timer.stop()
         self.executor.shutdown()
         self.node.destroy_node()
         self._localization_bus.close()
