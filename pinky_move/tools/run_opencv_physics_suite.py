@@ -15,14 +15,15 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--repeats', type=int, default=2)
     parser.add_argument('--seconds', type=float, default=100.)
-    parser.add_argument('--perception', choices=('opencv', 'yolo'), default='opencv')
+    parser.add_argument('--perception', choices=('opencv', 'yolo', 'hybrid'), default='opencv')
     parser.add_argument('--connected-geometry', action='store_true')
+    parser.add_argument('--resume', action='store_true', help='완료된 trial.json을 보존하고 미시작 시험만 재개')
     args = parser.parse_args()
     if not 1 <= args.repeats <= 5 or not 1 <= args.seconds <= 300:
         parser.error('repeats: 1..5, seconds: 1..300')
-    if args.output.exists():
+    if args.output.exists() and not args.resume:
         parser.error('출력 폴더가 이미 존재함: 기록을 덮어쓰지 않습니다')
-    args.output.mkdir(parents=True)
+    args.output.mkdir(parents=True, exist_ok=args.resume)
     results = []
     # Three stripes are exercised from BOTH lanes, not just one favourable view.
     for course, lanes, lane in [('left90', 1, 0), ('right90', 1, 0),
@@ -30,6 +31,17 @@ def main():
         for repeat in range(1, args.repeats+1):
             name = f'{course}_{args.perception}_lane{lane}_r{repeat}'
             output = args.output/name
+            if args.resume and output.exists():
+                record = output/'trial.json'
+                if not record.exists():
+                    parser.error(f'미완료 자료를 덮어쓸 수 없음: {output}. 새 출력 폴더를 사용하세요')
+                result = json.loads(record.read_text())['summary']
+                if result.get('course') != course or result.get('lane_count') != lanes:
+                    parser.error('재개 자료의 코스/차로가 일치하지 않습니다')
+                results.append(dict(run=name, **result))
+                (args.output/'suite.json').write_text(json.dumps(results, ensure_ascii=False, indent=2))
+                print(f'PRESERVED {name}: passed={result["passed"]}', flush=True)
+                continue
             directory = tempfile.mkdtemp(prefix='pinky-opencv-suite-')
             print(f'START {name}', flush=True)
             with (args.output/(name+'_launch.log')).open('w') as log:

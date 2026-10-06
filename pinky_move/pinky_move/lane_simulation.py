@@ -160,8 +160,8 @@ def prepare_simulation(description, output, course='two_lines', lane_width=.20,
         raise ValueError('invalid course/lane width')
     if lane_count not in (1, 2) or target_lane not in range(lane_count):
         raise ValueError('invalid lane_count/target_lane')
-    if perception not in ('yolo', 'opencv'):
-        raise ValueError('perception must be yolo or opencv')
+    if perception not in ('yolo', 'opencv', 'hybrid'):
+        raise ValueError('perception must be yolo, opencv or hybrid')
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     import xacro
@@ -264,7 +264,8 @@ def prepare_simulation(description, output, course='two_lines', lane_width=.20,
     calibration_file.write_text(json.dumps(calibration, indent=2))
     metadata = dict(course=course, lane_width_m=lane_width, lane_count=lane_count,
                     stripe_count=lane_count+1, target_lane=target_lane,
-                    perception='OpenCV white pixels' if perception == 'opencv' else 'YOLO only',
+                    perception={'opencv': 'OpenCV white pixels', 'yolo': 'YOLO only',
+                                'hybrid': 'YOLO + white supplement'}[perception],
                     stripe_geometry='continuous miter-joined triangle mesh', stripe_width_m=.020,
                     target_lane_indexing='rightmost=0; increment towards left',
                     centre=points.tolist(),

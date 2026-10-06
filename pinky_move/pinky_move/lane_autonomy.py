@@ -120,6 +120,7 @@ class LaneAutonomy(Node):
 
         model_path = self._string_parameter('model_path')
         self.remote_inference = self._bool_parameter('remote_inference')
+        self._validate_yolo_white_profile()
         if self._bool_parameter('remote_geometry') and not self.remote_inference:
             raise ValueError('remote_geometry requires remote_inference')
         self.remote_session = uuid.uuid4().hex
@@ -138,7 +139,23 @@ class LaneAutonomy(Node):
             self._load_model(model_path)
         self._initialize_control(model_path)
 
+    def _validate_yolo_white_profile(self):
+        """실험 모드가 원격 경로나 실제 장비에서 우회 활성화되지 않게 한다."""
+        if self._bool_parameter('simulation_yolo_white'):
+            if (self.context.get_domain_id() in (20, 22, 52) or
+                    not self._string_parameter('image_topic').startswith('/lane_sim/') or
+                    not self.robot_calibration or
+                    self.robot_calibration.get('status') != 'simulation_only_ideal_camera'):
+                raise ValueError('YOLO/white experiment requires isolated simulation')
+            if (self._bool_parameter('simulation_white_lane') or
+                    self._bool_parameter('remote_inference') or self._bool_parameter('remote_geometry')):
+                raise ValueError('YOLO/white experiment uses only local YOLO, not white-only/remote mode')
+
     def _load_model(self, model_path):
+        self._validate_yolo_white_profile()
+        if self._bool_parameter('simulation_yolo_white'):
+            from .yolo_white import YoloWhiteSupplement
+            self.yolo_white = YoloWhiteSupplement()
         if self._bool_parameter('simulation_white_lane'):
             if (self.context.get_domain_id() in (20, 22, 52) or
                     not self._string_parameter('image_topic').startswith('/lane_sim/') or
@@ -239,7 +256,7 @@ class LaneAutonomy(Node):
             1.0 / frequency, self._control_loop, clock=self.safety_clock)
         self.get_logger().info(
             f'Lane autonomy ready and {"enabled" if self.enabled else "disabled"}. '
-            f'perception={"OpenCV white pixels (simulation only)" if self._bool_parameter("simulation_white_lane") else "YOLO"}, '
+            f'perception={"YOLO + white supplement (simulation only)" if self._bool_parameter("simulation_yolo_white") else "OpenCV white pixels (simulation only)" if self._bool_parameter("simulation_white_lane") else "YOLO"}, '
             f'model={"not loaded" if self._bool_parameter("simulation_white_lane") else model_path}, '
             f'image={image_topic}, output={cmd_vel_topic}')
         if not self.enabled:
@@ -254,6 +271,7 @@ class LaneAutonomy(Node):
         parameters = (
             ('enabled', False),
             ('simulation_white_lane', False),
+            ('simulation_yolo_white', False),
             ('connected_geometry', False),
             ('remote_inference', False),
             ('remote_geometry', False),
@@ -628,6 +646,30 @@ class LaneAutonomy(Node):
                 frame = self._image_to_bgr(message).copy()
                 result = (SimpleNamespace(masks=None, boxes=None) if self.model is None else
                           self.model.predict(source=frame, **predict_arguments)[0])
+                if self._bool_parameter('simulation_yolo_white'):
+                    from .lane_wire import ClassIds
+                    ids = result.boxes.cls.int().cpu().tolist() if result.boxes is not None else []
+                    original = list(result.masks.xy) if result.masks is not None else []
+                    binary = []
+                    for class_id, polygon in zip(ids, original):
+                        if class_id == self.lane_class_id:
+                            m = np.zeros(frame.shape[:2], np.uint8)
+                            cv2.fillPoly(m, [np.asarray(polygon, np.int32)], 1)
+                            binary.append(m)
+                    complete, supplement = self.yolo_white.update(frame, binary,
+                        received.nanoseconds/1e9, self.robot_calibration)
+                    polygons, classes = [], []
+                    for m in complete:
+                        contours, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                        if contours:
+                            polygons.append(max(contours, key=cv2.contourArea).reshape(-1, 2))
+                            classes.append(self.lane_class_id)
+                    for class_id, polygon in zip(ids, original):
+                        if class_id != self.lane_class_id:
+                            polygons.append(polygon)
+                            classes.append(class_id)
+                    result = SimpleNamespace(masks=SimpleNamespace(xy=polygons),
+                        boxes=SimpleNamespace(cls=ClassIds(classes)), supplement=supplement)
                 if self.model is None:
                     # CPU-heavy thinning belongs to the perception worker,
                     # never the executor thread receiving odometry/control.
@@ -846,6 +888,10 @@ class LaneAutonomy(Node):
             if self._bool_parameter('publish_debug_image'):
                 self._queue_debug(frame, polygons_by_class, count, source_header)
             return
+
+        if self._bool_parameter('simulation_yolo_white'):
+            self.perception_source = 'YOLO_WHITE_SIM'
+            self.supplement_debug = result.supplement
 
         if self.enabled:
             self._update_crossline(crossline_masks, self.safety_clock.now())
@@ -1886,6 +1932,7 @@ class LaneAutonomy(Node):
                 ('x_m', 'y_m', 'width_m', 'boundary_count', 'inferred')}
             return (f'Lane={self.lane_instances}, used_boundaries={self.boundary_count}, '
                     f'perception={getattr(self, "perception_source", "YOLO")}, '
+                    f'supplement={getattr(self, "supplement_debug", None)}, '
                     f'metric_target={brief}, corner={self.corner_policy.debug}')
         return (
             f'Lane={self.lane_instances}, Crossline={self.crossline_instances}, '

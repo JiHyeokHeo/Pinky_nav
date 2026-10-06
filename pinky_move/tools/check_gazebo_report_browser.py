@@ -11,6 +11,7 @@ def main():
     parser.add_argument('--driver', default='http://127.0.0.1:4445')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--all-videos', action='store_true')
+    parser.add_argument('--expected-players', type=int, default=16)
     args = parser.parse_args()
     def call(method, endpoint, body=None):
         request = urllib.request.Request(args.driver+endpoint,
@@ -50,7 +51,7 @@ def main():
         '''})
         args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2))
         print(json.dumps(result, ensure_ascii=False))
-        return 0 if result.get('players') == 16 and result.get('passed') == 16 else 1
+        return 0 if result.get('players') == args.expected_players and result.get('passed') == args.expected_players else 1
     finally:
         call('DELETE', base)
 

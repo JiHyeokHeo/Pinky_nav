@@ -41,6 +41,7 @@ def start(context):
                     model_path=value('model_path'), calibration_path=calibration,
                     remote_inference=False, remote_geometry=False, enabled=False,
                     simulation_white_lane=value('perception') == 'opencv',
+                    simulation_yolo_white=value('perception') == 'hybrid',
                     connected_geometry=value('connected_geometry').lower() == 'true',
                     metric_path_min_m=.08 if value('perception') == 'opencv' else .14,
                     metric_path_max_m=.70 if value('perception') == 'opencv' else .48,
