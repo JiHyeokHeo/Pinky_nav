@@ -14,6 +14,10 @@ def start(context):
     from pinky_move.lane_simulation import prepare_simulation
     value = lambda name: LaunchConfiguration(name).perform(context)
     domain = int(value('domain'))
+    semantic_path = value('semantic_path').lower() == 'true'
+    if semantic_path and value('perception') != 'hybrid':
+        raise ValueError('semantic_path requires hybrid perception')
+    pursuit_profile = value('perception') == 'opencv' or semantic_path
     if domain in (20, 22, 52) or not 0 <= domain <= 232:
         raise ValueError('Use a separate simulation domain, not robot/control domains 20/22/52')
     directory = value('output') or tempfile.mkdtemp(prefix='pinky-lane-gazebo-')
@@ -42,22 +46,23 @@ def start(context):
                     remote_inference=False, remote_geometry=False, enabled=False,
                     simulation_white_lane=value('perception') == 'opencv',
                     simulation_yolo_white=value('perception') == 'hybrid',
+                    simulation_semantic_path=semantic_path,
                     connected_geometry=value('connected_geometry').lower() == 'true',
-                    metric_path_min_m=.08 if value('perception') == 'opencv' else .14,
-                    metric_path_max_m=.70 if value('perception') == 'opencv' else .48,
-                    metric_lookahead_m=.16 if value('perception') == 'opencv' else .22,
-                    maximum_angular_speed=.6 if value('perception') == 'opencv' else .15,
+                    metric_path_min_m=.08 if pursuit_profile else .14,
+                    metric_path_max_m=.70 if pursuit_profile else .48,
+                    metric_lookahead_m=.16 if pursuit_profile else .22,
+                    maximum_angular_speed=.6 if pursuit_profile else .15,
                     image_topic='/lane_sim/camera/image_raw', image_compressed=False,
                     cmd_vel_topic='/lane_sim/cmd_vel', corner_odom_topic='/lane_sim/odom',
                     scan_topic='/lane_sim/scan', use_lidar_guard=False,
                     debug_image_topic='/lane_sim/debug_image', lane_width=float(value('lane_width')),
                     publish_debug_image=True, linear_speed=.10,
-                    single_line_max_speed=.06 if value('perception') == 'opencv' else .03)])]
+                    single_line_max_speed=.06 if pursuit_profile else .03)])]
 
 
 def generate_launch_description():
     defaults = dict(course='two_lines', lane_width='.20', lane_count='1', target_lane='0', perception='yolo',
-        domain='172', gui='true', output='', connected_geometry='false',
+        domain='172', gui='true', output='', connected_geometry='false', semantic_path='false',
         python_executable='/home/tory/venv/omx/bin/python',
         model_path='/home/tory/Downloads/yolo_runs/segment/train/weights/best.pt')
     return LaunchDescription([*(DeclareLaunchArgument(k, default_value=v) for k,v in defaults.items()), OpaqueFunction(function=start)])

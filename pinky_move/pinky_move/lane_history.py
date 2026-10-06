@@ -179,6 +179,49 @@ class LocalLaneMap:
             world[side] = p@rotation(pose[2]).T+pose[:2]
         self.frames.append((now, world, float(observation.get('width', 0.))))
 
+    def measured_side(self, curve, now, pose):
+        """현재 픽셀 경계의 역할만 확인한다. 저장 경로/목표를 반환하지 않는다.
+
+        영상 중심을 가로지르는 S자 선도 odom 지도에서 같은 실관측 선인지
+        대응한다. 두 개의 독립 관측과 5cm/15mm/정방향 접선 지지가 필요하다.
+        양쪽 역할이 모두 대응하거나 좌표계가 끊겼으면 힌트를 주지 않는다.
+        """
+        if pose is None or not np.isfinite(pose).all():
+            return None
+        if self.last_pose is not None and (
+                np.linalg.norm(pose[:2]-self.last_pose[:2]) > .20 or
+                abs((pose[2]-self.last_pose[2]+np.pi)%(2*np.pi)-np.pi) > np.pi/4):
+            return None
+        p = np.asarray(curve, float)
+        if p.ndim != 2 or p.shape[1] != 2 or len(p) < 5 or not np.isfinite(p).all():
+            return None
+        p = resample_chain(p, 80)
+        votes = {'left': set(), 'right': set()}
+        for timestamp, curves, _ in self.frames:
+            if not 0 < now-timestamp <= self.retention_s:
+                continue
+            for side, world in curves.items():
+                reference = (world-pose[:2])@rotation(pose[2])
+                q, idx, frac = nearest_on_chain(p, reference)
+                a, b = np.gradient(p, axis=0), np.diff(reference, axis=0)[idx]
+                cosine = np.sum(a*b, axis=1)/np.maximum(
+                    np.linalg.norm(a,axis=1)*np.linalg.norm(b,axis=1), 1e-12)
+                valid = (np.linalg.norm(p-q, axis=1) <= .015) & (cosine >= .95)
+                indices = np.flatnonzero(valid)
+                if not len(indices):
+                    continue
+                runs = np.split(indices, np.flatnonzero(np.diff(indices)>1)+1)
+                for run in runs:
+                    if len(run)<5 or arc_stations(p[run])[-1]<.05:
+                        continue
+                    stations = arc_stations(reference)
+                    along = stations[idx[run]]+frac[run]*np.diff(stations)[idx[run]]
+                    if along[-1]-along[0]>=.05 and np.min(np.diff(along))>=-.002:
+                        votes[side].add(timestamp)
+                        break
+        roles = [side for side, times in votes.items() if len(times)>=2]
+        return roles[0] if len(roles)==1 else None
+
     def current_target(self, observation, ordinary, now, pose, lookahead, relaxed=False):
         """Confirm a near path using two prior same-side measured frames.
 

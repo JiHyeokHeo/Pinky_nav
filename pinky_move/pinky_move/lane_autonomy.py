@@ -141,6 +141,9 @@ class LaneAutonomy(Node):
 
     def _validate_yolo_white_profile(self):
         """실험 모드가 원격 경로나 실제 장비에서 우회 활성화되지 않게 한다."""
+        if (self._bool_parameter('simulation_semantic_path') and
+                not self._bool_parameter('simulation_yolo_white')):
+            raise ValueError('semantic path comparison requires YOLO/white simulation')
         if self._bool_parameter('simulation_yolo_white'):
             if (self.context.get_domain_id() in (20, 22, 52) or
                     not self._string_parameter('image_topic').startswith('/lane_sim/') or
@@ -155,7 +158,9 @@ class LaneAutonomy(Node):
         self._validate_yolo_white_profile()
         if self._bool_parameter('simulation_yolo_white'):
             from .yolo_white import YoloWhiteSupplement
-            self.yolo_white = YoloWhiteSupplement()
+            self.yolo_white = YoloWhiteSupplement(support_interval=(
+                .08,  # 차선 관측은 PP 목표 최소 거리보다 가까워도 보존한다.
+                self._float_parameter('metric_path_max_m')))
         if self._bool_parameter('simulation_white_lane'):
             if (self.context.get_domain_id() in (20, 22, 52) or
                     not self._string_parameter('image_topic').startswith('/lane_sim/') or
@@ -272,6 +277,7 @@ class LaneAutonomy(Node):
             ('enabled', False),
             ('simulation_white_lane', False),
             ('simulation_yolo_white', False),
+            ('simulation_semantic_path', False),
             ('connected_geometry', False),
             ('remote_inference', False),
             ('remote_geometry', False),
@@ -482,6 +488,9 @@ class LaneAutonomy(Node):
         self.corner_odom_frame = None
         self.corner_odom_history = []
         self.corner_capture_stamp = None
+        self.hybrid_frame_pose = None
+        self.hybrid_white_map_side = None
+        self.hybrid_last_semantic_time = None
         self.image_identity = LaneImageIdentity(self._float_parameter('lane_tracking_gap_seconds'))
         self.lane_history = LaneHistory(max_frames=5,
                                        max_age_s=self._float_parameter('lane_tracking_gap_seconds'))
@@ -670,6 +679,13 @@ class LaneAutonomy(Node):
                             classes.append(class_id)
                     result = SimpleNamespace(masks=SimpleNamespace(xy=polygons),
                         boxes=SimpleNamespace(cls=ClassIds(classes)), supplement=supplement)
+                    if self._bool_parameter('simulation_semantic_path'):
+                        from .white_lane import semantic_center_path
+                        try:
+                            result.white_path, result.white_selected, result.white_side = semantic_center_path(
+                                complete, self.robot_calibration, self._float_parameter('lane_width'))
+                        except ValueError:
+                            result.white_path, result.white_selected, result.white_side = None, {}, None
                 if self.model is None:
                     # CPU-heavy thinning belongs to the perception worker,
                     # never the executor thread receiving odometry/control.
@@ -837,10 +853,194 @@ class LaneAutonomy(Node):
         self.metric_missing_since = None
         self.metric_last_good_target = None
 
+    def _stage_white_mask(self, frame, now):
+        """최근 YOLO 경계/확정 코너에 대응하는 현재 흰 경계만 보충한다.
+
+        한쪽 경계가 사라져 반대쪽 선을 모델이 놓쳐도, 고정 코너의 실제/
+        폭 기반 경계와 실좌표로 유일하게 대응하면 같은 차선의 관측이다.
+        코너 확정 전에는 마지막 모델 확인 10초 이내, 두 독립 실관측의
+        지도 역할에 유일하게 대응해야 한다. 흰색만으로 초기화하지 않는다.
+        """
+        if (not self._bool_parameter('simulation_yolo_white') or
+                not self.robot_calibration or
+                self.robot_calibration.get('method') != 'intrinsics_urdf_floor'):
+            return None
+        self.hybrid_white_map_side = None
+        stage = self.corner_policy.staged
+        semantic_time = getattr(self, 'hybrid_last_semantic_time', None)
+        if stage is None and (semantic_time is None or
+                not 0 <= now.nanoseconds/1e9-semantic_time <= 10.):
+            return None
+        pose = self._geometry_frame_pose(now)
+        if pose is None:
+            return None
+        from .white_lane import white_floor_masks
+        masks = [m for m in white_floor_masks(frame, self.robot_calibration)
+                 if 60 <= np.count_nonzero(m) <= .18*frame.shape[0]*frame.shape[1]]
+        if stage is None:
+            mapped = []
+            for index, mask in enumerate(masks):
+                curves = connected_floor_curve(mask, self.robot_calibration, 2.)
+                if len(curves)==1:
+                    side = self.corner_policy.local_lane_map.measured_side(
+                        curves[0], now.nanoseconds/1e9, pose)
+                    if side is not None:
+                        mapped.append((index,side))
+            if len(mapped)!=1:
+                return None
+            self.hybrid_white_map_side = mapped[0][1]
+            return masks[mapped[0][0]]
+        observation = self.corner_policy.staged_observation(masks, self.robot_calibration, pose)
+        if observation is None:
+            return None
+        return masks[observation['source_mask_index']]
+
+    def _hybrid_connected_observation(self, masks, observation, ordinary):
+        """현재 배정된 경계의 연결된 굽힘을 축 피팅이 잘라버리지 않게 한다.
+
+        좌우/폭은 기존 추적기의 실제 관측에서만 가져온다. 연결 골격이
+        현재 배정된 선과 유일하게 대응하고 실제 두 다리/S 굽힘을 가진
+        경우만 코너 관측을 보충한다. 모호한 후보는 기존 처리를 유지한다.
+        """
+        self.hybrid_connected_trace=dict(masks=len(masks),
+            stage_enabled=bool(self.corner_policy.config.staged_turn),
+            observed_side=None if observation is None else observation['side'],candidates=[])
+        if observation is None or not self._bool_parameter('simulation_yolo_white'):
+            return observation, ordinary
+        from .metric_lane import connected_floor_curve, select_lookahead
+        from .lane_corner import classify_boundary, match_corner_fragment, first_sharp_corner_prefix
+        from .connected_path import connected_miter_center
+        minimum_entry=(self.corner_policy.config.segment_m if
+                       getattr(self.corner_policy,'s_route',None) is not None else .12)
+        def aligned_entry(prefix):
+            if prefix is None:
+                return False
+            feature=classify_boundary(prefix,self.corner_policy.config)
+            # 단 두 픽셀의 계단 접선이 아니라 검증된 진입 다리의 TLS 접선.
+            return (feature['kind']=='CORNER' and
+                    abs(np.arctan2(feature['tin'][1],feature['tin'][0]))<=np.deg2rad(15))
+        # 기존 추적기가 이미 전체 S를 실관측으로 반환한 경우에는 잘못된
+        # 축 기준에 재대응시키기 전에 그 관측의 첫 직각을 분리한다.
+        if (self.corner_policy.config.staged_turn and
+                classify_boundary(observation['curve'],self.corner_policy.config)['kind']=='S_BEND'):
+            prefix=first_sharp_corner_prefix(observation['curve'],self.corner_policy.config,minimum_entry)
+            if aligned_entry(prefix):
+                self.hybrid_connected_trace['selected']='direct sharp prefix'
+                self.metric_tracker.preferred_observation_side=observation['side']
+                return dict(observation,curve=prefix,sharp_s_prefix=True),ordinary
+        references = [(observation['side'], observation['curve'])]
+        if observation.get('other') is not None and observation.get('width_source') == 'measured':
+            references.append(('right' if observation['side']=='left' else 'left', observation['other']))
+        candidates = []
+        for index, mask in enumerate(masks):
+            curves = connected_floor_curve(mask, self.robot_calibration, 2.)
+            if len(curves) != 1:
+                continue
+            curve = curves[0]
+            feature = classify_boundary(curve, self.corner_policy.config)
+            trace=dict(index=index,kind=feature['kind'])
+            self.hybrid_connected_trace['candidates'].append(trace)
+            # 축 피팅의 먼 다리가 잘못 보간돼도 두 실경계의 가까운
+            # 10cm가 1cm 이내로 유일하게 대응하면 그 마스크 역할은 같다.
+            # 화면 좌우나 가장 아래 픽셀만으로 역할을 새로 배정하지 않는다.
+            from .metric_lane import arc_stations
+            try:
+                # 골격 픽셀의 계단 접선은 역할 대응 전에 관측 오차 8mm
+                # 이내로 정리한다. 위치/형상 검사는 connected_miter가 맡는다.
+                matched_curve,_=connected_miter_center(curve,0.)
+                near=matched_curve[arc_stations(matched_curve)<=.10]
+            except ValueError as exc:
+                trace['near_error']=str(exc)
+                near=np.empty((0,2))
+            def assigned(reference):
+                if match_corner_fragment(reference,curve)['fragment_ok']:
+                    return True
+                match=match_corner_fragment(near,reference)
+                return (match['fragment_ok'] and match.get('fragment_strong') and
+                        match['fragment_error_m']<=.01)
+            sides = ([observation['side']] if len(masks)==1 and len(references)==1 else
+                     [side for side, reference in references
+                      if assigned(reference)])
+            trace['roles']=sides
+            if feature['kind'] in ('CORNER', 'S_BEND') and len(sides)==1:
+                candidates.append((index, curve, feature['kind'], sides[0]))
+        # 기존 쌍의 두 실경계 중 S 전체가 보이는 선이 하나면 그것을 쓴다.
+        # 선의 역할은 쌍에서 확인한 그대로이며 화면 위치로 다시 정하지 않는다.
+        s_candidates = [c for c in candidates if c[2]=='S_BEND']
+        if len(s_candidates)==1:
+            candidates = s_candidates
+        elif not s_candidates:
+            candidates = [c for c in candidates if c[3]==observation['side']]
+        if len(candidates) != 1:
+            self.hybrid_connected_trace['selected']='non-unique or missing connected candidate'
+            return observation, ordinary
+        index, curve, kind, side = candidates[0]
+        sharp_prefix = None
+        if (self.corner_policy.config.staged_turn and
+                (kind == 'S_BEND' or (kind == 'CORNER' and
+                    getattr(self.corner_policy,'s_route',None) is not None))):
+            sharp_prefix=first_sharp_corner_prefix(curve,self.corner_policy.config,minimum_entry)
+            self.hybrid_connected_trace['rdp_vertices']=cv2.approxPolyDP(
+                curve.astype(np.float32).reshape(-1,1,2),.008,False).reshape(-1,2).tolist()
+            self.hybrid_connected_trace['prefix_exists']=sharp_prefix is not None
+            if sharp_prefix is not None:
+                pf=classify_boundary(sharp_prefix,self.corner_policy.config)
+                self.hybrid_connected_trace['prefix_feature']=pf['kind']
+                if pf['kind']=='CORNER':
+                    self.hybrid_connected_trace['prefix_entry_deg']=float(np.rad2deg(np.arctan2(
+                        pf['tin'][1],pf['tin'][0])))
+            if aligned_entry(sharp_prefix):
+                curve,kind=sharp_prefix,'CORNER'
+            else:
+                sharp_prefix=None
+        measured = dict(observation, curve=curve, side=side, source_mask_index=index)
+        if sharp_prefix is not None:
+            measured['sharp_s_prefix']=True
+            self.metric_tracker.preferred_observation_side=side
+        self.hybrid_connected_trace.update(selected=kind,sharp_prefix=sharp_prefix is not None,
+                                          side=side)
+        measured.pop('other', None)  # 다른 경계의 축 피팅을 연결 S와 임의로 짝짓지 않는다.
+        if (kind == 'S_BEND' or getattr(self.corner_policy, 's_route', None) is not None or
+                (kind == 'CORNER' and self.corner_policy.config.staged_turn and ordinary is None)):
+            try:
+                _, center = connected_miter_center(curve, observation['width']*
+                    (-.5 if side=='left' else .5))
+                point, adaptive = select_lookahead(center, self._metric_lookahead())
+                if point[0] <= .02:
+                    raise ValueError('connected S target is not forward')
+            except ValueError:
+                return observation, ordinary
+            ordinary = dict(x_m=float(point[0]), y_m=float(point[1]), center_path=center.tolist(),
+                actual_curve=curve.tolist(), inferred=True, boundary_count=1,
+                visible_side=side, source_mask_index=index,
+                width_m=observation['width'], normal_width_m=observation['width'],
+                width_source=observation.get('width_source', 'configured'), adaptive=adaptive,
+                path_note='current assigned connected boundary')
+            # 다음 실제 쌍에서도 S를 시작한 경계를 주 관측으로 선택한다.
+            # 선의 좌우 역할을 바꾸는 것이 아니라 이미 확인된 선택을 유지한다.
+            self.metric_tracker.preferred_observation_side = side
+        return measured, ordinary
+
+    def _geometry_frame_pose(self, now):
+        """영상 처리 시작 때 검증한 촬영 시각 pose를 같은 영상에 재사용한다.
+
+        처리 중 odom callback이 지연돼도 정확한 촬영 pose를 없애지 않는다.
+        실제 모터 명령에는 별도의 현재 odom freshness 검사가 계속 적용된다.
+        """
+        cached = getattr(self, 'hybrid_frame_pose', None)
+        if (self._bool_parameter('simulation_yolo_white') and cached is not None and
+                cached[0] == self.corner_capture_stamp):
+            return cached[1]
+        return self._corner_pose_for_frame(now.nanoseconds/1e9)
+
     def _process_result(self, frame, result, now, source_header):
         geometry_started = time.monotonic()
         self.corner_capture_stamp = (source_header.stamp.sec*1_000_000_000+
                                      source_header.stamp.nanosec)
+        self.hybrid_frame_pose = None
+        if self._bool_parameter('simulation_yolo_white'):
+            self.hybrid_frame_pose = (self.corner_capture_stamp,
+                                     self._corner_pose_for_frame(now.nanoseconds/1e9))
         height, width = frame.shape[:2]
         self.perception_source = 'YOLO'
         lane_masks = []
@@ -865,14 +1065,19 @@ class LaneAutonomy(Node):
                 elif class_id == self.crossline_class_id:
                     crossline_masks.append(binary_mask)
 
-        if self._bool_parameter('simulation_white_lane'):
+        if (self._bool_parameter('simulation_white_lane') or
+                self._bool_parameter('simulation_semantic_path')):
             if not self._string_parameter('image_topic').startswith('/lane_sim/'):
                 raise ValueError('white-pixel experiment requires isolated /lane_sim camera')
             # Camera-only centreline pursuit intentionally bypasses the
             # hardware staged-corner identity gates in this isolated profile.
             lane_masks = [item[1] for item in result.white_selected.values()]
-            self.perception_source = 'OPENCV_WHITE_SIM'
-            self.lane_instances = len(lane_masks)
+            semantic = self._bool_parameter('simulation_semantic_path')
+            self.perception_source = 'YOLO_SEMANTIC_PATH_SIM' if semantic else 'OPENCV_WHITE_SIM'
+            if semantic:
+                self.supplement_debug = dict(result.supplement)
+            if not semantic:
+                self.lane_instances = len(lane_masks)
             self.corner_policy.debug = {'mode': 'WHITE_PATH', 'reason': 'connected normal-offset centre'}
             self.corner_policy.staged = None
             self.sim_white_path = result.white_path
@@ -891,7 +1096,22 @@ class LaneAutonomy(Node):
 
         if self._bool_parameter('simulation_yolo_white'):
             self.perception_source = 'YOLO_WHITE_SIM'
-            self.supplement_debug = result.supplement
+            self.supplement_debug = dict(result.supplement)
+            if self.supplement_debug.get('yolo',0)>0:
+                self.hybrid_last_semantic_time = now.nanoseconds/1e9
+            self.hybrid_white_map_side = None
+            measured = (self._stage_white_mask(frame, now) if
+                        self.corner_policy.staged is not None or not lane_masks else None)
+            if measured is not None:
+                # 제어는 동일한 MetricLaneTracker/CornerPolicy를 거친다.
+                # YOLO 통계는 보존하고 실제 사용 픽셀을 별도로 표시한다.
+                lane_masks = [measured]
+                self.lane_instances = 1
+                self.supplement_debug['white_map_geometry' if self.hybrid_white_map_side else
+                                      'white_stage_geometry'] = 1
+                polygons_by_class = [item for item in polygons_by_class if item[0] != self.lane_class_id]
+                contours, _ = cv2.findContours(measured, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                polygons_by_class.append((self.lane_class_id, max(contours, key=cv2.contourArea).reshape(-1,2)))
 
         if self.enabled:
             self._update_crossline(crossline_masks, self.safety_clock.now())
@@ -1242,7 +1462,8 @@ class LaneAutonomy(Node):
             setattr(self, key, plan['values'][key])
 
     def _update_lane_command(self, lane_masks, image_width, now):
-        if self._bool_parameter('simulation_white_lane'):
+        if (self._bool_parameter('simulation_white_lane') or
+                self._bool_parameter('simulation_semantic_path')):
             try:
                 if self.sim_white_path is None:
                     raise ValueError('white centre path unavailable')
@@ -1281,6 +1502,21 @@ class LaneAutonomy(Node):
                         minimum_lane_width_m=2*(self._float_parameter('corner_robot_half_width_m')+
                                                 self._float_parameter('corner_clearance_m')))
                 ordinary_error = None
+                map_side = getattr(self, 'hybrid_white_map_side', None) if self._bool_parameter('simulation_yolo_white') else None
+                if (self._bool_parameter('simulation_yolo_white') and len(lane_masks) == 1
+                        and self.robot_calibration.get('method') == 'intrinsics_urdf_floor'
+                        and self.corner_policy.local_lane_map.frames):
+                    from .metric_lane import floor_curves
+                    pose = self._geometry_frame_pose(now)
+                    curves = floor_curves(lane_masks, self.robot_calibration,
+                        self._float_parameter('projection_max_forward_m'),
+                        self._float_parameter('metric_path_min_m'),
+                        self._float_parameter('metric_path_max_m'),
+                        self._int_parameter('path_polynomial_degree'),
+                        connected_geometry=self._bool_parameter('connected_geometry'))
+                    if len(curves) == 1:
+                        map_side = map_side or self.corner_policy.local_lane_map.measured_side(
+                            curves[0], now.nanoseconds/1e9, pose)
                 try:
                     target = self.metric_tracker.update(lane_masks, self.robot_calibration,
                                        now.nanoseconds/1e9,
@@ -1291,9 +1527,9 @@ class LaneAutonomy(Node):
                                        max_forward_m=self._float_parameter('projection_max_forward_m'),
                                        path_min_m=self._float_parameter('metric_path_min_m'),
                                        path_max_m=self._float_parameter('metric_path_max_m'),
-                                       image_side_hint=getattr(self, 'image_side_hint', None),
+                                       image_side_hint=map_side or getattr(self, 'image_side_hint', None),
                                        image_match=getattr(self, 'image_match', None),
-                                       recovery_side_hint=(near_pixel_side(lane_masks[0])
+                                       recovery_side_hint=(map_side or near_pixel_side(lane_masks[0])
                                                            if len(lane_masks) == 1 else None))
                 except ValueError as exc:
                     target = None
@@ -1317,14 +1553,36 @@ class LaneAutonomy(Node):
                         and str(ordinary_error) == 'inferred target discontinuity')
                     if ordinary_error and (active_mask_count != 1 or
                             ('center_path curve folds back' not in str(ordinary_error)
+                             and not (self._bool_parameter('simulation_yolo_white') and
+                                      str(ordinary_error) == 'no forward centre path')
                              and not staged_target_jump and not s_route_target_jump)):
                         observation = None
-                    pose = self._corner_pose_for_frame(now.nanoseconds/1e9)
+                    pose = (self._geometry_frame_pose(now) if
+                            self._bool_parameter('simulation_yolo_white') else
+                            self._corner_pose_for_frame(now.nanoseconds/1e9))
+                    if (pose is not None and
+                            self._bool_parameter('simulation_yolo_white') and
+                            self.corner_policy.staged is not None):
+                        recovered = self.corner_policy.staged_observation(
+                            lane_masks, self.robot_calibration, pose)
+                        if recovered is not None:
+                            observation = recovered
+                    if (self._bool_parameter('simulation_yolo_white') and
+                            getattr(self.corner_policy, 'staged', None) is None):
+                        observation, target = self._hybrid_connected_observation(
+                            lane_masks, observation, target)
+                        if (self.corner_policy.s_route is not None and observation is not None and
+                                target is not None and not target.get('held')):
+                            target = dict(target, preserve_pending_s=True)
                     self.corner_policy.floor_calibration = self.robot_calibration
                     target = self.corner_policy.update(observation, target, now.nanoseconds/1e9,
                               pose, self._metric_lookahead(), self._float_parameter('corner_max_angular_speed'),
                               no_boundaries=len(lane_masks) == 0)
                     self.corner_policy.debug['pose_timing'] = getattr(self, 'corner_pose_diagnostic', {})
+                    if self._bool_parameter('simulation_yolo_white'):
+                        self.corner_policy.debug['connected_trace']=getattr(self,'hybrid_connected_trace',{})
+                    if map_side:
+                        self.corner_policy.debug['measured_map_side_hint'] = map_side
                     if ordinary_error:
                         self.corner_policy.debug['ordinary_error'] = str(ordinary_error)
                     if staged_target_jump:
@@ -1755,6 +2013,13 @@ class LaneAutonomy(Node):
         return message
 
     def _queue_debug(self, frame, polygons, boundary_count, header):
+        """진단 표시의 오류는 유효한 차선 추론/주행 상태를 변경하지 않는다."""
+        try:
+            self._queue_debug_snapshot(frame, polygons, boundary_count, header)
+        except Exception as exc:
+            self.get_logger().warn(f'Diagnostic image skipped: {exc}', throttle_duration_sec=2.)
+
+    def _queue_debug_snapshot(self, frame, polygons, boundary_count, header):
         """Copy display state only; worker never reads changing controller state."""
         now = time.monotonic()
         debug_due = self.debug_publisher.get_subscription_count() > 0
@@ -1780,10 +2045,16 @@ class LaneAutonomy(Node):
                   'perception_source',
                   'floor_calibration', 'robot_calibration', 'metric_target', 'metric_error',
                   'active_near_y_ratio', 'near_center', 'far_center', 'near_candidate_count',
-                  'inference_seconds', 'turn_started_at', 'turn_exhausted', 'turn_side',
+                  'inference_seconds', 'turn_exhausted', 'turn_side',
                   'near_pair_streak')
         fields += ('debug_boundary_labels',)
         snapshot = SimpleNamespace(**{name: deepcopy(getattr(self, name, None)) for name in fields})
+        # rclpy.Time는 C 핸들을 보유해 deepcopy/pickle 할 수 없다.
+        # 표시 작업에는 값으로 만든 독립 시간 객체만 전달한다.
+        from rclpy.time import Time
+        turn = self.turn_started_at
+        snapshot.turn_started_at = (None if turn is None else
+                                    Time(nanoseconds=turn.nanoseconds, clock_type=turn.clock_type))
         params = {name: self.get_parameter(name).value for name in
                   ('far_y_ratio', 'single_line_turn_seconds', 'corner_enabled')}
         snapshot._float_parameter = lambda name: float(params[name])

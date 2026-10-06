@@ -75,6 +75,7 @@ def main():
         videos[key].write(pixels)
         if observations[key] == 1:
             cv2.imwrite(str(args.output/('first_debug.jpg' if debug else 'first_camera.jpg')), pixels)
+            cv2.imwrite(str(args.output/('first_debug.png' if debug else 'first_camera.png')), pixels)
         if observations[key]%30 == 0:
             cv2.imwrite(str(args.output/('latest_debug.jpg' if debug else 'latest_camera.jpg')), pixels)
         if not debug:
@@ -148,6 +149,8 @@ def main():
                    camera_intrinsics=None if camera_matrix is None else camera_matrix.tolist(),
                    nonzero_commands=sum(abs(r['v'])+abs(r['w'])>1e-6 for r in observations['cmd']),
                    status_counts=dict(Counter(r['text'].split(':')[0] for r in observations['status'])))
+    summary['semantic_path_profile'] = any('YOLO_SEMANTIC_PATH_SIM' in r['text']
+                                           for r in observations['status'])
     if len(points)>1:
         centre = np.asarray(metadata['centre'])
         nearest, indices, fraction = nearest_on_chain(points,centre)

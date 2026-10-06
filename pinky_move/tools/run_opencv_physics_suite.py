@@ -17,17 +17,36 @@ def main():
     parser.add_argument('--seconds', type=float, default=100.)
     parser.add_argument('--perception', choices=('opencv', 'yolo', 'hybrid'), default='opencv')
     parser.add_argument('--connected-geometry', action='store_true')
+    parser.add_argument('--semantic-path', action='store_true', help='hybrid 입력에 OpenCV 성공 시험과 동일한 연결 경로/제어 프로파일 적용')
     parser.add_argument('--resume', action='store_true', help='완료된 trial.json을 보존하고 미시작 시험만 재개')
+    parser.add_argument('--cases', choices=('all', 's', 'left90', 'right90', 's_right', 's_left'), default='all')
     args = parser.parse_args()
+    if args.semantic_path and args.perception != 'hybrid':
+        parser.error('--semantic-path requires --perception hybrid')
     if not 1 <= args.repeats <= 5 or not 1 <= args.seconds <= 300:
         parser.error('repeats: 1..5, seconds: 1..300')
     if args.output.exists() and not args.resume:
         parser.error('출력 폴더가 이미 존재함: 기록을 덮어쓰지 않습니다')
     args.output.mkdir(parents=True, exist_ok=args.resume)
+    # 재개 시 다른 제어 프로파일의 결과를 섞어 합격으로 표시하지 않는다.
+    profile = dict(perception=args.perception, connected_geometry=args.connected_geometry,
+                   semantic_path=args.semantic_path, seconds=args.seconds, domain=172)
+    profile_path = args.output/'profile.json'
+    if profile_path.exists() and json.loads(profile_path.read_text()) != profile:
+        parser.error('재개 폴더의 perception/control profile이 다릅니다')
+    profile_path.write_text(json.dumps(profile, ensure_ascii=False, indent=2))
     results = []
     # Three stripes are exercised from BOTH lanes, not just one favourable view.
     for course, lanes, lane in [('left90', 1, 0), ('right90', 1, 0),
                                ('s_sharp', 2, 0), ('s_sharp', 2, 1)]:
+        if args.cases == 's' and course != 's_sharp':
+            continue
+        if args.cases in ('left90','right90') and course != args.cases:
+            continue
+        if args.cases == 's_right' and (course != 's_sharp' or lane != 0):
+            continue
+        if args.cases == 's_left' and (course != 's_sharp' or lane != 1):
+            continue
         for repeat in range(1, args.repeats+1):
             name = f'{course}_{args.perception}_lane{lane}_r{repeat}'
             output = args.output/name
@@ -48,6 +67,7 @@ def main():
                 launch = subprocess.Popen(['ros2', 'launch', 'pinky_move', 'lane_gazebo.launch.py',
                     f'course:={course}', f'lane_count:={lanes}', f'target_lane:={lane}',
                     'domain:=172', f'perception:={args.perception}', 'gui:=false', f'output:={directory}',
+                    f'semantic_path:={str(args.semantic_path).lower()}',
                     f'connected_geometry:={str(args.connected_geometry).lower()}'],
                     stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
                 try:

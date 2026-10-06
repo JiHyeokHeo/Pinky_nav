@@ -218,7 +218,7 @@ def fit_connected_approach(points, degree=3):
 
 def floor_curves(masks, calibration, max_forward_m=2.0,
                  path_min_m=.05, path_max_m=None, degree=3, recover_short_hook=False,
-                 component_recovery=True, connected_geometry=False):
+                 component_recovery=True, connected_geometry=False, connected_primary=False):
     """Compare row/column extraction instead of committing to one image axis.
 
     Perspective can make a legitimate near stripe too thick for column scans,
@@ -229,6 +229,18 @@ def floor_curves(masks, calibration, max_forward_m=2.0,
     """
     curves = []
     for mask in masks:
+        if connected_geometry and connected_primary:
+            # 시뮬 실험만: 축 샘플러가 L의 한 다리만 성공했다고 간주하는
+            # 문제를 분리한다. 연결/분기/실좌표 피팅 검사는 그대로 적용한다.
+            primary = connected_floor_curve(mask, calibration, max_forward_m)
+            if len(primary) == 1:
+                hi = max_forward_m if path_max_m is None else path_max_m
+                try:
+                    fit_boundary(supported_chain(primary[0], path_min_m, hi), degree)
+                    curves.append(primary[0])
+                    continue
+                except ValueError:
+                    pass
         candidates = []
         for by_column in (False, True):
             for points in _axis_floor_curves([mask], calibration, max_forward_m, by_column):
@@ -694,7 +706,8 @@ def distinct_near_masks(masks):
     return kept
 
 
-def unique_near_boundary(masks, calibration, max_forward_m, lo, hi, degree):
+def unique_near_boundary(masks, calibration, max_forward_m, lo, hi, degree,
+                         connected_geometry=False, connected_primary=False):
     """Candidate for temporal confirmation when distant masks cannot pair.
 
     Exactly one reliable near stripe must be at least 6 cm ahead of all other
@@ -703,7 +716,8 @@ def unique_near_boundary(masks, calibration, max_forward_m, lo, hi, degree):
     """
     observations = []
     for index, mask in enumerate(masks):
-        curves = floor_curves([mask], calibration, max_forward_m, lo, hi, degree)
+        curves = floor_curves([mask], calibration, max_forward_m, lo, hi, degree,
+                              connected_geometry=connected_geometry, connected_primary=connected_primary)
         if len(curves) != 1:
             rows = np.nonzero(mask)[0]
             if not len(rows) or rows.max() >= .65*mask.shape[0]:
@@ -922,13 +936,15 @@ def classify_lanes(curves, reference_x, previous=None):
 
 
 def metric_target(masks, calibration, lookahead=.28, previous=None, degree=3,
-                  max_forward_m=2., path_min_m=.05, path_max_m=None):
+                  max_forward_m=2., path_min_m=.05, path_max_m=None,
+                  connected_geometry=False, connected_primary=False):
     masks = distinct_near_masks(masks)
     if len(masks) < 2:
         raise ValueError('two lane boundaries required')
     curves = []
     path_max_m = lookahead+.20 if path_max_m is None else path_max_m
-    projected = floor_curves(masks, calibration, max_forward_m, path_min_m, path_max_m, degree)
+    projected = floor_curves(masks, calibration, max_forward_m, path_min_m, path_max_m, degree,
+                             connected_geometry=connected_geometry, connected_primary=connected_primary)
     rejected = []
     for p in projected:
         try:
@@ -945,7 +961,8 @@ def metric_target(masks, calibration, lookahead=.28, previous=None, degree=3,
         # member failed ordinary row/column extraction in the pair batch.
         candidates = []
         for mask in masks:
-            one = floor_curves([mask], calibration, max_forward_m, path_min_m, path_max_m, degree)
+            one = floor_curves([mask], calibration, max_forward_m, path_min_m, path_max_m, degree,
+                               connected_geometry=connected_geometry, connected_primary=connected_primary)
             if len(one) != 1:
                 break
             try:
@@ -1058,11 +1075,12 @@ class MetricLaneTracker:
     confirmation timestamp using inferred geometry.
     """
     def __init__(self, minimum_lane_width_m=0., width_measure_interval_s=.5, tracking_gap_s=.8,
-                 connected_geometry=False):
+                 connected_geometry=False, connected_primary=False):
         if not np.isfinite(tracking_gap_s) or tracking_gap_s <= 0:
             raise ValueError('invalid tracking gap')
         self.tracking_gap_s = tracking_gap_s
         self.connected_geometry = bool(connected_geometry)
+        self.connected_primary = bool(connected_primary)
         self._curve_cache = {}
         self.confirmed = None
         self.confirmed_at = None
@@ -1106,7 +1124,8 @@ class MetricLaneTracker:
             # Retain masks too: a temporary array's recycled id must not hit
             # a different mask's cached geometry later in the same update.
             self._curve_cache[key] = (tuple(masks), floor_curves(
-                masks, calibration, *args, **kwargs, connected_geometry=True))
+                masks, calibration, *args, **kwargs, connected_geometry=True,
+                connected_primary=self.connected_primary))
         return self._curve_cache[key][1]
 
     def update(self, masks, calibration, now_s, lookahead=.28, timeout_s=0.,
@@ -1219,7 +1238,9 @@ class MetricLaneTracker:
         if len(masks) >= 2:
             try:
                 target = metric_target(masks, calibration, lookahead, self.previous,
-                                       degree, max_forward_m, path_min_m, path_max_m)
+                                       degree, max_forward_m, path_min_m, path_max_m,
+                                       connected_geometry=self.connected_geometry,
+                                       connected_primary=self.connected_primary)
             except ValueError as pair_error:
                 self.streak = 0
                 # A second YOLO instance need not be the opposite boundary.
@@ -1255,7 +1276,9 @@ class MetricLaneTracker:
                         and ('no unambiguous left/right boundary pair' in str(pair_error)
                              or 'no common observed lane interval' in str(pair_error))):
                     candidate = unique_near_boundary(
-                        masks, calibration, max_forward_m, path_min_m, path_max_m, degree)
+                        masks, calibration, max_forward_m, path_min_m, path_max_m, degree,
+                        connected_geometry=self.connected_geometry,
+                        connected_primary=self.connected_primary)
                     if candidate is not None:
                         index, side, curve = candidate
                         old = self.pair_hint

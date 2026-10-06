@@ -92,3 +92,26 @@ def white_floor_masks(frame, calibration):
     count, labels, stats, _ = cv2.connectedComponentsWithStats(binary, 8)
     return [(labels == i).astype(np.uint8) for i in range(1, count)
             if stats[i, cv2.CC_STAT_AREA] >= 60]
+
+
+def semantic_center_path(masks, calibration, lane_width):
+    """YOLO/flow가 승인한 CURRENT 마스크만 연결 경로로 변환한다.
+
+    흰 영상 전체를 재탐색하지 않는다. OpenCV 비교와 같은 골격/법선
+    경로를 사용하되 semantic gate는 YoloWhiteSupplement가 유지한다.
+    추론 worker에서 실행하여 odometry callback을 막지 않는다.
+    """
+    from .metric_lane import connected_floor_curve, floor_curves
+    candidates = []
+    for mask in masks:
+        chains = connected_floor_curve(mask, calibration, 1.2, pixel_step=4)
+        if len(chains) == 1:
+            candidates.append((mask, chains[0], chains))
+        elif not chains:
+            # 횡방향 코너는 골격 끝점들이 같은 이미지 높이에 있어 골격의
+            # traversal 방향을 정할 수 없다. OpenCV 성공 모드와 동일한
+            # 행/열 투영 sampler로 CURRENT 관측만 복구한다.
+            curves = floor_curves([mask], calibration, 1.2, .08, .70)
+            if len(curves) == 1:
+                candidates.append((mask, curves[0], []))
+    return white_center_path(candidates, lane_width)

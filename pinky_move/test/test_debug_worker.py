@@ -5,6 +5,35 @@ from multiprocessing import get_context
 from types import SimpleNamespace
 from array import array
 import time
+import numpy as np
+from test_lane_controller import controller
+
+
+def test_debug_snapshot_clones_real_ros_time_without_pickling(controller):
+    from rclpy.time import Time
+    from rclpy.clock import ClockType
+    from std_msgs.msg import Header
+    submitted = []
+    controller.turn_started_at = Time(nanoseconds=123456789, clock_type=ClockType.STEADY_TIME)
+    controller.debug_transport = SimpleNamespace()
+    controller.debug_worker = SimpleNamespace(submit=submitted.append)
+    controller.last_debug_enqueued = 0.
+    controller._queue_debug_snapshot(np.zeros((10,10,3), np.uint8), [], 0, Header())
+    assert len(submitted) == 1
+    copied = submitted[0][0].turn_started_at
+    assert copied is not controller.turn_started_at
+    assert copied == controller.turn_started_at
+
+
+def test_diagnostic_copy_failure_never_invalidates_lane(controller):
+    from std_msgs.msg import Header
+    def failed(*args):
+        raise TypeError('diagnostic copy failed')
+    controller._queue_debug_snapshot = failed
+    controller.latest_linear, controller.latest_angular = .03, .15
+    controller._queue_debug(np.zeros((10,10,3), np.uint8), [], 1, Header())
+    assert (controller.latest_linear, controller.latest_angular) == (.03, .15)
+    assert controller.inference_error is None
 
 
 def blocked_image_process(requests, timings, domain_id, topics):

@@ -83,6 +83,38 @@ def match_corner_fragment(current, reference):
     return dict(info, fragment_ok=True, fragment_reason='matched visible corner segment')
 
 
+def trim_corner_endpoint_extensions(current, reference):
+    """기록 끝점을 지나 길어진 현재 선만 잘라 관측 지지의 길이를 맞춘다.
+
+    새로 보이는 긴 출구를 분모에 넣으면 같은 차선의 대응률이 감소한다.
+    끝점 바깥, 끝 선분과 15mm/10도 이내로 일직선인 앞/뒤 연결 부분만
+    제외한다. 내부 불일치·평행한 다른 차선·분기는 제거하지 않는다.
+    """
+    a, b = np.asarray(current, float), np.asarray(reference, float)
+    if len(a) < 5 or len(b) < 5:
+        return a
+    q, index, fraction = nearest_on_chain(a, b)
+    tangent = np.gradient(a, axis=0)
+    extension = np.zeros(len(a), bool)
+    for point, segment, endpoint, outer in (
+            (b[0], b[1]-b[0], 0, -1),
+            (b[-1], b[-1]-b[-2], len(b)-2, 1)):
+        segment = segment/max(np.linalg.norm(segment), 1e-12)
+        delta = a-point
+        normal = np.array([-segment[1], segment[0]])
+        cosine = np.abs(tangent@segment)/np.maximum(np.linalg.norm(tangent, axis=1), 1e-12)
+        at_endpoint = (index == endpoint) & ((fraction <= .001) if outer < 0 else (fraction >= .999))
+        extension |= (at_endpoint & (outer*(delta@segment) > 0.) &
+                      (np.abs(delta@normal) <= .015) &
+                      (cosine >= np.cos(np.deg2rad(10))))
+    lo, hi = 0, len(a)
+    while lo < hi and extension[lo]:
+        lo += 1
+    while hi > lo and extension[hi-1]:
+        hi -= 1
+    return a[lo:hi] if hi-lo >= 5 else a
+
+
 def staged_command(target, pose, now, max_angular, tolerance):
     """Re-evaluate staged motion at control rate with CURRENT odometry.
 
@@ -265,6 +297,47 @@ def limit_bend_entry(target):
     if target.get('s_route_tracking'):
         limited['s_route_target_arc_m'] = float(s[i])
     return limited
+
+
+def first_sharp_corner_prefix(curve, config, minimum_entry_m=.12):
+    """연속 직각 S의 첫 실제 두 다리만 선택한다. 부드러운 S는 바꾸지 않는다.
+
+    8mm RDP 오차 내의 관측 골격에서 첫 두 다리가 각각 12cm 이상이고
+    75~115도인 경우만 분리한다. 다음 코너 직전 3cm는 제외하며, 기존
+    직선 잔차/출구 지지 검사를 다시 통과해야 한다. 외삽하지 않는다.
+    """
+    import cv2
+    source=np.asarray(curve,float)
+    if len(source)<5 or not np.isfinite(source).all():
+        return None
+    p=cv2.approxPolyDP(source.astype(np.float32).reshape(-1,1,2),.008,False).reshape(-1,2)
+    if len(p)<3:
+        return None
+    if np.max(np.linalg.norm(source-nearest_on_chain(source,p)[0],axis=1))>.008+1e-6:
+        return None
+    delta=np.diff(p,axis=0)
+    lengths=np.linalg.norm(delta,axis=1)
+    selected=None
+    for i in range(1,len(p)-1):
+        angle=wrap(np.arctan2(delta[i,1],delta[i,0])-np.arctan2(delta[i-1,1],delta[i-1,0]))
+        degrees=abs(np.rad2deg(angle))
+        if 75<=degrees<=115:
+            if lengths[i-1]<minimum_entry_m or lengths[i]<.12:
+                return None  # 실제 짧은 첫 코너를 건너 다음 코너를 택하지 않는다.
+            selected=i
+            break
+        if degrees>20 or lengths[i-1]>=config.segment_m:
+            return None  # 짧은 작은 방향 변화만 선두 잡음으로 제외한다.
+    if selected is None:
+        return None
+    i=selected
+    end=p[i+1]-(.03 if len(p)>i+2 else 0.)*delta[i]/lengths[i]
+    # 생 픽셀 골격의 접선 지터를 다시 분류에 넣지 않는다. 위치 오차가
+    # 검증된 같은 관측 폴리라인의 첫 두 다리만 재샘플링한다.
+    prefix=resample_chain(np.vstack((p[i-1:i+1],end)),100)
+    if classify_boundary(prefix,config)['kind']!='CORNER':
+        return None
+    return prefix
 
 
 def classify_boundary(curve, config):
@@ -748,8 +821,17 @@ class CornerPolicy:
                 distance, cosine, support = (.035,.80,.03) if relaxed else (.01,.95,.08)
                 ok,detail,_=self._boundary_overlap(actual,stored,distance,cosine,support)
                 self.debug.update({'s_rotation_boundary_'+k:v for k,v in detail.items()})
-                if (not ok or detail['max_error_m']>distance or detail['min_cosine']<cosine):
+                # 연결된 직각 꼭짓점의 수치 접선 한 점은 반대 방향일 수 있다.
+                # 현재 중앙선 10cm가 1cm/0.98 이내로 대응하고 실경계의
+                # 90% 이상이 대응할 때만 이 꼭짓점 이상치를 허용한다.
+                junction_match = (target.get('preserve_pending_s') and
+                    detail.get('ratio', 0.) >= .90 and error <= .01 and
+                    span >= .10 and float(np.min(cosines)) >= .98 and
+                    backstep >= -.002)
+                if (not ok or detail['max_error_m']>distance or
+                        (detail['min_cosine']<cosine and not junction_match)):
                     raise ValueError('S route rotation boundary mismatch')
+                self.debug['s_rotation_junction_match'] = bool(junction_match)
             if expired and not soft_match and not relaxed:
                 count = 1
                 anchor_pose = np.array(pose)
@@ -1049,11 +1131,13 @@ class CornerPolicy:
                 self.block_recovery = True  # No extra blind hold after this target.
                 self.debug.update(mode='LOCAL_MAP', reason='fresh near lane confirmed by odom map',
                                   local_map_votes=target['local_map_votes'])
-                if self.config.relaxed_tracking:
+                if self.config.relaxed_tracking and not ordinary.get('preserve_pending_s'):
                     self.s_route = None
                     self.s_route_reacquire = None
                     self.s_route_soft_valid = False
                     self.debug['s_route_replaced_by_current_map'] = True
+                elif ordinary.get('preserve_pending_s'):
+                    self.debug['s_route_preserved_by_current_map'] = True
         if fresh and ordinary is not None and observation:
             local_map.remember(observation, now, pose)
         self.debug.update(local_map_frames=len(local_map.frames), local_map_retention_s=10.)
@@ -1095,11 +1179,15 @@ class CornerPolicy:
             return None if active else ordinary
         ordinary = limit_bend_entry(ordinary)
         feature = classify_boundary(observation['curve'], cfg)
-        feature = self._s_bend_feature(observation, feature, now, pose)
+        if not observation.get('sharp_s_prefix'):
+            feature = self._s_bend_feature(observation, feature, now, pose)
         feature, history_votes = self._history_feature(observation, feature, now, pose)
         self.debug = dict(mode=feature['kind'], angle_deg=feature['angle_deg'], reason=feature['reason'],
                           history_votes=history_votes, history_frames=len(self.corner_history))
-        if self.s_route is not None and feature['kind'] == 'CORNER':
+        preserve_unknown = (ordinary is not None and ordinary.get('preserve_pending_s') and
+                            feature['kind'] == 'UNKNOWN')
+        if (self.s_route is not None and not observation.get('sharp_s_prefix') and
+                (feature['kind'] == 'CORNER' or preserve_unknown)):
             # A cropped S shows only ONE bend, often classified CORNER. The
             # label alone is not a contradiction. Route it through the same
             # current-centre/odom correspondence checks as a full S. Those
@@ -1229,6 +1317,13 @@ class CornerPolicy:
         self.state = 'APPROACH' if corner_distance > cfg.approach_m else 'TURN'
         self.debug.update(mode=self.state, confirmed=True)
         if cfg.staged_turn and 75 <= abs(feature['angle_deg']) <= 115:
+            if centre_can_approach and len(ordinary.get('center_path', [])) >= 5:
+                # 실제 관측 중앙 경로가 유효하고 코너가 아직 먼 경우에는
+                # 진입 피벗을 확정하지 않는다. 조기 확정하면 긴 접근 동안
+                # 카메라 크롭/새 출구 길이로 저장 경계의 대응을 먼저 잃는다.
+                self.block_recovery = False
+                self.debug.update(reason='ordinary centre path approaches distant confirmed corner')
+                return dict(ordinary, corner_speed_cap=cfg.speed_mps)
             try:
                 self._start_staged(observation, feature, pose, now)
             except ValueError as exc:
@@ -1264,12 +1359,115 @@ class CornerPolicy:
         self.confirmed_exit = exit_yaw
         return target
 
+    def staged_observation(self, masks, calibration, pose):
+        """확정된 코너의 CURRENT 경계만 대응한다. PP 경로 생성과 분리한다.
+
+        진입 끝에서 PP 최소 x 밖으로 잘린 선도 고정된 odom 코너에 대응하면
+        관측으로 유효하다. 옛 마스크/중앙 경로를 발행하거나 새 코너를 만들지
+        않는다. 대응하는 현재 마스크가 정확히 하나일 때만 반환한다.
+        """
+        from .metric_lane import floor_curves, connected_floor_curve
+        s = self.staged
+        if s is None or pose is None:
+            return None
+        c, sn = np.cos(pose[2]), np.sin(pose[2])
+        reference = (s['curve']-pose[:2])@np.array([[c, -sn], [sn, c]])
+        candidates = []
+        opposite_candidates = []
+        opposite = s.get('opposite_curve')
+        opposite_reference = None if opposite is None else (
+            opposite-pose[:2])@np.array([[c, -sn], [sn, c]])
+        for mask_index, mask in enumerate(masks):
+            curves = connected_floor_curve(mask, calibration, 2.)
+            if not curves:
+                curves = floor_curves([mask], calibration, 2., .05, 2.,
+                                      connected_geometry=True)
+            accepted = []
+            for curve in curves:
+                if s.get('sharp_s_prefix'):
+                    prefix=first_sharp_corner_prefix(curve,self.config)
+                    if prefix is not None:
+                        curve=prefix
+                # 현재 새로 보인 출구의 길이가 저장 당시보다 길다는 이유만으로
+                # 같은 코너의 관측을 실패시키지 않는다. 목표/회전각은 고정이다.
+                current = trim_corner_endpoint_extensions(curve, reference)
+                if match_corner_fragment(current, reference)['fragment_ok']:
+                    accepted.append(current)
+            if len(accepted) == 1:
+                candidates.append((mask_index, accepted[0]))
+            if opposite_reference is not None:
+                other = [trim_corner_endpoint_extensions(curve, opposite_reference) for curve in curves]
+                other = [curve for curve in other
+                         if match_corner_fragment(curve, opposite_reference)['fragment_ok']]
+                if len(other) == 1:
+                    opposite_candidates.append((mask_index, other[0]))
+        if len(candidates) == 1:
+            return dict(curve=candidates[0][1], side=s['side'], width=s['width'],
+                        source_mask_index=candidates[0][0],
+                        width_source='committed corner')
+        if not candidates and len(opposite_candidates) == 1:
+            return dict(curve=opposite_candidates[0][1], source_mask_index=opposite_candidates[0][0],
+                        side='right' if s['side']=='left' else 'left', width=s['width'],
+                        width_source='committed corner', staged_opposite_validated=True)
+        return None
+
+    def _mapped_entry_support(self, obs, feature, pose, now):
+        """동일 진입선의 과거 실관측만 odom 변환해 현재 잘린 입구를 보완한다.
+
+        10초 지도 내 두 독립 관측이 현재 입구와 8mm/10도 이내로 대응해야 한다.
+        출구·코너·회전각은 현재 관측 그대로이며 보이지 않은 선을 외삽하지 않는다.
+        """
+        c, sn = np.cos(pose[2]), np.sin(pose[2])
+        inverse = np.array([[c, -sn], [sn, c]])
+        entry, tin = feature['entry'], feature['tin']
+        normal = np.array([-tin[1], tin[0]])
+        votes = []
+        for timestamp, curves, width in self.local_lane_map.frames:
+            if not 0 < now-timestamp <= self.local_lane_map.retention_s or obs['side'] not in curves or abs(width-obs['width']) > .02:
+                continue
+            reference = (curves[obs['side']]-pose[:2])@inverse
+            rel = reference-entry
+            station = rel@tin
+            valid = (np.abs(rel@normal) <= .008) & (station <= .06)
+            indices = np.flatnonzero(valid)
+            if len(indices) < 5:
+                continue
+            runs = np.split(indices, np.flatnonzero(np.diff(indices) > 1)+1)
+            for run in runs:
+                p = reference[run]
+                st = station[run]
+                if len(p) < 5 or st.min() >= -.01 or st.max() < .025:
+                    continue
+                tangent = p[-1]-p[0]
+                if (np.linalg.norm(tangent) < .04 or
+                        tangent@tin/np.linalg.norm(tangent) < np.cos(np.deg2rad(10))):
+                    continue
+                votes.append((timestamp, p, float(st.min())))
+                break
+        if len(votes) < 2:
+            return feature
+        # Both observations must independently support the extended start.
+        start = sorted(v[2] for v in votes)[1]
+        reference = min(votes, key=lambda v: abs(v[2]-start))[1]
+        current = np.asarray(obs['curve'])
+        current_start = float((current[0]-entry)@tin)
+        prefix = reference[(reference-entry)@tin < min(0., current_start)-1e-6]
+        joined = np.vstack((prefix, current)) if len(prefix) else current.copy()
+        if first_self_intersection(joined) is not None:
+            return feature
+        result = dict(feature, entry=entry+start*tin,
+                      observed_reference=joined,
+                      mapped_entry_support_m=-start)
+        self.debug['mapped_entry_support_m'] = -start
+        return result
+
     def _start_staged(self, obs, feature, pose, now):
         """Intersect offset entry/exit lines to locate an axle-centre pivot.
 
         Only the measured entry span is used for approach. The stationary spin
         is NOT a footprint-safe Bezier plan or an obstacle-clearance guarantee.
         """
+        feature = self._mapped_entry_support(obs, feature, pose, now)
         width = obs['width']
         if width < 2*(self.config.half_width_m+self.config.clearance_m):
             raise ValueError('corner entry: lane narrower than robot')
@@ -1282,6 +1480,21 @@ class CornerPolicy:
         support = float((feature['corner']-feature['entry'])@tin)
         self.debug.update(entry_travel_m=float(travel), entry_support_m=support,
                           pivot_base=(a+travel*tin).tolist())
+        # 검은/흰 경계의 지지 구간과 오프셋 중앙선의 지지 구간은 다르다.
+        # 안쪽 L에서는 miter 교점이 경계 꼭짓점보다 d*tan(theta/2)만큼
+        # 앞으로 나온다. 이를 모두 외삽으로 취급하면 폭 20cm의 정상적인
+        # 90도 코너가 정확히 10cm 초과했다는 이유로 항상 거부된다.
+        cross = float(tin[0]*tout[1]-tin[1]*tout[0])
+        denominator = 1.+float(tin@tout)
+        extension = max(0., -offset*cross/max(denominator, 1e-12))
+        exit_support = float((feature['exit']-feature['corner'])@tout)
+        if extension > 0 and (denominator < .25 or
+                exit_support < extension+self.config.segment_m):
+            raise ValueError('corner entry: insufficient measured exit for miter support')
+        centre_support = support+extension
+        self.debug.update(entry_boundary_support_m=support,
+                          entry_miter_extension_m=extension,
+                          entry_center_support_m=centre_support)
         # Search up to 2cm along/across the entry centreline,
         # scoring the complete stationary rotation rather than just the axle.
         # Small lateral shifts are approached by the existing pursuit control,
@@ -1293,7 +1506,7 @@ class CornerPolicy:
         station = rel@tin
         on_entry = (np.abs(rel@normal(tin)) <= .005) & (station <= support)
         measured_start = min(0., float(np.min(station[on_entry]))) if np.any(on_entry) else 0.
-        low, high = max(measured_start, travel-.02), min(support, travel+.02)
+        low, high = max(measured_start, travel-.02), min(centre_support, travel+.02)
         if low <= high:
             heading = np.arctan2(tin[1], tin[0])
             delta_heading = wrap(np.arctan2(tout[1], tout[0])-heading)
@@ -1375,12 +1588,12 @@ class CornerPolicy:
         # This is not extra blind travel or a relaxation of footprint/drift
         # checks, nor a claim of physically verified calibration accuracy.
         support_start = measured_start if selected_interior else 0.
-        support_overrun = max(0., support_start-float(travel), float(travel)-support)
+        support_overrun = max(0., support_start-float(travel), float(travel)-centre_support)
         self.debug.update(entry_support_tolerance_m=.010,
                           entry_support_overrun_m=support_overrun)
         if support_overrun > .010+1e-12:
             raise ValueError('corner entry: pivot outside observed entry support '
-                             f'(travel={travel:.3f}m, support={support:.3f}m)')
+                             f'(travel={travel:.3f}m, support={centre_support:.3f}m)')
         if pivot[0] <= 0 or abs(np.arctan2(tin[1], tin[0])) > np.deg2rad(30):
             raise ValueError('corner entry: robot not aligned with entry')
         self.staged = dict(pivot=world_point(pivot, pose),
@@ -1388,11 +1601,46 @@ class CornerPolicy:
             curve=np.array([world_point(p, pose) for p in
                             feature.get('observed_reference', obs['curve'])]),
             side=obs['side'], width=width, started=now, brake_at=None, matched_at=now,
+            sharp_s_prefix=bool(obs.get('sharp_s_prefix')),
             matched_pose=np.asarray(pose).copy(), blind_entry=None, blind_eligible=True,
             entry_yaw=wrap(np.arctan2(tin[1],tin[0])+pose[2]),
             progress_at=now, progress_remaining=float(pivot@tin), fault=None,
             spin_at=None, exit_count=0,
             exit_yaw=wrap(np.arctan2(tout[1], tout[0])+pose[2]))
+        if obs.get('sharp_s_prefix'):
+            # 동일 현재 첫 직각을 3회 확정한 뒤에만 연속 S 경로를 교체한다.
+            # 단일 후보나 크롭 프레임만으로 미완료 경로를 지우지 않는다.
+            self.s_route=None
+            self.s_route_reacquire=None
+            self.s_route_soft_valid=False
+            self.s_bend_anchor=None
+        # 안쪽 선은 진입 피벗에 도착하기 전에 카메라 뒤로 사라진다.
+        # 고정 목표는 그대로 두고, 현재 보이는 반대쪽 실경계로 관측만
+        # 이어받을 수 있도록 같은 폭의 miter 경계를 대응 기준으로 보관한다.
+        other = obs.get('other')
+        source = 'measured'
+        # 양쪽이 검출됐어도 반대 선은 아직 직선 진입부만 보일 수 있다.
+        # 그 짧은 직선만 저장하면 뒤에 드러난 실제 출구를 대응할 수 없다.
+        # 현재 두 다리로 확정한 코너 + 폭의 예상 경계는 관측 대응용이다.
+        # 이동 목표는 바꾸지 않으며 새로운 실제 픽셀이 맞아야 이어받는다.
+        exit_supported = False
+        if other is not None and len(other) >= 5:
+            delta = np.diff(np.asarray(other), axis=0)
+            length = np.linalg.norm(delta, axis=1)
+            aligned = (delta@tout)/np.maximum(length, 1e-12) >= np.cos(np.deg2rad(15))
+            exit_supported = np.sum(length[aligned]) >= cfg.segment_m
+        if not exit_supported:
+            try:
+                from .connected_path import connected_miter_center
+                _, other = connected_miter_center(
+                    np.asarray(feature.get('observed_reference', obs['curve'])),
+                    width*(-1 if obs['side']=='left' else 1))
+                source = 'inferred_width'
+            except ValueError:
+                pass  # 폭 경계 생성 실패 시 기존 실제 반대 선 관측은 보존한다.
+        self.staged['opposite_curve'] = None if other is None else np.array([
+            world_point(point, pose) for point in other])
+        self.staged['opposite_source'] = source
 
     def observe_arrival(self, pose, now):
         """Latch arrival using fresh control-rate odometry; never command motion.
@@ -1425,6 +1673,7 @@ class CornerPolicy:
         self.block_recovery = True  # Never fall through to blind lane-search spin.
         self.debug = dict(mode='ENTRY', reason='approaching observed pivot')
         self.debug['pivot_world'] = s['pivot'].tolist()
+        self.debug['opposite_reference_source'] = s.get('opposite_source', 'none')
         self.debug.update(s.get('pivot_selection', {}))
         if s.get('fault'):
             self.debug.update(mode='ENTRY_FAULT', reason=s['fault'])
@@ -1449,7 +1698,9 @@ class CornerPolicy:
                 self.debug.update(mode='TURN_WAIT', reason='fresh odometry required')
                 return None
             return self._stationary_update(ordinary, now, pose)
-        if pose is None or (not blind and (obs is None or obs['side'] != s['side'])):
+        opposite = (obs is not None and obs.get('staged_opposite_validated', False)
+                    and obs['side'] != s['side'] and s.get('opposite_curve') is not None)
+        if pose is None or (not blind and (obs is None or (obs['side'] != s['side'] and not opposite))):
             s['blind_eligible'] = False
             self.debug.update(mode='ENTRY_WAIT', reason='fresh same-side boundary and odometry required')
             return None
@@ -1478,7 +1729,9 @@ class CornerPolicy:
                     np.linalg.norm(pose[:2]-s['blind_entry']['last_pose'])) >= .03:
                 self.debug.update(mode='ENTRY_WAIT', reason='blind entry 3cm limit reached')
                 return None
-        reference = (s['curve']-pose[:2])@inverse.T
+        reference = ((s['opposite_curve'] if opposite else s['curve'])-pose[:2])@inverse.T
+        if opposite:
+            self.debug['entry_boundary_handover'] = s['opposite_source']
         # A fresh line must agree with the odometry-transformed observation;
         # movement never continues merely because a historic pivot exists.
         match = (dict(fragment_ok=True, fragment_reason='bounded odometry continuation')
@@ -1493,7 +1746,7 @@ class CornerPolicy:
             s['matched_pose'] = np.asarray(pose).copy()
             s['blind_entry'], s['blind_eligible'] = None, True
         target = dict(x_m=float(pivot[0]), y_m=float(pivot[1]), inferred=True,
-            boundary_count=0 if blind else 1, visible_side=s['side'],
+            boundary_count=0 if blind else 1, visible_side=s['side'] if blind else obs['side'],
             actual_curve=[] if blind else obs['curve'].tolist(),
             width_m=s['width'], normal_width_m=s['width'], corner_speed_cap=cfg.entry_speed_mps,
             corner_staged=True, adaptive=True, corner_pivot_world=s['pivot'].tolist(),
@@ -1504,6 +1757,8 @@ class CornerPolicy:
             if s.get('blind_entry') is not None:
                 target['corner_blind_entry'] = s['blind_entry']
             self.debug['last_match_age_s'] = now-s['matched_at']
+        elif 'source_mask_index' in obs:
+            target['source_mask_index'] = obs['source_mask_index']
         if s['brake_at'] is None:
             if now-s['started'] > 20.:
                 self.debug.update(mode='ENTRY_TIMEOUT', reason='entry time limit; reset required')

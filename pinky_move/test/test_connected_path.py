@@ -10,6 +10,46 @@ def chain(vertices):
                       for a, b in zip(vertices[:-1], vertices[1:])] + [vertices[-1:]])
 
 
+@pytest.mark.parametrize('sign',[-1,1])
+def test_sharp_s_first_corner_is_not_continuous_pursuit(sign):
+    from pinky_move.lane_corner import CornerConfig, classify_boundary, first_sharp_corner_prefix
+    curve=chain(np.array([[.14,0.],[.5,0.],[.5,sign*.5],[1.,sign*.5]]))
+    config=CornerConfig(staged_turn=True)
+    assert classify_boundary(curve,config)['kind']=='S_BEND'
+    prefix=first_sharp_corner_prefix(curve,config)
+    feature=classify_boundary(prefix,config)
+    assert feature['kind']=='CORNER'
+    assert sign*feature['angle_deg']>75
+    from pinky_move.metric_lane import arc_stations
+    assert arc_stations(prefix)[-1]<arc_stations(curve)[-1]
+    np.testing.assert_allclose(feature['corner'],[.5,0.],atol=.008)
+
+
+def test_smooth_s_and_short_legs_are_not_promoted_to_stationary_turn():
+    from pinky_move.lane_corner import CornerConfig, first_sharp_corner_prefix
+    x=np.linspace(.14,.8,100)
+    assert first_sharp_corner_prefix(np.column_stack((x,.03*np.sin(x*8))),CornerConfig()) is None
+    curve=chain(np.array([[.14,0.],[.2,0.],[.2,.2],[.4,.2]]))
+    assert first_sharp_corner_prefix(curve,CornerConfig()) is None
+
+
+def test_short_leading_skeleton_jog_does_not_hide_first_supported_corner():
+    from pinky_move.lane_corner import CornerConfig, first_sharp_corner_prefix,classify_boundary
+    curve=chain(np.array([[.1925,-.0930],[.2216,-.1022],[.7632,-.1008],
+                         [.7632,.3878],[.7943,.4042]]))
+    prefix=first_sharp_corner_prefix(curve,CornerConfig())
+    feature=classify_boundary(prefix,CornerConfig())
+    assert feature['kind']=='CORNER'
+    np.testing.assert_allclose(feature['corner'],[.7632,-.1008],atol=.008)
+    assert prefix[0,0]>.21  # 3cm 선두 조각만 제외한 현재 실관측이다.
+
+
+def test_short_real_sharp_first_corner_cannot_be_skipped_for_far_second_corner():
+    from pinky_move.lane_corner import CornerConfig,first_sharp_corner_prefix
+    curve=chain(np.array([[.14,0.],[.17,0.],[.17,.3],[.6,.3]]))
+    assert first_sharp_corner_prefix(curve,CornerConfig()) is None
+
+
 @pytest.mark.parametrize('sign', [-1, 1])
 def test_connected_right_angle_preserves_offset_legs(sign):
     vertices = np.array([[.14, 0], [.4, 0], [.4, sign*.4]])
@@ -100,6 +140,30 @@ def test_successful_axis_does_not_run_new_skeleton(monkeypatch):
     monkeypatch.setattr(lane, '_axis_floor_curves', lambda masks, cal, maximum, column: [] if column else [p])
     monkeypatch.setattr(lane, 'connected_floor_curve', lambda *args: pytest.fail('successful axis replaced'))
     curves = lane.floor_curves([mask], {}, 2., .14, .48, connected_geometry=True)
+    np.testing.assert_array_equal(curves[0], p)
+
+
+def test_pair_projection_receives_connected_recovery_setting(monkeypatch):
+    import pinky_move.metric_lane as lane
+    from test_metric_lane import masks_for_lines, calibration
+    original = lane.floor_curves
+    calls = []
+    def capture(*args, **kwargs):
+        calls.append(kwargs.get('connected_geometry', False))
+        return original(*args, **kwargs)
+    monkeypatch.setattr(lane, 'floor_curves', capture)
+    lane.MetricLaneTracker(connected_geometry=True).update(
+        masks_for_lines(), calibration(), 1.)
+    assert calls and all(calls)
+
+
+def test_sim_primary_preserves_connected_corner_not_only_axis_leg(monkeypatch):
+    import pinky_move.metric_lane as lane
+    p = chain(np.array([[.14, .1], [.35,.1], [.35,-.2]]))
+    monkeypatch.setattr(lane, 'connected_floor_curve', lambda *args: [p])
+    monkeypatch.setattr(lane, '_axis_floor_curves', lambda *args: pytest.fail('axis lost connected corner'))
+    curves = lane.floor_curves([np.ones((20,20))], {}, 2., .14, .48,
+                              connected_geometry=True, connected_primary=True)
     np.testing.assert_array_equal(curves[0], p)
 
 
