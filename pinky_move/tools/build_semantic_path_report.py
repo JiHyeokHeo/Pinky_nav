@@ -65,7 +65,7 @@ def main():
     deployment = output/'deployment.json'
     deployment = json.loads(deployment.read_text()) if deployment.exists() else {}
     summary = dict(passed=passed,total=len(results),tests=counts,results=results,source_sha256=hashes,deployment=deployment,
-                   actual_robot_driven=False,actual_robot_deployed=False)
+                   actual_robot_driven=False,actual_robot_deployed=deployment.get('hardware_upload_completed',False))
     (output/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2))
     page = '''<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>YOLO S자 연결 경로 검증</title><style>body{font:17px system-ui;max-width:1100px;margin:40px auto;padding:20px;background:#101820;color:#e9eef3}table{border-collapse:collapse;width:100%}td,th{border:1px solid #556;padding:12px}video,img{width:100%;max-height:480px;object-fit:contain;background:black}section{margin-top:40px}pre{white-space:pre-wrap;overflow-wrap:anywhere}code{background:#263440}.compare{display:grid;grid-template-columns:1fr 1fr;gap:16px}</style>
@@ -98,6 +98,10 @@ ros2 service call /lane_sim/lane_autonomy/enable std_srvs/srv/SetBool "{data: tr
 SECTIONS</html>'''
     page = page.replace('ROWS',''.join(rows)).replace('SECTIONS',''.join(sections))
     if args.hardware_report:
+        if deployment.get('hardware_upload_completed') and deployment.get('hardware_build_completed'):
+            page = page.replace('실차에는 배포하지 않았습니다. 시험 클론에서 기존 방식은 기본값 그대로 유지됩니다.',
+                                'Pinky2 소스 업로드·패키지 빌드는 완료했습니다. 실제 주행/enable은 실행하지 않았습니다. 아래는 시뮬레이션 명령이며 실차 명령은 뒤의 실차 적용 절에 있습니다.')
+            page = page.replace('실차 배포 없음.', 'Pinky2 업로드·빌드 완료, 실제 주행 없음.')
         hardware = '''<h2>실차용 브랜치 적용</h2>
 <p>실차 알고리즘은 PC에서 계산합니다: YOLO segmentation → 모델 확인된 현재 흰 픽셀/flow 보충 → 보정된 base_link 좌표 → 연결 골격 또는 행/열 투영 → 법선/miter 중앙 경로 → lookahead.
 Pinky2에서는 기존 freshness/odom/stop-line 검사 후 Pure Pursuit 또는 근접 횡방향 목표 회전을 /cmd_vel로 출력합니다. 새 transport나 Nav2를 추가하지 않았습니다.</p>
